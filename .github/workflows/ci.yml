@@ -1,0 +1,116 @@
+# Checks every pull request and every push to main.
+#
+#   checks          typecheck, Biome, unit tests, production build
+#   e2e (browser)   Playwright on Chromium, Firefox and WebKit, in parallel
+#
+# The job names are the required status checks in the `main` ruleset, so
+# renaming a job means updating the ruleset too. Production deploys wait for
+# this workflow to pass on main (see deploy.yml).
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Superseded PR runs are cancelled; runs on main always finish because the
+  # production deploy waits for them.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Git hooks are for local commits; skip installing them on CI runners.
+  LEFTHOOK: 0
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint and format (Biome)
+        run: pnpm exec biome ci
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  e2e:
+    name: e2e (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      # One cache entry per browser and Playwright version, so a Playwright
+      # upgrade starts a fresh cache and each job restores only its browser.
+      - name: Cache Playwright browser
+        id: browser-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install browser and system dependencies
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+
+      # The cache holds the browser only; its OS libraries still need installing.
+      - name: Install system dependencies
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps ${{ matrix.browser }}
+
+      - name: Run Playwright
+        run: pnpm exec playwright test --project=${{ matrix.browser }}
+
+      - name: Upload report
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
