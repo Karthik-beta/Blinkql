@@ -1,0 +1,47 @@
+name: Performance experiment
+description: Propose a measured optimisation (P-XX) with a hypothesis and method.
+title: "P-XX: "
+labels: ["perf", "needs triage"]
+projects: ["Karthik-beta/2"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every performance change ships with before/after numbers. See [Performance & Benchmarks](https://github.com/Karthik-beta/Blinkql/wiki/Performance-and-Benchmarks) for budgets, datasets and method.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What is slow, and how did you notice?
+    validations:
+      required: true
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+      description: What do you expect to improve, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+  - type: textarea
+    id: method
+    attributes:
+      label: Method
+      description: Dataset (S / M / L, narrow / wide, format), scenario, environment, cold or warm.
+    validations:
+      required: true
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics and budgets affected
+      placeholder: e.g. time to first rows, scroll frame time, initial JS size
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Expected trade-offs
+      description: What might get worse: memory, complexity, bundle size?
