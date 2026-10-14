@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/Karthik-beta/Blinkql/discussions
+    about: Ask questions, share use cases and discuss ideas in GitHub Discussions.
+  - name: Report a security vulnerability
+    url: https://github.com/Karthik-beta/Blinkql/security/advisories/new
+    about: Please report security issues privately, not as public issues.
+  - name: Documentation
+    url: https://github.com/Karthik-beta/Blinkql/wiki
+    about: Vision, architecture, roadmap and contributing guide.
