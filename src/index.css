@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "shadcn/tailwind.css"; /* data-open, data-checked… variants the Base UI components use */
 @import "@fontsource-variable/atkinson-hyperlegible-next";
 @import "@fontsource-variable/atkinson-hyperlegible-mono";
 
@@ -166,7 +166,7 @@
   --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono:
     "Atkinson Hyperlegible Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-sans); /* shadcn components use font-heading for titles */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
