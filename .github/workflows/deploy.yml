@@ -2,18 +2,23 @@
 # Vercel's own Git builds are switched off (vercel.json + Ignored Build Step),
 # so this workflow is the only thing that deploys.
 #
-#   push to main        -> production
+#   CI passes on main   -> production (a push to main deploys only after CI succeeds)
 #   pull request        -> preview (same-repo branches only; forks get no secrets)
 #   manual run          -> production
+#
+# workflow_run always uses this file as it is on main, so changes to the
+# production trigger take effect only after they're merged.
 #
 # Needs the repository secret VERCEL_TOKEN (vercel.com/account/tokens).
 
 name: Deploy
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -30,7 +35,11 @@ env:
 
 jobs:
   deploy:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Previews: same-repo PRs only. Production: CI succeeded for a push to main, or a manual run.
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -46,7 +55,10 @@ jobs:
             exit 1
           fi
 
+      # For workflow_run, deploy exactly the commit CI tested, not whatever main points to now.
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       # Installs the pnpm version pinned in package.json's packageManager field,
       # so `vercel build` installs with the same pnpm as local development.
