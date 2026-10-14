@@ -90,9 +90,21 @@ jobs:
       - name: Build
         run: vercel build ${{ steps.target.outputs.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }}
 
+      # Stops before uploading if the build output lost any header from vercel.json.
+      # Works for previews too, which sit behind Vercel's login and can't be fetched directly.
+      - name: Check headers in build output
+        run: node scripts/verify-headers.ts --build-output .vercel/output
+
       - name: Deploy
         id: deploy
         run: |
           url=$(vercel deploy --prebuilt ${{ steps.target.outputs.prod_flag }} --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Deployed to $url" >> "$GITHUB_STEP_SUMMARY"
+
+      # The production domain is public, so check what browsers actually receive.
+      - name: Check headers on production
+        if: steps.target.outputs.env == 'production'
+        run: node scripts/verify-headers.ts --url "$PRODUCTION_URL"
+        env:
+          PRODUCTION_URL: https://blinkql.vercel.app

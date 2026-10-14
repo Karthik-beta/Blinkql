@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "verify:headers": "node scripts/verify-headers.ts",
     "lint": "biome lint",
     "format": "biome format --write",
     "check": "biome check",

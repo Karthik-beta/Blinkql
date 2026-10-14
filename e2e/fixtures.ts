@@ -15,4 +15,23 @@ export const test = base.extend<Fixtures>({
   },
 });
 
+/**
+ * Options for `test.use()` that put the page in a light or dark system colour scheme.
+ *
+ * Playwright's `colorScheme` emulation is lost in Firefox when Cross-Origin-Opener-Policy moves
+ * the page into a new browsing context group, so Firefox also gets its own preference, which
+ * applies browser-wide. Chromium and WebKit ignore `firefoxUserPrefs`.
+ */
+export function colorSchemeOptions(colorScheme: "light" | "dark") {
+  return {
+    colorScheme,
+    launchOptions: {
+      firefoxUserPrefs: {
+        // 0 = dark, 1 = light
+        "layout.css.prefers-color-scheme.content-override": colorScheme === "dark" ? 0 : 1,
+      },
+    },
+  };
+}
+
 export { expect } from "@playwright/test";
