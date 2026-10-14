@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Vercel (`vercel pull` / `vercel build` write here)
+.vercel/
+
+# Environment files (commit only examples)
+.env
+.env.*
+!.env.example
+*.local
+
+# Test and benchmark artifacts
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.lighthouseci/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.sw?
