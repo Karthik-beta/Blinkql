@@ -1,6 +1,9 @@
 # PRs are squash-merged, so the PR title becomes the commit message on main.
 # Local commit-msg hooks never see it, so it's checked here with the same
-# commitlint config.
+# commitlint config. The PR's commits and description are also checked for AI
+# attribution (e.g. a `Co-authored-by: Claude …` trailer), which GitHub would
+# otherwise copy into the squash commit; hooks skipped with --no-verify can't
+# skip this.
 
 name: PR title
 
@@ -10,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: pr-title-${{ github.event.pull_request.number }}
@@ -41,3 +45,8 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: printf '%s\n' "$PR_TITLE" | pnpm exec commitlint --verbose
+
+      - name: Check commits and description for AI attribution
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-ai-attribution.ts

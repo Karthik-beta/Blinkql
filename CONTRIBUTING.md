@@ -44,7 +44,7 @@ Before your first `pnpm test:e2e`, download Playwright's browsers with `pnpm exe
 
 1. **Discuss big changes first.** For anything beyond a small fix, open an issue or a discussion so no effort is wasted.
 2. **Fork and branch from `main`**, for example `feat/csv-dialect-override`, `fix/grid-scroll-jump`, `perf/arrow-lazy-cells` or `docs/use-case-logs`.
-3. **Commit with [Conventional Commits](https://www.conventionalcommits.org/)**, for example `feat(editor): add schema-aware autocomplete`. The git hooks (Lefthook) reject other commit messages and run `biome check` on staged files.
+3. **Commit with [Conventional Commits](https://www.conventionalcommits.org/)**, for example `feat(editor): add schema-aware autocomplete`. The git hooks (Lefthook) reject other commit messages, and messages that credit an AI tool (such as a `Co-authored-by: Claude …` trailer), and run `biome check` on staged files. CI checks every commit in a pull request for AI attribution too.
 4. **Open a pull request** and fill in the template. Pull requests are squash-merged, so the PR title must be a Conventional Commit too; CI checks it.
 5. **CI must pass**: typecheck, Biome, unit tests, build, and end-to-end tests in all three browsers. `main` is protected, so every change lands through a pull request.
 
