@@ -1,0 +1,42 @@
+# Weekly dependency updates. Minor and patch bumps arrive as one grouped PR per
+# ecosystem; each major bump gets its own PR, since it can need code changes.
+#
+# PR titles are Conventional Commits (`chore(deps): …`, `ci(deps): …`) so the
+# PR-title check passes. Dependabot PRs get no repository secrets, so deploy.yml
+# skips their Vercel previews.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Wait a few days after a release before proposing it, so a broken or
+    # compromised version is usually caught (and pulled) before it reaches us.
+    cooldown:
+      default-days: 3
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+      include: scope
+    labels: [dependencies]
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: [dependencies, "area: infra"]

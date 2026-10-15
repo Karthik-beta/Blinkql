@@ -3,7 +3,8 @@
 # so this workflow is the only thing that deploys.
 #
 #   CI passes on main   -> production (a push to main deploys only after CI succeeds)
-#   pull request        -> preview (same-repo branches only; forks get no secrets)
+#   pull request        -> preview (same-repo branches only; forks and Dependabot
+#                          get no secrets)
 #   manual run          -> production
 #
 # workflow_run always uses this file as it is on main, so changes to the
@@ -35,9 +36,10 @@ env:
 
 jobs:
   deploy:
-    # Previews: same-repo PRs only. Production: CI succeeded for a push to main, or a manual run.
+    # Previews: same-repo PRs, except Dependabot's. Production: CI succeeded for a push to main, or a manual run.
     if: >-
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login != 'dependabot[bot]') ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') ||
       github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
