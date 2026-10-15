@@ -20,7 +20,8 @@
     "check:fix": "biome check --write",
     "prepare": "lefthook install",
     "bench": "pnpm build && node bench/run.ts",
-    "bench:micro": "node bench/micro/run.ts"
+    "bench:micro": "node bench/micro/run.ts",
+    "bench:data": "node bench/datasets/run.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -39,6 +40,7 @@
     "@biomejs/biome": "^2.5.15",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
+    "@duckdb/node-api": "1.5.6-r.1",
     "@playwright/test": "^1.64.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
