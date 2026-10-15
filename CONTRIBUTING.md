@@ -48,6 +48,8 @@ Before your first `pnpm test:e2e`, download Playwright's browsers with `pnpm exe
 4. **Open a pull request** and fill in the template. Pull requests are squash-merged, so the PR title must be a Conventional Commit too; CI checks it.
 5. **CI must pass**: typecheck, Biome, unit tests, build, and end-to-end tests in all three browsers. `main` is protected, so every change lands through a pull request.
 
+Releases are automated. [release-please](https://github.com/googleapis/release-please) reads the commit messages on `main` and keeps a release PR open with the next version and its `CHANGELOG.md` entry: `feat` raises the minor version, and `fix` and `perf` raise the patch version. So pick the commit type that describes the change for users, and don't edit `CHANGELOG.md` by hand.
+
 Changes that are hard to reverse, such as a new core dependency or a change to how data flows or is stored, need an [Architecture Decision Record](https://github.com/Karthik-beta/Blinkql/wiki/Architecture-Decision-Records). Start with a discussion, then add the ADR in your pull request.
 
 ## Pull request checklist
