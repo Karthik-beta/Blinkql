@@ -8,7 +8,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!brand", "!pnpm-lock.yaml", "!public/site.webmanifest"]
+    "includes": ["**", "!brand", "!pnpm-lock.yaml", "!public/site.webmanifest", "!bench/results"]
   },
   "formatter": {
     "enabled": true,
