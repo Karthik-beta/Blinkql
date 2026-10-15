@@ -1,9 +1,12 @@
 import { expect, test } from "./fixtures";
 
-for (const colorScheme of ["light", "dark"] as const) {
+/**
+ * App shell tests for one system colour scheme. Each `app-shell.<scheme>.spec.ts` file applies
+ * `colorSchemeOptions()` at the top level (it sets browser launch options, which Playwright only
+ * allows there) and then registers these tests.
+ */
+export function appShellTests(colorScheme: "light" | "dark") {
   test.describe(`app shell (${colorScheme})`, () => {
-    test.use({ colorScheme });
-
     test("shows the top bar and an empty workspace", async ({ page }) => {
       await page.goto("/");
 
