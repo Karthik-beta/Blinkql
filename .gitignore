@@ -39,3 +39,6 @@ pnpm-debug.log*
 Thumbs.db
 *.suo
 *.sw?
+
+# Generated benchmark datasets (`pnpm bench:data`)
+bench/datasets/data/
