@@ -1,5 +1,7 @@
 // Applies the saved theme before first paint so dark-mode users never see a white flash.
 // Loaded as a same-origin file (not inline) to keep the Content Security Policy strict.
+// The "js" class lets CSS tell that scripts run (the landing page's replay depends on it).
+document.documentElement.classList.add("js");
 try {
   const choice = localStorage.getItem("blinkql-theme") ?? "system";
   const dark =

@@ -2,7 +2,7 @@
   "name": "Blinkql",
   "short_name": "Blinkql",
   "description": "A fast, private SQL workbench that runs entirely in your browser.",
-  "start_url": "/",
+  "start_url": "/app/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#181B19",
