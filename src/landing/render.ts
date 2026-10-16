@@ -68,7 +68,7 @@ export function renderSql(lines: readonly string[] = replayQuery.sql): string {
 
 function columnClass(column: ReplayColumn): string {
   const classes = column.type === "DOUBLE" ? ["num"] : [];
-  if (column.optional) classes.push("optional");
+  if (column.showFrom) classes.push(`show-from-${column.showFrom}`);
   return classes.length > 0 ? ` class="${classes.join(" ")}"` : "";
 }
 

@@ -67,6 +67,13 @@ describe("results grid", () => {
     expect(html).toContain('<span class="null">NULL</span>');
   });
 
+  it("shows an OEE that is availability × performance × quality, NULL when quality is", () => {
+    for (const [, , availability, performance, quality, oee] of replayRows) {
+      if (quality === null) expect(oee).toBeNull();
+      else expect(oee).toBeCloseTo(availability * performance * quality, 3);
+    }
+  });
+
   it("right-aligns numbers and shows engine type names", () => {
     expect(html).toContain('<td class="num">0.612</td>');
     expect(html).toContain('<span class="col-type">DOUBLE</span>');

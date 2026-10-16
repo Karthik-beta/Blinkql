@@ -636,9 +636,16 @@ a:hover {
   text-align: left;
   white-space: nowrap;
 }
-@media (min-width: 640px) {
+/* Fixed widths once every visible column fits: four from 768 px and all six from 1024 px,
+   widening once the pane has room. */
+@media (min-width: 768px) {
   .grid :is(th, td):not(.row-number) {
-    width: 10rem;
+    width: 8.5rem;
+  }
+}
+@media (min-width: 1180px) {
+  .grid :is(th, td):not(.row-number) {
+    width: 9.5rem;
   }
 }
 .grid thead th {
@@ -681,8 +688,15 @@ a:hover {
 .js [data-phase="running"] .grid tbody {
   visibility: hidden;
 }
+/* Columns drop out in stages so the grid always fits its pane: below 1024 px it keeps
+   machine_id, availability, quality and oee; below 480 px, machine_id, availability and oee. */
+@media (max-width: 1023px) {
+  .grid .show-from-1024 {
+    display: none;
+  }
+}
 @media (max-width: 479px) {
-  .grid .optional {
+  .grid .show-from-480 {
     display: none;
   }
 }
