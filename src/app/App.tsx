@@ -5,6 +5,8 @@ import {
   startEngine,
   subscribeToEngineStatus,
 } from "@/engine/engine";
+import { CatalogPanel } from "@/features/catalog/CatalogPanel";
+import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
 import { markOnce, marks } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
@@ -37,12 +39,16 @@ export function App() {
         <img src={wordmarkLight} alt="Blinkql" className="h-5 w-auto dark:hidden" />
         <img src={wordmarkDark} alt="Blinkql" className="hidden h-5 w-auto dark:block" />
       </header>
-      <main aria-label="Workspace" className="min-h-0 flex-1" />
+      <div className="flex min-h-0 flex-1">
+        <CatalogPanel />
+        <main aria-label="Workspace" className="min-w-0 flex-1" />
+      </div>
       <footer className="flex h-7 shrink-0 items-center border-t bg-chrome px-4">
         <p role="status" className="text-muted-foreground text-xs">
           {describeEngine(engine)}
         </p>
       </footer>
+      <FileDropOverlay />
     </div>
   );
 }
