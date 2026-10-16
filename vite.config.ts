@@ -2,13 +2,13 @@ import { fileURLToPath, URL } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
-import { devServerHeaders, responseHeaders } from "./scripts/headers.ts";
+import { headersOnEveryResponse } from "./scripts/headers.ts";
 import { duckdbExtensions } from "./src/engine/vite-plugin.ts";
 import { landingPage } from "./src/landing/vite-plugin.ts";
 
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), landingPage(), duckdbExtensions()],
+  plugins: [react(), tailwindcss(), landingPage(), duckdbExtensions(), headersOnEveryResponse()],
   // Two pages: the landing page at / and the workbench at /app/. The landing page loads no React.
   build: {
     rolldownOptions: {
@@ -23,16 +23,15 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
-  // Same isolation and security headers as production (vercel.json); the CSP is preview-only.
+  // Both servers send the same isolation and security headers as production (vercel.json),
+  // through headersOnEveryResponse(); the CSP is preview-only.
   server: {
     port: 5173,
     strictPort: true,
-    headers: devServerHeaders,
   },
   preview: {
     port: 4173,
     strictPort: true,
-    headers: responseHeaders,
   },
   test: {
     environment: "jsdom",
