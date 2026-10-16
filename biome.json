@@ -78,7 +78,7 @@
       }
     },
     {
-      "includes": ["src/index.css"],
+      "includes": ["src/styles/tokens.css"],
       "linter": {
         "rules": {
           "complexity": {

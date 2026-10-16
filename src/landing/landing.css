@@ -1,0 +1,807 @@
+/* The landing page. Same tokens as the workbench; see the Design Language, section 12. */
+@import "tailwindcss" source(none); /* preflight and @apply only: this page writes its own classes */
+@import "@fontsource-variable/atkinson-hyperlegible-next";
+@import "@fontsource-variable/atkinson-hyperlegible-mono";
+@import "../styles/tokens.css";
+
+/* ---------- Base ---------- */
+
+/* Local fonts scaled to Atkinson Hyperlegible Mono's advance width (0.632 em), so the replay's SQL
+   wraps the same before and after the web font arrives and nothing shifts. */
+@font-face {
+  font-family: "Mono fallback narrow";
+  src: local("Consolas");
+  size-adjust: 114.9%; /* Consolas: 0.550 em */
+}
+@font-face {
+  font-family: "Mono fallback wide";
+  src: local("Menlo"), local("DejaVu Sans Mono"), local("Liberation Mono"), local("Courier New");
+  size-adjust: 105.3%; /* about 0.600 em */
+}
+:root {
+  --font-code:
+    "Atkinson Hyperlegible Mono Variable", "Mono fallback narrow", "Mono fallback wide", monospace;
+}
+
+body {
+  font-size: 1rem; /* Reading 16 / 26 */
+  line-height: 1.625rem;
+}
+
+.container {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+@media (min-width: 768px) {
+  .container {
+    padding-inline: 48px;
+  }
+}
+
+a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  text-decoration-thickness: 1px;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  @apply sr-only;
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: 8px;
+  z-index: 10;
+  padding: 4px 12px;
+  border-radius: var(--radius);
+  background: var(--popover);
+  color: var(--foreground);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Type roles (Design Language 5.3) ---------- */
+
+.display {
+  font-size: 2.25rem; /* Title 36 / 42 on phones */
+  line-height: 2.625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+@media (min-width: 640px) {
+  .display {
+    font-size: 3rem; /* Display 48 / 52 */
+    line-height: 3.25rem;
+  }
+}
+@media (min-width: 1024px) {
+  .display {
+    /* The hero alone takes the next step of the scale (Bringhurst's 60), so it clearly outranks
+       the section titles at 36. */
+    font-size: 3.75rem;
+    line-height: 4rem;
+    letter-spacing: -0.015em;
+  }
+}
+
+.title {
+  font-size: 1.5rem; /* Heading 24 / 30 on phones */
+  line-height: 1.875rem;
+  font-weight: 700;
+  text-wrap: balance;
+}
+@media (min-width: 640px) {
+  .title {
+    font-size: 2.25rem; /* Title 36 / 42 */
+    line-height: 2.625rem;
+  }
+}
+
+.reading,
+.lede {
+  max-width: 72ch;
+  margin-top: 16px;
+  text-wrap: pretty; /* no one-word last lines */
+}
+
+.caption {
+  font-size: 0.75rem; /* Meta 12 / 16 */
+  line-height: 1rem;
+  color: var(--muted-foreground);
+  max-width: 72ch;
+}
+
+/* The hero's headline and lede: stacked on phones, side by side on wide screens with the lede on
+   the headline's last line, so the replay starts higher. */
+.hero-head {
+  display: grid;
+  gap: 16px 48px;
+}
+.hero-head .lede {
+  margin-top: 0;
+}
+@media (min-width: 1024px) {
+  .hero-head {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: end;
+  }
+}
+
+/* ---------- Header and footer: machine-grey chrome, as in the product ---------- */
+
+.site-header,
+.site-footer {
+  background: var(--chrome);
+}
+.site-header {
+  border-bottom: 1px solid var(--border);
+}
+.site-header-inner {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.wordmark-link {
+  display: flex;
+  align-items: center;
+  color: var(--foreground);
+  border-radius: 4px;
+}
+.wordmark {
+  height: 20px;
+  width: auto;
+  overflow: visible; /* the lamp's halo grows past the viewBox */
+}
+
+.nav-list {
+  display: flex;
+  gap: 16px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.nav-list a,
+.footer-links a {
+  color: var(--foreground);
+  text-decoration: none;
+}
+.nav-list a:hover,
+.footer-links a:hover {
+  text-decoration: underline;
+}
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted-foreground);
+}
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding-block: 24px;
+}
+.site-footer-inner > :last-child {
+  margin-left: auto;
+}
+.footer-links {
+  display: flex;
+  gap: 16px;
+}
+
+/* ---------- Sections ---------- */
+
+.hero {
+  padding-block: 48px;
+}
+.section {
+  padding-block: 48px;
+  /* Below the fold on every screen: the browser skips laying these out until they're near view. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+@media (min-width: 768px) {
+  .hero {
+    padding-block: 96px 48px; /* the next section's own 96 px finishes the gap */
+  }
+  .section {
+    padding-block: 96px;
+  }
+}
+
+/* Two columns on wide screens: the heading and its paragraph on the left, the facts on the right. */
+@media (min-width: 1024px) {
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 48px;
+    align-items: start;
+  }
+}
+
+/* The facts read like a spec sheet: one row per fact between hairlines, as in the grid. */
+.facts {
+  margin-top: 48px;
+  border-bottom: 1px solid var(--border);
+}
+.facts > div {
+  display: grid;
+  gap: 4px 24px;
+  padding-block: 24px;
+  border-top: 1px solid var(--border);
+}
+@media (min-width: 640px) {
+  .facts > div {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+@media (min-width: 1024px) {
+  .facts {
+    margin-top: 0;
+  }
+  .facts > div:first-child {
+    padding-top: 12px; /* the first row's text sits level with the section title */
+    border-top: 0;
+  }
+}
+
+.ways {
+  display: grid;
+  gap: 32px 48px;
+  margin-top: 48px;
+}
+@media (min-width: 768px) {
+  .ways {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .ways {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.ways > div {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.facts dt,
+.ways dt {
+  font-size: 1.125rem; /* Subheading 18 / 26 */
+  line-height: 1.625rem;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.facts dd,
+.ways dd {
+  color: var(--muted-foreground);
+}
+.ways dd {
+  margin-top: 4px;
+}
+.ways dd a {
+  display: inline-block;
+}
+
+/* The roadmap sits on a band of machine-grey chrome, like a control panel set into the page. */
+.band {
+  background: var(--chrome);
+  border-block: 1px solid var(--border);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  margin-top: 48px;
+}
+
+/* ---------- Buttons (Design Language 7.4) ---------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding-inline: 16px;
+  border: 1px solid transparent; /* visible in Windows contrast themes */
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+.button-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.button-primary:hover {
+  background: color-mix(in oklch, var(--primary) 88%, var(--foreground));
+}
+.button-outline {
+  border-color: var(--input);
+  background: transparent;
+  color: var(--foreground);
+}
+.button-outline:hover {
+  background: var(--accent);
+}
+.button:active {
+  transform: translateY(1px);
+}
+
+/* ---------- The lamp: one living signal (Design Language 8.3) ---------- */
+/* Each lamp's resting look below is the replay's final state, which is also what readers without
+   JavaScript see. The `.js` class (public/theme-init.js) opts in to the timed states. */
+
+.lamp-stop,
+.lamp-readout,
+.milestone-lamp {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+.lamp-stop {
+  width: 0.2em;
+  height: 0.2em;
+  margin-left: 0.06em;
+}
+.lamp-readout,
+.milestone-lamp {
+  width: 10px;
+  height: 10px;
+}
+.wordmark-lamp {
+  fill: var(--primary);
+}
+.wordmark-halo {
+  fill: var(--primary);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* The halo for the done flash: a ring that grows and fades. Transform and opacity only. */
+.lamp-stop::after,
+.lamp-readout::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--primary);
+  opacity: 0;
+}
+
+.js [data-phase="loading"] :is(.lamp-stop, .lamp-readout, .wordmark-lamp) {
+  animation: lamp-breathe var(--lamp-breathe) ease-in-out infinite;
+}
+.js [data-phase="running"] :is(.lamp-stop, .lamp-readout, .wordmark-lamp) {
+  /* Never past 5 s (WCAG 2.2.2); the replay leaves this state after 1 s. */
+  animation: lamp-blink var(--lamp-blink) steps(1, end) 5;
+}
+.js [data-phase="done"] :is(.lamp-stop, .lamp-readout)::after,
+.js [data-phase="done"] .wordmark-halo {
+  animation: lamp-halo 400ms var(--ease-out) 1;
+}
+
+@keyframes lamp-halo {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* ---------- The replay: docked panes, exactly like the product (Design Language 6.4) ---------- */
+
+.replay {
+  contain: layout; /* the replay's phase changes never re-lay out the rest of the page */
+  margin-top: 48px;
+  /* One step firmer than the hairlines inside it, so the panes read as a single instrument. */
+  border: 1px solid color-mix(in oklch, var(--border), var(--foreground) 14%);
+  background: var(--background);
+  font-size: 0.875rem; /* Body 14 / 20 */
+  line-height: 1.25rem;
+}
+
+.pane-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-inline: 12px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--border);
+}
+.editor-bar {
+  height: 40px;
+  padding-left: 0;
+}
+.query-tab {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  padding-inline: 12px;
+  border-right: 1px solid var(--border);
+  background: var(--background);
+  box-shadow: inset 0 2px 0 var(--primary); /* the active tab's top edge */
+  margin-bottom: -1px;
+}
+
+/* A picture of the Run button, not a control: the replay isn't interactive. */
+.run-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding-inline: 10px;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 600;
+}
+.run-button .icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  stroke: none;
+}
+/* Run and Stop share one position (Design Language 7.4): both labels sit in the same grid cell,
+   so swapping them never changes the button's width. */
+.run-label {
+  display: inline-grid;
+}
+.run-label > * {
+  grid-area: 1 / 1;
+}
+.run-button kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-inline: 4px;
+  border-radius: 4px;
+  /* An outline, not a lighter fill: the label keeps the button's own 5.86:1 contrast. */
+  border: 1px solid color-mix(in oklch, var(--primary-foreground) 45%, transparent);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.run-button kbd .icon {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+}
+.run-button [data-run="running"] {
+  visibility: hidden;
+}
+.js [data-phase="running"] .run-button [data-run="idle"] {
+  visibility: hidden;
+}
+.js [data-phase="running"] .run-button [data-run="running"] {
+  visibility: visible;
+}
+
+.editor {
+  /* Long lines scroll sideways on phones, as in the editor, rather than wrapping mid-clause. */
+  overflow-x: auto;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-code);
+  font-size: 0.75rem; /* 12 / 18 on phones so the query fits */
+  line-height: 1.125rem;
+  tab-size: 2;
+}
+.editor pre {
+  font: inherit; /* preflight gives <pre> its own mono stack */
+}
+.editor:focus-visible {
+  outline-offset: -2px; /* inside the pane, which clips anything outside it */
+}
+@media (min-width: 640px) {
+  .editor {
+    font-size: 0.875rem; /* Mono 14 / 21 */
+    line-height: 1.3125rem;
+  }
+}
+.sql-line {
+  display: block;
+  width: max-content; /* each line keeps its full length, so the pane scrolls instead of wrapping */
+  padding-right: 16px;
+}
+.sql-gutter {
+  display: inline-block;
+  width: 3ch;
+  margin-right: 2ch;
+  text-align: right;
+  color: var(--muted-foreground);
+  user-select: none;
+}
+.sql-keyword {
+  color: var(--syntax-keyword);
+  font-weight: 600;
+}
+.sql-string {
+  color: var(--syntax-string);
+}
+.sql-number {
+  color: var(--syntax-number);
+}
+.sql-function {
+  color: var(--syntax-function);
+}
+.sql-comment {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.results-bar {
+  height: 40px;
+}
+.results-tab {
+  font-weight: 600;
+}
+.readout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.readout strong {
+  font-weight: 600;
+}
+.readout [data-readout="loading"],
+.readout [data-readout="running"] {
+  display: none;
+}
+.js [data-phase="loading"] .readout [data-readout],
+.js [data-phase="running"] .readout [data-readout] {
+  display: none;
+}
+.js [data-phase="loading"] .readout [data-readout="loading"],
+.js [data-phase="running"] .readout [data-readout="running"] {
+  display: inline;
+}
+
+.grid-pane {
+  overflow: hidden;
+}
+.grid {
+  /* Fixed-width columns from the left, as in the product. An empty trailing cell on every row
+     (the ::after below) takes the rest of the pane, so the header chrome and the row lines run
+     edge to edge instead of stopping at the last column. */
+  width: 100%;
+  border-collapse: separate; /* cell borders hide with their rows while the query runs */
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.grid tr::after {
+  content: "";
+  display: table-cell;
+  border-bottom: 1px solid var(--gridline);
+}
+.grid thead tr::after {
+  background: var(--chrome);
+  border-bottom-color: var(--border);
+}
+.grid tbody tr:last-child::after {
+  border-bottom: 0;
+}
+.grid th,
+.grid td {
+  height: 28px;
+  padding-inline: 12px;
+  border-bottom: 1px solid var(--gridline);
+  text-align: left;
+  white-space: nowrap;
+}
+/* Fixed widths once every visible column fits: four from 768 px and all six from 1024 px,
+   widening once the pane has room. */
+@media (min-width: 768px) {
+  .grid :is(th, td):not(.row-number) {
+    width: 8.5rem;
+  }
+}
+@media (min-width: 1180px) {
+  .grid :is(th, td):not(.row-number) {
+    width: 9.5rem;
+  }
+}
+.grid thead th {
+  height: 44px;
+  background: var(--chrome);
+  border-bottom-color: var(--border);
+  font-weight: 600;
+  vertical-align: middle;
+}
+.grid .num {
+  text-align: right;
+}
+.col-name {
+  display: block;
+}
+.col-type {
+  display: block;
+  font-family: var(--font-code);
+  font-size: 0.6875rem; /* Micro 11 / 14 */
+  line-height: 0.875rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.grid .row-number {
+  width: 3rem;
+  color: var(--muted-foreground);
+  font-weight: 400;
+  text-align: right;
+}
+.grid tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.null {
+  font-family: var(--font-code);
+  font-style: italic;
+  color: var(--muted-foreground);
+}
+/* Rows appear in a single step when the query finishes; their space is reserved, so nothing shifts. */
+.js [data-phase="loading"] .grid tbody,
+.js [data-phase="running"] .grid tbody {
+  visibility: hidden;
+}
+/* Columns drop out in stages so the grid always fits its pane: below 1024 px it keeps
+   machine_id, availability, quality and oee; below 480 px, machine_id, availability and oee. */
+@media (max-width: 1023px) {
+  .grid .show-from-1024 {
+    display: none;
+  }
+}
+@media (max-width: 479px) {
+  .grid .show-from-480 {
+    display: none;
+  }
+}
+
+.replay-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-top: 12px;
+}
+
+/* ---------- The roadmap as a panel of indicator lamps ---------- */
+/* Eight docked cells sharing 1 px borders, like an annunciator panel on a control-room wall. The
+   container draws the top and left edges and each cell its right and bottom, so every line is
+   exactly 1 px wherever the grid wraps. Every cell's status sits on the same baseline. */
+
+.milestones {
+  display: grid;
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  background: var(--background);
+}
+@media (min-width: 560px) {
+  .milestones {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 900px) {
+  .milestones {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.milestone {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  grid-template-rows: auto auto 1fr auto;
+  column-gap: 8px;
+  row-gap: 4px;
+  padding: 16px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.milestone > :not(.milestone-lamp, .milestone-code) {
+  grid-column: 1 / -1;
+}
+.milestone-lamp {
+  align-self: center;
+}
+.milestone[data-status="planned"] .milestone-lamp {
+  background: var(--lamp-off);
+}
+.milestone[data-status="current"] {
+  box-shadow: inset 0 2px 0 var(--primary); /* the active tab's top edge, as in the replay */
+}
+.milestone[data-status="current"] .milestone-lamp {
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 30%, transparent);
+}
+.milestone-code,
+.milestone-status {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted-foreground);
+}
+.milestone-code {
+  font-variant-numeric: tabular-nums;
+}
+.milestone-name {
+  margin-top: 8px;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.milestone-summary {
+  color: var(--muted-foreground);
+}
+.milestone-status {
+  margin-top: 12px;
+}
+.milestone[data-status="current"] .milestone-status {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* ---------- Windows contrast themes ---------- */
+
+@media (forced-colors: active) {
+  .lamp-stop,
+  .lamp-readout,
+  .milestone-lamp {
+    forced-color-adjust: none;
+    outline: 1px solid CanvasText;
+  }
+  .milestone[data-status="planned"] .milestone-lamp {
+    background: Canvas;
+  }
+  .wordmark-lamp {
+    fill: Highlight;
+  }
+  .query-tab {
+    box-shadow: none;
+  }
+}

@@ -7,7 +7,7 @@ export const timeToAppShell: Scenario = {
   modes: ["cold", "warm"],
   metrics: { timeToAppShell: "ms" },
   async run(page, baseURL) {
-    await page.goto(baseURL);
+    await page.goto(new URL("/app/", baseURL).href);
     const mark = await page.waitForFunction((name) => {
       const [entry] = performance.getEntriesByName(name, "mark");
       // Wrapped in an object: a startTime of 0 would be falsy and keep waitForFunction polling.

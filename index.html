@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Blinkql</title>
+    <title>Blinkql: query big files without uploading them</title>
     <script src="/theme-init.js"></script>
+    <link rel="canonical" href="https://blinkql.vercel.app/" />
 
     <!-- Icons, manifest and link previews (from brand/web/head.html) -->
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
@@ -15,7 +16,7 @@
     <meta name="theme-color" content="#181B19" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
-      content="A fast, private SQL workbench that runs entirely in your browser. No account. No server. No upload."
+      content="Blinkql is a SQL workbench that runs entirely in your browser, for files too big for a spreadsheet and too sensitive to upload. It's being built in the open."
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Blinkql" />
@@ -33,9 +34,227 @@
       content="The Blinkql wordmark and the headline Queries in the blink of an eye, beside a SQL query that returned 10 rows in 38 ms"
     />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Structured data for search engines. A data block, not a script: the CSP doesn't apply. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Blinkql",
+        "description": "A SQL workbench that runs entirely in your browser, for files too big for a spreadsheet and too sensitive to upload.",
+        "url": "https://blinkql.vercel.app/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any modern web browser",
+        "license": "https://opensource.org/licenses/MIT",
+        "codeRepository": "https://github.com/Karthik-beta/Blinkql",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
+    <script type="module" src="/src/landing/main.ts"></script>
   </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+  <!-- data-phase drives the hero replay: loading, then running, then done (src/landing/replay.ts) -->
+  <body data-phase="loading">
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a class="wordmark-link" href="/"><!--landing:wordmark--><span class="sr-only">Blinkql home</span></a>
+        <nav aria-label="Main">
+          <ul class="nav-list">
+            <li><a href="#status">Status</a></li>
+            <li><a href="#contribute">Contribute</a></li>
+            <li><a href="https://github.com/Karthik-beta/Blinkql">GitHub</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero container" aria-labelledby="hero-title">
+        <div class="hero-head">
+          <h1 id="hero-title" class="display">
+            Query big files without uploading them<span class="lamp-stop" aria-hidden="true"></span>
+          </h1>
+          <p class="lede">
+            Blinkql is a SQL workbench that runs entirely in your browser, for files too big for a
+            spreadsheet and too sensitive to upload. It's being built in the open and isn't ready to
+            use yet.
+          </p>
+        </div>
+
+        <figure class="replay" aria-labelledby="replay-caption">
+          <div class="pane-bar editor-bar" aria-hidden="true">
+            <span class="query-tab"><!--landing:query-tab--></span>
+            <span class="run-button">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 4l14 8-14 8z" />
+              </svg>
+              <span class="run-label"
+                ><span data-run="idle">Run</span><span data-run="running">Stop</span></span
+              >
+              <kbd
+                >Ctrl
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+                  <path d="m9 10-5 5 5 5" /></svg
+              ></kbd>
+            </span>
+          </div>
+          <!-- Scrolls sideways on phones, like the editor, so keyboard users must be able to focus it (WCAG 2.1.1) -->
+          <!-- biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs focus to scroll by keyboard -->
+          <section class="editor" tabindex="0" aria-label="Sample query">
+            <pre><code><!--landing:sql--></code></pre>
+          </section>
+          <div class="pane-bar results-bar">
+            <span class="results-tab" aria-hidden="true">Results</span>
+            <span class="readout">
+              <span class="lamp-readout" aria-hidden="true"></span>
+              <span data-readout="loading">Starting the engine…</span>
+              <span data-readout="running">Running…</span>
+              <span data-readout="done"
+                ><strong><!--landing:row-count--></strong> rows in
+                <strong><!--landing:elapsed-ms--></strong> ms</span
+              >
+            </span>
+          </div>
+          <div class="grid-pane"><!--landing:grid--></div>
+        </figure>
+        <div class="replay-footer">
+          <p id="replay-caption" class="caption">
+            A preview of the workbench being built, replayed with synthetic factory data. The
+            engine that runs real queries arrives in milestone M1.
+          </p>
+          <button class="button button-outline" type="button" data-replay>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            Replay
+          </button>
+        </div>
+        <p class="sr-only" role="status" data-replay-status></p>
+      </section>
+
+      <section class="section container split" aria-labelledby="what-title">
+        <div>
+          <h2 id="what-title" class="title">For the exports a spreadsheet can't open</h2>
+          <p class="reading">
+            Machine logs, breakdown records, attendance sheets and stock counts often arrive as
+            exports with a million rows or more. Spreadsheets struggle to open them, and what's
+            inside is often too sensitive to upload. Blinkql opens the file in your browser tab and
+            lets you ask questions of it in SQL.
+          </p>
+        </div>
+        <dl class="facts">
+          <div>
+            <dt>Queries run in your browser</dt>
+            <dd>The engine runs inside the tab, on your computer. There's no server doing the work.</dd>
+          </div>
+          <div>
+            <dt>Your files never leave your computer</dt>
+            <dd>The browser reads the file directly. Nothing is uploaded, and there's no account.</dd>
+          </div>
+          <div>
+            <dt>Built for exports of 1–2 million rows</dt>
+            <dd>The size of a month of machine data from a plant, or a full stock ledger.</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section id="status" class="section band" aria-labelledby="status-title">
+        <div class="container">
+          <h2 id="status-title" class="title">Work in progress</h2>
+          <p class="reading">
+            Blinkql is being built in the open. The workbench isn't ready to use yet; the replay
+            above shows what it will do. The work is split into eight milestones, each ending with a
+            deployed app. The current one is <!--landing:current-code-->,
+            <!--landing:current-name-->.
+          </p>
+          <!--landing:milestones-->
+          <p class="reading">
+            <a href="https://github.com/Karthik-beta/Blinkql/wiki/Roadmap-and-Milestones"
+              >Read the roadmap</a
+            >
+            or
+            <a href="https://github.com/Karthik-beta/Blinkql/milestones"
+              >follow the milestones on GitHub</a
+            >.
+          </p>
+        </div>
+      </section>
+
+      <section id="contribute" class="section container" aria-labelledby="contribute-title">
+        <h2 id="contribute-title" class="title">Help build it</h2>
+        <p class="reading">
+          You don't need to write code to make a difference. Blinkql is shaped by the people who
+          have the files: engineers, analysts and supervisors who know what the data looks like.
+        </p>
+        <dl class="ways">
+          <div>
+            <dt>Run the benchmarks on your hardware</dt>
+            <dd>
+              Run the suite on your own laptop and share the numbers, so performance claims rest on
+              more than one machine.
+              <a href="https://github.com/Karthik-beta/Blinkql/wiki/Performance-and-Benchmarks"
+                >How to run the benchmarks</a
+              >
+            </dd>
+          </div>
+          <div>
+            <dt>Share datasets and templates from your industry</dt>
+            <dd>
+              Synthetic files and analysis templates from manufacturing, logistics, retail, finance
+              or healthcare operations. Never real data.
+            </dd>
+          </div>
+          <div>
+            <dt>Review the design</dt>
+            <dd>
+              Check screens and flows against the
+              <a href="https://github.com/Karthik-beta/Blinkql/wiki/Design-Language">Design Language</a>
+              and suggest improvements.
+            </dd>
+          </div>
+          <div>
+            <dt>Review accessibility</dt>
+            <dd>Try it with a keyboard or a screen reader, and report what's hard to use.</dd>
+          </div>
+          <div>
+            <dt>Improve the documentation</dt>
+            <dd>
+              Fix unclear pages in the <a href="https://github.com/Karthik-beta/Blinkql/wiki">wiki</a>,
+              add examples or write a tutorial.
+            </dd>
+          </div>
+          <div>
+            <dt>Write code</dt>
+            <dd>Pick a small, well-scoped issue that comes with guidance, and open a pull request.</dd>
+          </div>
+        </dl>
+        <div class="actions">
+          <a class="button button-primary" href="https://github.com/Karthik-beta/Blinkql/wiki/Contributing"
+            >Read the contributing guide</a
+          >
+          <a
+            href="https://github.com/Karthik-beta/Blinkql/issues?q=is%3Aopen+label%3A%22good+first+issue%22"
+            >Browse good first issues</a
+          >
+          <a href="https://github.com/Karthik-beta/Blinkql/discussions">Join the discussions</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container site-footer-inner">
+        <p>
+          Blinkql is open source under the
+          <a href="https://github.com/Karthik-beta/Blinkql/blob/main/LICENSE">MIT licence</a>.
+        </p>
+        <ul class="footer-links">
+          <li><a href="https://github.com/Karthik-beta/Blinkql">GitHub</a></li>
+          <li><a href="https://github.com/Karthik-beta/Blinkql/wiki">Wiki</a></li>
+        </ul>
+        <p>This page uses no analytics and makes no third-party requests.</p>
+      </div>
+    </footer>
   </body>
 </html>
