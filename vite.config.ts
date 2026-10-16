@@ -3,10 +3,20 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { devServerHeaders, responseHeaders } from "./scripts/headers.ts";
+import { landingPage } from "./src/landing/vite-plugin.ts";
 
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), landingPage()],
+  // Two pages: the landing page at / and the workbench at /app/. The landing page loads no React.
+  build: {
+    rolldownOptions: {
+      input: {
+        landing: fileURLToPath(new URL("./index.html", import.meta.url)),
+        app: fileURLToPath(new URL("./app/index.html", import.meta.url)),
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

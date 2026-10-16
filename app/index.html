@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blinkql</title>
+    <script src="/theme-init.js"></script>
+
+    <!-- Icons, manifest and link previews (from brand/web/head.html) -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#EFF2EF" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#181B19" media="(prefers-color-scheme: dark)" />
+    <meta
+      name="description"
+      content="A fast, private SQL workbench that runs entirely in your browser. No account. No server. No upload."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Blinkql" />
+    <meta property="og:title" content="Blinkql: queries in the blink of an eye" />
+    <meta
+      property="og:description"
+      content="A fast, private SQL workbench that runs entirely in your browser. No account. No server. No upload."
+    />
+    <meta property="og:url" content="https://blinkql.vercel.app/" />
+    <meta property="og:image" content="https://blinkql.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The Blinkql wordmark and the headline Queries in the blink of an eye, beside a SQL query that returned 10 rows in 38 ms"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
