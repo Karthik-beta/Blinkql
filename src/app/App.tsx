@@ -10,6 +10,7 @@ import {
 import { CatalogPanel } from "@/features/catalog/CatalogPanel";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
 import { QueryPanel } from "@/features/editor/QueryPanel";
+import { ResultsTable } from "@/features/results/ResultsTable";
 import { markOnce, marks } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
@@ -49,6 +50,7 @@ export function App() {
         <CatalogPanel />
         <main aria-label="Workspace" className="flex min-w-0 flex-1 flex-col">
           <QueryPanel onRestart={() => void restart()} />
+          <ResultsTable />
         </main>
       </div>
       <footer className="flex h-7 shrink-0 items-center gap-2 border-t bg-chrome px-4">
