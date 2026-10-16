@@ -33,9 +33,6 @@ env:
   VERCEL_ORG_ID: team_9s3k9SAVh1EvcghKkL2Lv3hh
   VERCEL_PROJECT_ID: prj_ZYMbLwKzTqOSE51hwfvZPsWVGkoY
   VERCEL_CLI_VERSION: 64.3.1
-  # Vercel offers Node 26 only behind this opt-in. The site is static, so Node
-  # runs only at build time. Remove once Vercel makes Node 26 generally available.
-  VERCEL_ALLOW_NODEJS_26: "1"
 
 jobs:
   deploy:
@@ -71,9 +68,12 @@ jobs:
         with:
           cache: true
 
+      # Development and CI use Node 26 (.nvmrc), but Vercel does not accept Node 26
+      # deployments yet. The site is static, so Node only runs the build. Switch
+      # back to .nvmrc once Vercel supports Node 26.
       - uses: actions/setup-node@v7
         with:
-          node-version-file: .nvmrc
+          node-version: 24
 
       - name: Install Vercel CLI
         run: npm install --global vercel@${{ env.VERCEL_CLI_VERSION }}
