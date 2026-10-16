@@ -9,6 +9,8 @@ export type ImportedTable = {
   fileName: string;
   format: FileFormat;
   columnCount: number;
+  /** The file itself, kept so it can be imported again into a restarted engine. */
+  file: File;
 };
 
 export type ImportFailure = {
@@ -58,7 +60,7 @@ async function importFile(file: File): Promise<ImportedTable> {
     // Creating the view reads the schema, so an unreadable file fails here rather than later.
     await query(`CREATE VIEW ${quoteIdentifier(name)} AS SELECT * FROM ${readerFor(format, path)}`);
     const columns = await query(`DESCRIBE ${quoteIdentifier(name)}`);
-    return { name, fileName: file.name, format, columnCount: columns.numRows };
+    return { name, fileName: file.name, format, columnCount: columns.numRows, file };
   } catch (error) {
     await query(`DROP VIEW IF EXISTS ${quoteIdentifier(name)}`).catch(() => {});
     await unregisterFile(path).catch(() => {});
@@ -93,6 +95,17 @@ export async function importFiles(files: readonly File[]): Promise<void> {
       });
     }
   }
+}
+
+/**
+ * Imports every table's file again, e.g. into a restarted engine, which starts with none. Files are
+ * imported in the same order, so each table gets its old name back.
+ */
+export async function reimportTables(): Promise<void> {
+  const files = catalog.tables.map((table) => table.file);
+  takenNames.clear();
+  update((current) => ({ ...current, tables: [], failures: [] }));
+  await importFiles(files);
 }
 
 /** Empties the catalog. For tests; it doesn't drop anything from the engine. */

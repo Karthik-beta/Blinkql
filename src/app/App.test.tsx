@@ -76,4 +76,16 @@ describe("App shell", () => {
     act(() => engine.setStatus({ state: "failed", error: new Error("out of memory") }));
     expect(screen.getByRole("status")).toHaveTextContent("Engine failed to start: out of memory");
   });
+
+  it("offers a restart when the engine failed to start or crashed", () => {
+    render(<App />);
+    expect(screen.queryByRole("button", { name: "Restart engine" })).not.toBeInTheDocument();
+
+    act(() => engine.setStatus({ state: "failed", error: new Error("out of memory") }));
+    expect(screen.getByRole("button", { name: "Restart engine" })).toBeInTheDocument();
+
+    act(() => engine.setStatus({ state: "crashed", error: new Error("worker died") }));
+    expect(screen.getByRole("status")).toHaveTextContent("Engine stopped: worker died");
+    expect(screen.getByRole("button", { name: "Restart engine" })).toBeInTheDocument();
+  });
 });

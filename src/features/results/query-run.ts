@@ -7,7 +7,14 @@ export type QueryRun =
   | { state: "idle" }
   | { state: "running"; sql: string; startedAt: number }
   | { state: "done"; sql: string; table: Table; durationMs: number }
-  | { state: "failed"; sql: string; error: Error; durationMs: number };
+  | {
+      state: "failed";
+      sql: string;
+      error: Error;
+      durationMs: number;
+      /** Where `sql` started in the editor, to point at the error there. */
+      editorOffset: number;
+    };
 
 let run: QueryRun = { state: "idle" };
 const listeners = new Set<() => void>();
@@ -32,7 +39,7 @@ export function subscribeToQueryRun(listener: () => void): () => void {
  * Runs `sql` and records the outcome. Does nothing for empty SQL or while another query is
  * running: the engine has one connection, and a second Run press is almost always a double press.
  */
-export async function runQuery(sql: string): Promise<void> {
+export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
   if (!sql.trim() || run.state === "running") return;
   const startedAt = performance.now();
   setRun({ state: "running", sql, startedAt });
@@ -45,11 +52,12 @@ export async function runQuery(sql: string): Promise<void> {
       sql,
       error: error instanceof Error ? error : new Error(String(error)),
       durationMs: performance.now() - startedAt,
+      editorOffset,
     });
   }
 }
 
-/** Back to idle. For tests. */
+/** Back to idle, e.g. after the engine restarts. */
 export function resetQueryRun(): void {
   setRun({ state: "idle" });
 }
