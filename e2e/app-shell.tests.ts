@@ -8,7 +8,7 @@ import { expect, test } from "./fixtures";
 export function appShellTests(colorScheme: "light" | "dark") {
   test.describe(`app shell (${colorScheme})`, () => {
     test("shows the top bar and an empty workspace", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/app/");
 
       await expect(page).toHaveTitle("Blinkql");
       await expect(page.getByRole("banner").getByRole("img", { name: "Blinkql" })).toBeVisible();
@@ -16,14 +16,14 @@ export function appShellTests(colorScheme: "light" | "dark") {
     });
 
     test("follows the system colour scheme before first paint", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/app/");
 
       const isDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
       expect(isDark).toBe(colorScheme === "dark");
     });
 
     test("has no detectable accessibility violations", async ({ page, makeAxeBuilder }) => {
-      await page.goto("/");
+      await page.goto("/app/");
 
       const results = await makeAxeBuilder().analyze();
       expect(results.violations).toEqual([]);
