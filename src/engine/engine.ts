@@ -4,12 +4,14 @@
 import {
   AsyncDuckDB,
   type AsyncDuckDBConnection,
+  DuckDBDataProtocol,
   selectBundle,
   VoidLogger,
 } from "@duckdb/duckdb-wasm";
 import type { Table } from "apache-arrow";
 import { markOnce, marks } from "@/lib/user-timing";
 import { bundles } from "./bundles";
+import { EXTENSIONS_PATH, extensionsVersion } from "./extensions";
 
 export type EngineStatus =
   | { state: "idle" }
@@ -50,13 +52,21 @@ async function boot(): Promise<Engine> {
   const db = new AsyncDuckDB(new VoidLogger(), worker);
   try {
     await db.instantiate(bundle.mainModule);
+    const version = await db.getVersion();
+    if (version !== extensionsVersion) {
+      throw new Error(
+        `DuckDB ${version} can't load the self-hosted extensions, which are for ${extensionsVersion} (see src/engine/extensions.ts)`,
+      );
+    }
     const connection = await db.connect();
+    // Load extensions (Parquet, JSON) from our own origin instead of extensions.duckdb.org.
+    const repository = new URL(EXTENSIONS_PATH, location.href).href;
+    await connection.query(`SET custom_extension_repository = '${repository}'`);
     // Smoke check: the engine counts as ready only once it has answered a query.
     const probe = await connection.query("SELECT 42 AS answer");
     if (probe.getChild("answer")?.get(0) !== 42) {
       throw new Error("The engine started but returned a wrong answer to SELECT 42");
     }
-    const version = await db.getVersion();
     markOnce(marks.engineReady);
     setStatus({ state: "ready", version });
     return { db, connection };
@@ -92,6 +102,21 @@ export function startEngine(): void {
 export async function query(sql: string): Promise<Table> {
   const { connection } = await getEngine();
   return connection.query(sql);
+}
+
+/**
+ * Makes a local file readable by SQL under `name`, e.g. `read_csv('name')`. The engine reads
+ * slices of the file on demand instead of copying the whole file into memory first.
+ */
+export async function registerFile(name: string, file: File): Promise<void> {
+  const { db } = await getEngine();
+  await db.registerFileHandle(name, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
+}
+
+/** Forgets a file registered with `registerFile()`. */
+export async function unregisterFile(name: string): Promise<void> {
+  const { db } = await getEngine();
+  await db.dropFile(name);
 }
 
 /** Closes the connection and terminates the worker. The next query starts a fresh engine. */

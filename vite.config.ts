@@ -3,11 +3,12 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { devServerHeaders, responseHeaders } from "./scripts/headers.ts";
+import { duckdbExtensions } from "./src/engine/vite-plugin.ts";
 import { landingPage } from "./src/landing/vite-plugin.ts";
 
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), landingPage()],
+  plugins: [react(), tailwindcss(), landingPage(), duckdbExtensions()],
   // Two pages: the landing page at / and the workbench at /app/. The landing page loads no React.
   build: {
     rolldownOptions: {
