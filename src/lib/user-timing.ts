@@ -4,6 +4,8 @@
 export const marks = {
   /** The app shell (top bar and empty workspace) has been committed to the DOM. */
   appShell: "blinkql:app-shell",
+  /** DuckDB-wasm is running in its worker, connected, and has answered a first query. */
+  engineReady: "blinkql:engine-ready",
 } as const;
 
 export type MarkName = (typeof marks)[keyof typeof marks];
