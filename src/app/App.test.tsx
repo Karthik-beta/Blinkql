@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineStatus } from "@/engine/engine";
+import { withinSqlEditor } from "@/features/editor/test-utils";
 import { marks } from "@/lib/user-timing";
 import { App } from "./App";
 
@@ -41,11 +42,12 @@ describe("App shell", () => {
     expect(screen.getAllByRole("img", { name: "Blinkql" })).toHaveLength(2);
   });
 
-  it("renders an empty, labelled workspace", () => {
+  it("renders the workspace with the SQL editor", () => {
     render(<App />);
 
     const workspace = screen.getByRole("main", { name: "Workspace" });
-    expect(workspace).toBeEmptyDOMElement();
+    expect(workspace).toContainElement(document.querySelector("[data-sql-editor]"));
+    expect(withinSqlEditor().getByRole("textbox", { name: "SQL editor" })).toBeInTheDocument();
   });
 
   it("marks the app shell for the benchmark harness", () => {
