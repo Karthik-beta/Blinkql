@@ -7,7 +7,7 @@ import { expect, test } from "./fixtures";
  */
 export function appShellTests(colorScheme: "light" | "dark") {
   test.describe(`app shell (${colorScheme})`, () => {
-    test("shows the top bar and an empty workspace", async ({ page }) => {
+    test("shows the top bar and the workspace", async ({ page }) => {
       await page.goto("/app/");
 
       await expect(page).toHaveTitle("Blinkql");

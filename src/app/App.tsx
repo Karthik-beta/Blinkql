@@ -7,6 +7,7 @@ import {
 } from "@/engine/engine";
 import { CatalogPanel } from "@/features/catalog/CatalogPanel";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
+import { QueryPanel } from "@/features/editor/QueryPanel";
 import { markOnce, marks } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
@@ -41,7 +42,9 @@ export function App() {
       </header>
       <div className="flex min-h-0 flex-1">
         <CatalogPanel />
-        <main aria-label="Workspace" className="min-w-0 flex-1" />
+        <main aria-label="Workspace" className="flex min-w-0 flex-1 flex-col">
+          <QueryPanel />
+        </main>
       </div>
       <footer className="flex h-7 shrink-0 items-center border-t bg-chrome px-4">
         <p role="status" className="text-muted-foreground text-xs">
