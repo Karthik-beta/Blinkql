@@ -92,13 +92,22 @@ a:hover {
   font-size: 2.25rem; /* Title 36 / 42 on phones */
   line-height: 2.625rem;
   font-weight: 700;
-  max-width: 18ch;
+  letter-spacing: -0.01em;
   text-wrap: balance;
 }
 @media (min-width: 640px) {
   .display {
     font-size: 3rem; /* Display 48 / 52 */
     line-height: 3.25rem;
+  }
+}
+@media (min-width: 1024px) {
+  .display {
+    /* The hero alone takes the next step of the scale (Bringhurst's 60), so it clearly outranks
+       the section titles at 36. */
+    font-size: 3.75rem;
+    line-height: 4rem;
+    letter-spacing: -0.015em;
   }
 }
 
@@ -119,6 +128,7 @@ a:hover {
 .lede {
   max-width: 72ch;
   margin-top: 16px;
+  text-wrap: pretty; /* no one-word last lines */
 }
 
 .caption {
@@ -126,6 +136,22 @@ a:hover {
   line-height: 1rem;
   color: var(--muted-foreground);
   max-width: 72ch;
+}
+
+/* The hero's headline and lede: stacked on phones, side by side on wide screens with the lede on
+   the headline's last line, so the replay starts higher. */
+.hero-head {
+  display: grid;
+  gap: 16px 48px;
+}
+.hero-head .lede {
+  margin-top: 0;
+}
+@media (min-width: 1024px) {
+  .hero-head {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: end;
+  }
 }
 
 /* ---------- Header and footer: machine-grey chrome, as in the product ---------- */
@@ -207,40 +233,91 @@ a:hover {
 }
 @media (min-width: 768px) {
   .hero {
-    padding-block: 96px;
+    padding-block: 96px 48px; /* the next section's own 96 px finishes the gap */
   }
   .section {
     padding-block: 96px;
   }
 }
 
-.facts,
+/* Two columns on wide screens: the heading and its paragraph on the left, the facts on the right. */
+@media (min-width: 1024px) {
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 48px;
+    align-items: start;
+  }
+}
+
+/* The facts read like a spec sheet: one row per fact between hairlines, as in the grid. */
+.facts {
+  margin-top: 48px;
+  border-bottom: 1px solid var(--border);
+}
+.facts > div {
+  display: grid;
+  gap: 4px 24px;
+  padding-block: 24px;
+  border-top: 1px solid var(--border);
+}
+@media (min-width: 640px) {
+  .facts > div {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+@media (min-width: 1024px) {
+  .facts {
+    margin-top: 0;
+  }
+  .facts > div:first-child {
+    padding-top: 12px; /* the first row's text sits level with the section title */
+    border-top: 0;
+  }
+}
+
 .ways {
   display: grid;
-  gap: 24px 48px;
+  gap: 32px 48px;
   margin-top: 48px;
 }
 @media (min-width: 768px) {
-  .facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .ways {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+@media (min-width: 1024px) {
+  .ways {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.ways > div {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
 .facts dt,
 .ways dt {
   font-size: 1.125rem; /* Subheading 18 / 26 */
   line-height: 1.625rem;
   font-weight: 600;
+  text-wrap: balance;
 }
 .facts dd,
 .ways dd {
-  margin-top: 4px;
   color: var(--muted-foreground);
+}
+.ways dd {
+  margin-top: 4px;
 }
 .ways dd a {
   display: inline-block;
+}
+
+/* The roadmap sits on a band of machine-grey chrome, like a control panel set into the page. */
+.band {
+  background: var(--chrome);
+  border-block: 1px solid var(--border);
 }
 
 .actions {
@@ -361,7 +438,8 @@ a:hover {
 .replay {
   contain: layout; /* the replay's phase changes never re-lay out the rest of the page */
   margin-top: 48px;
-  border: 1px solid var(--border);
+  /* One step firmer than the hairlines inside it, so the panes read as a single instrument. */
+  border: 1px solid color-mix(in oklch, var(--border), var(--foreground) 14%);
   background: var(--background);
   font-size: 0.875rem; /* Body 14 / 20 */
   line-height: 1.25rem;
@@ -446,13 +524,20 @@ a:hover {
 }
 
 .editor {
-  white-space: pre-wrap; /* long lines wrap on phones, with a hanging indent past the gutter */
+  /* Long lines scroll sideways on phones, as in the editor, rather than wrapping mid-clause. */
+  overflow-x: auto;
   padding-block: 12px;
   border-bottom: 1px solid var(--border);
   font-family: var(--font-code);
   font-size: 0.75rem; /* 12 / 18 on phones so the query fits */
   line-height: 1.125rem;
   tab-size: 2;
+}
+.editor pre {
+  font: inherit; /* preflight gives <pre> its own mono stack */
+}
+.editor:focus-visible {
+  outline-offset: -2px; /* inside the pane, which clips anything outside it */
 }
 @media (min-width: 640px) {
   .editor {
@@ -462,8 +547,8 @@ a:hover {
 }
 .sql-line {
   display: block;
-  padding-inline: 7ch 16px; /* gutter (5ch) plus a 2ch hanging indent for wrapped lines */
-  text-indent: -7ch;
+  width: max-content; /* each line keeps its full length, so the pane scrolls instead of wrapping */
+  padding-right: 16px;
 }
 .sql-gutter {
   display: inline-block;
@@ -523,10 +608,25 @@ a:hover {
   overflow: hidden;
 }
 .grid {
-  /* Fixed-width columns from the left, as in the product; the rest of the pane stays empty. */
+  /* Fixed-width columns from the left, as in the product. An empty trailing cell on every row
+     (the ::after below) takes the rest of the pane, so the header chrome and the row lines run
+     edge to edge instead of stopping at the last column. */
+  width: 100%;
   border-collapse: separate; /* cell borders hide with their rows while the query runs */
   border-spacing: 0;
   font-variant-numeric: tabular-nums;
+}
+.grid tr::after {
+  content: "";
+  display: table-cell;
+  border-bottom: 1px solid var(--gridline);
+}
+.grid thead tr::after {
+  background: var(--chrome);
+  border-bottom-color: var(--border);
+}
+.grid tbody tr:last-child::after {
+  border-bottom: 0;
 }
 .grid th,
 .grid td {
@@ -596,58 +696,51 @@ a:hover {
   margin-top: 12px;
 }
 
-/* ---------- The roadmap as a row of indicator lamps ---------- */
+/* ---------- The roadmap as a panel of indicator lamps ---------- */
+/* Eight docked cells sharing 1 px borders, like an annunciator panel on a control-room wall. The
+   container draws the top and left edges and each cell its right and bottom, so every line is
+   exactly 1 px wherever the grid wraps. Every cell's status sits on the same baseline. */
 
 .milestones {
   display: grid;
-  gap: 24px;
   margin-top: 48px;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  background: var(--background);
 }
-@media (min-width: 768px) {
+@media (min-width: 560px) {
   .milestones {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (min-width: 1100px) {
+@media (min-width: 900px) {
   .milestones {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 .milestone {
   display: grid;
   grid-template-columns: 10px 1fr;
-  column-gap: 12px;
-  align-content: start;
+  grid-template-rows: auto auto 1fr auto;
+  column-gap: 8px;
+  row-gap: 4px;
+  padding: 16px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
-@media (min-width: 768px) {
-  .milestone {
-    grid-template-columns: 1fr;
-    row-gap: 4px;
-  }
-}
-.milestone > :not(.milestone-lamp) {
-  grid-column: 2;
-}
-@media (min-width: 768px) {
-  .milestone > :not(.milestone-lamp) {
-    grid-column: 1;
-  }
+.milestone > :not(.milestone-lamp, .milestone-code) {
+  grid-column: 1 / -1;
 }
 .milestone-lamp {
-  grid-row: 1 / span 4;
-  margin-top: 5px;
-}
-@media (min-width: 768px) {
-  .milestone-lamp {
-    grid-row: auto;
-    margin: 0 0 8px;
-  }
+  align-self: center;
 }
 .milestone[data-status="planned"] .milestone-lamp {
   background: var(--lamp-off);
+}
+.milestone[data-status="current"] {
+  box-shadow: inset 0 2px 0 var(--primary); /* the active tab's top edge, as in the replay */
 }
 .milestone[data-status="current"] .milestone-lamp {
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 30%, transparent);
@@ -658,12 +751,21 @@ a:hover {
   line-height: 1rem;
   color: var(--muted-foreground);
 }
+.milestone-code {
+  font-variant-numeric: tabular-nums;
+}
 .milestone-name {
+  margin-top: 8px;
+  font-size: 1rem;
+  line-height: 1.5rem;
   font-weight: 600;
   text-wrap: balance;
 }
 .milestone-summary {
   color: var(--muted-foreground);
+}
+.milestone-status {
+  margin-top: 12px;
 }
 .milestone[data-status="current"] .milestone-status {
   color: var(--foreground);

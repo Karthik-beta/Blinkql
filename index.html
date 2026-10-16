@@ -70,14 +70,16 @@
 
     <main id="main">
       <section class="hero container" aria-labelledby="hero-title">
-        <h1 id="hero-title" class="display">
-          Query big files without uploading them<span class="lamp-stop" aria-hidden="true"></span>
-        </h1>
-        <p class="lede">
-          Blinkql is a SQL workbench that runs entirely in your browser, for files too big for a
-          spreadsheet and too sensitive to upload. It's being built in the open and isn't ready to
-          use yet.
-        </p>
+        <div class="hero-head">
+          <h1 id="hero-title" class="display">
+            Query big files without uploading them<span class="lamp-stop" aria-hidden="true"></span>
+          </h1>
+          <p class="lede">
+            Blinkql is a SQL workbench that runs entirely in your browser, for files too big for a
+            spreadsheet and too sensitive to upload. It's being built in the open and isn't ready to
+            use yet.
+          </p>
+        </div>
 
         <figure class="replay" aria-labelledby="replay-caption">
           <div class="pane-bar editor-bar" aria-hidden="true">
@@ -97,7 +99,11 @@
               ></kbd>
             </span>
           </div>
-          <pre class="editor"><code><!--landing:sql--></code></pre>
+          <!-- Scrolls sideways on phones, like the editor, so keyboard users must be able to focus it (WCAG 2.1.1) -->
+          <!-- biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs focus to scroll by keyboard -->
+          <section class="editor" tabindex="0" aria-label="Sample query">
+            <pre><code><!--landing:sql--></code></pre>
+          </section>
           <div class="pane-bar results-bar">
             <span class="results-tab" aria-hidden="true">Results</span>
             <span class="readout">
@@ -128,14 +134,16 @@
         <p class="sr-only" role="status" data-replay-status></p>
       </section>
 
-      <section class="section container" aria-labelledby="what-title">
-        <h2 id="what-title" class="title">A SQL workbench that runs in your browser</h2>
-        <p class="reading">
-          Machine logs, breakdown records, attendance sheets and stock counts often arrive as
-          exports with a million rows or more. Spreadsheets struggle to open them, and what's inside
-          is often too sensitive to upload. Blinkql opens the file in your browser tab and lets you
-          ask questions of it in SQL.
-        </p>
+      <section class="section container split" aria-labelledby="what-title">
+        <div>
+          <h2 id="what-title" class="title">For the exports a spreadsheet can't open</h2>
+          <p class="reading">
+            Machine logs, breakdown records, attendance sheets and stock counts often arrive as
+            exports with a million rows or more. Spreadsheets struggle to open them, and what's
+            inside is often too sensitive to upload. Blinkql opens the file in your browser tab and
+            lets you ask questions of it in SQL.
+          </p>
+        </div>
         <dl class="facts">
           <div>
             <dt>Queries run in your browser</dt>
@@ -152,22 +160,26 @@
         </dl>
       </section>
 
-      <section id="status" class="section container" aria-labelledby="status-title">
-        <h2 id="status-title" class="title">Work in progress</h2>
-        <p class="reading">
-          Blinkql is being built in the open. The workbench isn't ready to use yet; the replay above
-          shows what it will do. The work is split into eight milestones, each ending with a
-          deployed app. The current one is <!--landing:current-code-->,
-          <!--landing:current-name-->.
-        </p>
-        <!--landing:milestones-->
-        <p class="reading">
-          <a href="https://github.com/Karthik-beta/Blinkql/wiki/Roadmap-and-Milestones"
-            >Read the roadmap</a
-          >
-          or
-          <a href="https://github.com/Karthik-beta/Blinkql/milestones">follow the milestones on GitHub</a>.
-        </p>
+      <section id="status" class="section band" aria-labelledby="status-title">
+        <div class="container">
+          <h2 id="status-title" class="title">Work in progress</h2>
+          <p class="reading">
+            Blinkql is being built in the open. The workbench isn't ready to use yet; the replay
+            above shows what it will do. The work is split into eight milestones, each ending with a
+            deployed app. The current one is <!--landing:current-code-->,
+            <!--landing:current-name-->.
+          </p>
+          <!--landing:milestones-->
+          <p class="reading">
+            <a href="https://github.com/Karthik-beta/Blinkql/wiki/Roadmap-and-Milestones"
+              >Read the roadmap</a
+            >
+            or
+            <a href="https://github.com/Karthik-beta/Blinkql/milestones"
+              >follow the milestones on GitHub</a
+            >.
+          </p>
+        </div>
       </section>
 
       <section id="contribute" class="section container" aria-labelledby="contribute-title">
