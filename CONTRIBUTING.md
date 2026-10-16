@@ -17,7 +17,7 @@ Thanks for your interest in Blinkql. Contributions of every size are welcome, an
 
 ## Development setup
 
-You need Node.js 24 (the version in `.nvmrc`) and pnpm. Corepack provides the exact pnpm version the project pins; run `corepack enable pnpm` once.
+You need Node.js 26 (the version in `.nvmrc`) and pnpm. Corepack provides the exact pnpm version the project pins; run `corepack enable pnpm` once.
 
 ```bash
 git clone https://github.com/Karthik-beta/Blinkql.git
