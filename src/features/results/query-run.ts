@@ -2,11 +2,19 @@
 // state (ADR-004); components read this store with useSyncExternalStore.
 import type { Table } from "apache-arrow";
 import { query } from "@/engine/engine";
+import { measureSince, measures } from "@/lib/user-timing";
 
 export type QueryRun =
   | { state: "idle" }
   | { state: "running"; sql: string; startedAt: number }
-  | { state: "done"; sql: string; table: Table; durationMs: number }
+  | {
+      state: "done";
+      sql: string;
+      table: Table;
+      durationMs: number;
+      /** When the result reached the main thread (a `performance.now()` time). */
+      finishedAt: number;
+    }
   | {
       state: "failed";
       sql: string;
@@ -45,7 +53,9 @@ export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
   setRun({ state: "running", sql, startedAt });
   try {
     const table = await query(sql);
-    setRun({ state: "done", sql, table, durationMs: performance.now() - startedAt });
+    measureSince(measures.query, startedAt);
+    const finishedAt = performance.now();
+    setRun({ state: "done", sql, table, durationMs: finishedAt - startedAt, finishedAt });
   } catch (error) {
     setRun({
       state: "failed",
