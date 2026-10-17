@@ -77,5 +77,7 @@ describe("ResultsTable", () => {
     await run(new Error("Catalog Error: Table with name machines does not exist!"));
 
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    // Hidden altogether, so the error panel gets the room.
+    expect(screen.queryByRole("region", { name: "Results" })).not.toBeInTheDocument();
   });
 });

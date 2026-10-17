@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getCatalog, importFiles, resetCatalog } from "./catalog";
+import { getCatalog, importFiles, reimportTables, resetCatalog } from "./catalog";
 
 // The engine is replaced by a fake that "describes" every view as having three columns.
 const engine = vi.hoisted(() => ({
@@ -29,7 +29,7 @@ describe("catalog", () => {
       `CREATE VIEW "orders" AS SELECT * FROM read_csv('orders.csv')`,
     );
     expect(getCatalog().tables).toEqual([
-      { name: "orders", fileName: "Orders.csv", format: "csv", columnCount: 3 },
+      { name: "orders", fileName: "Orders.csv", format: "csv", columnCount: 3, file },
     ]);
     expect(getCatalog().importing).toEqual([]);
   });
@@ -80,5 +80,20 @@ describe("catalog", () => {
     await importFiles([csv("ok.csv")]);
 
     expect(getCatalog().failures).toEqual([]);
+  });
+
+  it("imports every file again, in order, so tables keep their names", async () => {
+    const first = csv("data.csv");
+    const second = csv("data.csv");
+    await importFiles([first, second]);
+    engine.registerFile.mockClear();
+
+    await reimportTables();
+
+    expect(engine.registerFile.mock.calls).toEqual([
+      ["data.csv", first],
+      ["data_2.csv", second],
+    ]);
+    expect(getCatalog().tables.map((table) => table.name)).toEqual(["data", "data_2"]);
   });
 });

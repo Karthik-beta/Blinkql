@@ -33,9 +33,15 @@ export function ResultsTable() {
   }, [run]);
 
   return (
-    // Focusable so keyboard users can scroll it.
-    // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs to be focusable
-    <section tabIndex={0} aria-label="Results" className="min-h-0 flex-1 overflow-auto border-t">
+    <section
+      // Focusable so keyboard users can scroll it.
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs to be focusable
+      tabIndex={0}
+      aria-label="Results"
+      // A failed query has no results; its error panel, above, gets the room instead.
+      hidden={run.state === "failed"}
+      className="min-h-0 flex-1 overflow-auto border-t"
+    >
       {results && (
         <table className="border-separate border-spacing-0 font-mono text-xs tabular-nums">
           <thead className="sticky top-0 bg-chrome">

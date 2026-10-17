@@ -79,7 +79,7 @@ test.describe("SQL editor", () => {
     await page.keyboard.type("SELEC 1");
     await page.keyboard.press("ControlOrMeta+Enter");
 
-    await expect(page.getByRole("alert")).toHaveText(/^Query failed: Parser Error/);
+    await expect(page.getByRole("alert")).toContainText('Syntax error near "SELEC"');
   });
 
   test("doesn't trap keyboard focus", async ({ page }) => {

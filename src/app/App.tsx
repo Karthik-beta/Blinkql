@@ -1,4 +1,6 @@
+import { RotateCcw } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
+import { Button } from "@/components/ui/button";
 import {
   type EngineStatus,
   getEngineStatus,
@@ -12,6 +14,7 @@ import { ResultsTable } from "@/features/results/ResultsTable";
 import { markOnce, marks } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
+import { restart } from "./restart";
 
 function describeEngine(status: EngineStatus): string {
   switch (status.state) {
@@ -22,6 +25,8 @@ function describeEngine(status: EngineStatus): string {
       return `Engine ready · DuckDB ${status.version}`;
     case "failed":
       return `Engine failed to start: ${status.error.message}`;
+    case "crashed":
+      return `Engine stopped: ${status.error.message}`;
   }
 }
 
@@ -44,14 +49,27 @@ export function App() {
       <div className="flex min-h-0 flex-1">
         <CatalogPanel />
         <main aria-label="Workspace" className="flex min-w-0 flex-1 flex-col">
-          <QueryPanel />
+          <QueryPanel onRestart={() => void restart()} />
           <ResultsTable />
         </main>
       </div>
-      <footer className="flex h-7 shrink-0 items-center border-t bg-chrome px-4">
-        <p role="status" className="text-muted-foreground text-xs">
+      <footer className="flex h-7 shrink-0 items-center gap-2 border-t bg-chrome px-4">
+        <p
+          role="status"
+          className={`min-w-0 truncate text-xs ${
+            engine.state === "failed" || engine.state === "crashed"
+              ? "text-destructive"
+              : "text-muted-foreground"
+          }`}
+        >
           {describeEngine(engine)}
         </p>
+        {(engine.state === "failed" || engine.state === "crashed") && (
+          <Button variant="outline" size="xs" onClick={() => void restart()}>
+            <RotateCcw data-icon="inline-start" aria-hidden />
+            Restart engine
+          </Button>
+        )}
       </footer>
       <FileDropOverlay />
     </div>

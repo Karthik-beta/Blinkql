@@ -1,6 +1,6 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
-import { EditorState, Prec } from "@codemirror/state";
+import { EditorSelection, EditorState, Prec } from "@codemirror/state";
 import {
   drawSelection,
   EditorView,
@@ -12,21 +12,40 @@ import {
   placeholder,
 } from "@codemirror/view";
 import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
+import { errorMark, hasErrorMark, setErrorMark } from "./error-mark";
 import { duckdbSql } from "./language";
 import { runShortcut } from "./shortcut";
-import { sqlToRun } from "./sql-to-run";
+import { type SqlToRun, sqlToRun } from "./sql-to-run";
 import { blinkqlEditorTheme } from "./theme";
+
+/** Part of SQL that ran from `from` in the editor: `start`–`end` within `sql`. */
+export type SqlRange = SqlToRun & { start: number; end: number };
 
 export type SqlEditorHandle = {
   /** The SQL that Run would run right now: the selection, or the whole editor. */
-  sqlToRun(): string;
+  sqlToRun(): SqlToRun;
+  /**
+   * Underlines `range` in the editor. Returns false, and marks nothing, if the editor no longer
+   * holds that SQL where it ran from.
+   */
+  markError(range: SqlRange): boolean;
+  /** Moves the cursor to the start of `range`, scrolls it into view and focuses the editor. */
+  goTo(range: SqlRange): void;
+  /** Removes the error underline. */
+  clearError(): void;
 };
 
 type Props = {
   ref?: Ref<SqlEditorHandle>;
   /** Called with the SQL to run when the user presses Ctrl/Cmd + Enter. */
-  onRun: (sql: string) => void;
+  onRun: (run: SqlToRun) => void;
 };
+
+/** Where `range` is in the editor now, or null if the editor no longer holds that SQL there. */
+function locate(view: EditorView, { sql, from, start, end }: SqlRange) {
+  if (view.state.sliceDoc(from, from + sql.length) !== sql) return null;
+  return { from: from + start, to: from + end };
+}
 
 export function SqlEditor({ ref, onRun }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -38,7 +57,27 @@ export function SqlEditor({ ref, onRun }: Props) {
   }, [onRun]);
 
   useImperativeHandle(ref, () => ({
-    sqlToRun: () => (view.current ? sqlToRun(view.current.state) : ""),
+    sqlToRun: () => (view.current ? sqlToRun(view.current.state) : { sql: "", from: 0 }),
+    markError(range) {
+      const target = view.current && locate(view.current, range);
+      if (!view.current || !target) return false;
+      view.current.dispatch({ effects: setErrorMark.of(target) });
+      return true;
+    },
+    goTo(range) {
+      const target = view.current && locate(view.current, range);
+      if (!view.current || !target) return;
+      view.current.dispatch({
+        selection: EditorSelection.cursor(target.from),
+        effects: EditorView.scrollIntoView(target.from, { y: "center" }),
+      });
+      view.current.focus();
+    },
+    clearError() {
+      if (view.current && hasErrorMark(view.current.state)) {
+        view.current.dispatch({ effects: setErrorMark.of(null) });
+      }
+    },
   }));
 
   useEffect(() => {
@@ -76,6 +115,7 @@ export function SqlEditor({ ref, onRun }: Props) {
           indentOnInput(),
           bracketMatching(),
           duckdbSql(),
+          errorMark,
           blinkqlEditorTheme,
           placeholder(`Write SQL here. ${runShortcut.label} runs it, or just the selected part.`),
           EditorView.contentAttributes.of({

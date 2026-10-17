@@ -72,11 +72,14 @@ describe("QueryPanel", () => {
 
     await act(async () => {
       const running = runQuery("SELEC 1");
-      engine.fail(new Error("Parser Error: syntax error at or near SELEC"));
+      engine.fail(
+        new Error(
+          'Parser Error: {"exception_type":"Parser","exception_message":"syntax error at or near \\"SELEC\\"","error_subtype":"SYNTAX_ERROR","position":"0"}',
+        ),
+      );
       await running;
     });
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Query failed: Parser Error: syntax error at or near SELEC",
-    );
+    expect(screen.getByRole("alert")).toHaveTextContent('Syntax error near "SELEC"');
+    expect(screen.getByText(/^Failed after \d+ ms$/)).toBeInTheDocument();
   });
 });

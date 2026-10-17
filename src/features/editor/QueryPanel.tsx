@@ -1,6 +1,8 @@
 import { Play } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
+import { ErrorPanel } from "@/features/results/ErrorPanel";
+import { errorSpan, parseEngineError } from "@/features/results/engine-error";
 import { formatDuration, formatRows } from "@/features/results/format";
 import {
   getQueryRun,
@@ -8,7 +10,7 @@ import {
   runQuery,
   subscribeToQueryRun,
 } from "@/features/results/query-run";
-import { SqlEditor, type SqlEditorHandle } from "./SqlEditor";
+import { SqlEditor, type SqlEditorHandle, type SqlRange } from "./SqlEditor";
 import { runShortcut } from "./shortcut";
 
 /** Milliseconds since `startedAt`, updated ten times a second while `active`. */
@@ -36,16 +38,41 @@ function Summary({ run }: { run: QueryRun }) {
         </span>
       );
     case "failed":
-      return null;
+      return <span>Failed after {formatDuration(run.durationMs)}</span>;
   }
 }
 
+type Props = {
+  /** Restarts the engine, offered when it crashed. */
+  onRestart?: () => void;
+};
+
 /** The SQL editor with its toolbar (Run) and, below it, the results bar. */
-export function QueryPanel() {
+export function QueryPanel({ onRestart }: Props) {
   const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
   const editor = useRef<SqlEditorHandle>(null);
   const running = run.state === "running";
   const elapsed = useElapsed(running ? run.startedAt : null);
+
+  const failure = useMemo(() => {
+    if (run.state !== "failed") return null;
+    const error = parseEngineError(run.error, run.sql);
+    const range: SqlRange | null =
+      error.position === undefined
+        ? null
+        : { sql: run.sql, from: run.editorOffset, ...errorSpan(run.sql, error.position) };
+    return { error, range };
+  }, [run]);
+
+  // Underline the error in the editor; whether "Go to error" can work depends on it.
+  const [marked, setMarked] = useState(false);
+  useEffect(() => {
+    const range = failure?.range;
+    setMarked(range ? (editor.current?.markError(range) ?? false) : false);
+    if (!range) editor.current?.clearError();
+  }, [failure]);
+
+  const runSql = ({ sql, from }: { sql: string; from: number }) => void runQuery(sql, from);
 
   return (
     <section aria-label="Query" className="flex min-h-0 flex-1 flex-col">
@@ -55,7 +82,7 @@ export function QueryPanel() {
           focusableWhenDisabled
           disabled={running}
           aria-keyshortcuts={runShortcut.aria}
-          onClick={() => void runQuery(editor.current?.sqlToRun() ?? "")}
+          onClick={() => editor.current && runSql(editor.current.sqlToRun())}
         >
           <Play data-icon="inline-start" aria-hidden />
           {running ? (
@@ -76,22 +103,26 @@ export function QueryPanel() {
         </Button>
       </div>
 
-      <SqlEditor ref={editor} onRun={(sql) => void runQuery(sql)} />
+      <SqlEditor ref={editor} onRun={runSql} />
 
       <div className="flex h-10 shrink-0 items-center gap-2 border-t bg-chrome px-3 text-xs">
         <p aria-live="polite" className="text-muted-foreground tabular-nums">
           <Summary run={run} />
         </p>
-        {run.state === "failed" && (
-          <p
-            role="alert"
-            className="min-w-0 truncate font-mono text-destructive"
-            title={run.error.message}
-          >
-            Query failed: {run.error.message}
-          </p>
-        )}
       </div>
+
+      {run.state === "failed" && failure && (
+        <ErrorPanel
+          error={failure.error}
+          sql={run.sql}
+          onGoTo={
+            marked && failure.range
+              ? () => failure.range && editor.current?.goTo(failure.range)
+              : undefined
+          }
+          onRestart={onRestart}
+        />
+      )}
     </section>
   );
 }
