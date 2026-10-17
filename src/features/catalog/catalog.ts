@@ -1,6 +1,7 @@
 // The catalog: tables imported from local files. Each file is registered with the engine by handle
 // and gets a view named after it, so SQL reads the file directly (see the Architecture page).
 import { query, registerFile, unregisterFile } from "@/engine/engine";
+import { measureSince, measures } from "@/lib/user-timing";
 import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
 
 export type ImportedTable = {
@@ -55,11 +56,13 @@ async function importFile(file: File): Promise<ImportedTable> {
   takenNames.add(name);
   // Registered under the table name, so two files called data.csv in different folders can't clash.
   const path = `${name}.${format}`;
+  const started = performance.now();
   try {
     await registerFile(path, file);
     // Creating the view reads the schema, so an unreadable file fails here rather than later.
     await query(`CREATE VIEW ${quoteIdentifier(name)} AS SELECT * FROM ${readerFor(format, path)}`);
     const columns = await query(`DESCRIBE ${quoteIdentifier(name)}`);
+    measureSince(measures.import, started);
     return { name, fileName: file.name, format, columnCount: columns.numRows, file };
   } catch (error) {
     await query(`DROP VIEW IF EXISTS ${quoteIdentifier(name)}`).catch(() => {});

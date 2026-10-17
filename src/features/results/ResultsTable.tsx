@@ -1,9 +1,15 @@
 import { DataType, type Field } from "apache-arrow";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { measureSince, measures } from "@/lib/user-timing";
 import { formatCell, type Row, toRowObjects } from "./cells";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 
-type Results = { columns: readonly Field[]; rows: readonly Row[] };
+type Results = {
+  columns: readonly Field[];
+  rows: readonly Row[];
+  /** When the result reached the main thread, which is where its render time starts. */
+  finishedAt: number;
+};
 
 /** Numbers line up on the right, so their digits do too. */
 function alignment(type: DataType): string {
@@ -25,12 +31,28 @@ export function ResultsTable() {
 
   useEffect(() => {
     if (run.state === "done") {
-      setResults({ columns: run.table.schema.fields, rows: toRowObjects(run.table) });
+      const converting = performance.now();
+      const rows = toRowObjects(run.table);
+      measureSince(measures.resultsConvert, converting);
+      setResults({ columns: run.table.schema.fields, rows, finishedAt: run.finishedAt });
     } else if (run.state !== "running") {
       setResults(null);
     }
     // Keeps the previous result on screen while the next query runs.
   }, [run]);
+
+  useEffect(() => {
+    if (!results) return;
+    // A timeout queued from requestAnimationFrame runs once that frame has been painted.
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => {
+      timeout = setTimeout(() => measureSince(measures.resultsRender, results.finishedAt));
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timeout);
+    };
+  }, [results]);
 
   return (
     <section

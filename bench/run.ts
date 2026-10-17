@@ -72,7 +72,14 @@ const server = args.url ? undefined : await preview({ preview: { port: 0 }, logL
 const baseURL = args.url ?? server?.resolvedUrls?.local[0];
 if (!baseURL) throw new Error("vite preview didn't report a local URL");
 
-const browser = await browserType.launch();
+// Chromium's memory measurement (bench/harness/page.ts) needs the full browser, not Playwright's
+// default headless shell, and without ForceEagerMeasureMemory it waits for the next garbage
+// collection, which can take 20 seconds or more.
+const browser = await browserType.launch(
+  browserName === "chromium"
+    ? { channel: "chromium", args: ["--enable-blink-features=ForceEagerMeasureMemory"] }
+    : {},
+);
 const results: ScenarioResult[] = [];
 try {
   for (const scenario of selected) {

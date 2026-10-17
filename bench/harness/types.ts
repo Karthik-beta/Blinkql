@@ -14,6 +14,10 @@ export type Scenario = {
   modes: readonly Mode[];
   /** Metric name → unit, for every value `run` returns. */
   metrics: Readonly<Record<string, "ms" | "bytes">>;
-  /** One iteration on a page that hasn't navigated yet; returns a value per metric. */
-  run: (page: Page, baseURL: string) => Promise<Record<string, number>>;
+  /**
+   * One iteration on a page that hasn't navigated yet; returns a value per metric. A metric the
+   * browser can't measure (e.g. memory outside Chromium) is undefined in every iteration, and is
+   * left out of the result.
+   */
+  run: (page: Page, baseURL: string) => Promise<Record<string, number | undefined>>;
 };

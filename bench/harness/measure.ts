@@ -23,6 +23,7 @@ export async function measure(
   iterations: Iterations,
 ): Promise<ScenarioResult> {
   const samples = new Map<string, number[]>(Object.keys(scenario.metrics).map((m) => [m, []]));
+  const unsupported = new Set<string>();
   const sharedContext = mode === "warm" ? await browser.newContext() : undefined;
 
   try {
@@ -34,8 +35,13 @@ export async function measure(
         if (i < iterations.warmup) continue;
         for (const [metric, list] of samples) {
           const value = values[metric];
-          if (value === undefined) throw new Error(`${scenario.name} returned no "${metric}"`);
-          list.push(round(value));
+          // An unsupported metric is missing from every iteration; missing from only some is a bug.
+          const first = i === iterations.warmup;
+          if (value === undefined ? !first && !unsupported.has(metric) : unsupported.has(metric)) {
+            throw new Error(`${scenario.name} returned "${metric}" in only some iterations`);
+          }
+          if (value === undefined) unsupported.add(metric);
+          else list.push(round(value));
         }
       } finally {
         await page.close();
@@ -51,18 +57,20 @@ export async function measure(
     description: scenario.description,
     mode,
     metrics: Object.fromEntries(
-      [...samples].map(([metric, list]) => {
-        const { median, p95, min, max, mean, samples: raw } = summarize(list);
-        const summary: Summary = {
-          median: round(median),
-          p95: round(p95),
-          min: round(min),
-          max: round(max),
-          mean: round(mean),
-          samples: raw,
-        };
-        return [metric, { unit: scenario.metrics[metric] as string, ...summary }];
-      }),
+      [...samples]
+        .filter(([metric]) => !unsupported.has(metric))
+        .map(([metric, list]) => {
+          const { median, p95, min, max, mean, samples: raw } = summarize(list);
+          const summary: Summary = {
+            median: round(median),
+            p95: round(p95),
+            min: round(min),
+            max: round(max),
+            mean: round(mean),
+            samples: raw,
+          };
+          return [metric, { unit: scenario.metrics[metric] as string, ...summary }];
+        }),
     ),
   };
 }

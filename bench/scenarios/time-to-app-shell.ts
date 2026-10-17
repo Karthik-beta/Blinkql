@@ -1,4 +1,5 @@
 import { marks } from "../../src/lib/user-timing.ts";
+import { waitForMark } from "../harness/page.ts";
 import type { Scenario } from "../harness/types.ts";
 
 export const timeToAppShell: Scenario = {
@@ -8,13 +9,6 @@ export const timeToAppShell: Scenario = {
   metrics: { timeToAppShell: "ms" },
   async run(page, baseURL) {
     await page.goto(new URL("/app/", baseURL).href);
-    const mark = await page.waitForFunction((name) => {
-      const [entry] = performance.getEntriesByName(name, "mark");
-      // Wrapped in an object: a startTime of 0 would be falsy and keep waitForFunction polling.
-      return entry && { startTime: entry.startTime };
-    }, marks.appShell);
-    // waitForFunction only resolves once the callback returns a truthy value.
-    const { startTime } = (await mark.jsonValue()) as { startTime: number };
-    return { timeToAppShell: startTime };
+    return { timeToAppShell: await waitForMark(page, marks.appShell) };
   },
 };
