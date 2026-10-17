@@ -53,11 +53,30 @@ Use `--size`, `--shape` and `--format` (each repeatable) to generate a subset, e
 
 ## Scenarios
 
-| Name | Metric | Measures |
+| Name | Modes | Metrics |
 |---|---|---|
-| `time-to-app-shell` | `timeToAppShell` (ms) | Navigation start until the `blinkql:app-shell` User Timing mark |
+| `time-to-app-shell` | cold, warm | `timeToAppShell` (ms): navigation start until the `blinkql:app-shell` mark |
+| `time-to-engine-ready` | cold, warm | `timeToEngineReady` (ms): navigation start until the `blinkql:engine-ready` mark. `bytesTransferred`: response headers and bodies downloaded until then, the engine's worker included; cached responses count 0 |
+| `dataset-<size>-<shape>-<format>` | warm | One per S and M dataset, e.g. `dataset-m-wide-csv`. Each iteration opens the workbench, imports the file with the file picker and runs SQL through the editor, like a user. See below |
 
-To add one, create `bench/scenarios/<name>.ts` exporting a `Scenario` (`bench/harness/types.ts`) and add it to `scenarios/index.ts`. The app records marks through `markOnce()` in `src/lib/user-timing.ts`; mark and scenario names are compared across commits, so don't rename them.
+The dataset scenarios record, per iteration:
+
+| Metric | Measures |
+|---|---|
+| `importMs` | The `blinkql:import` measure: registering the file, creating its view and reading its schema |
+| `firstQueryMs` | `SELECT count(*)` straight after the import |
+| `scanMs`, `filterMs`, `groupByMs`, `joinMs`, `windowMs` | The query set (`querySet` in `scenarios/datasets.ts`). Each returns at most 40 rows, so the time is the engine's work |
+| `resultQueryMs` | `SELECT * … LIMIT 10000`: the engine's work plus transferring 10,000 rows to the main thread |
+| `resultCountMs` | The same rows counted in the engine instead, so `resultQueryMs − resultCountMs` is the cost of the transfer |
+| `resultConvertMs` | The `blinkql:results-convert` measure: the 10,000 rows copied out of Arrow into row objects |
+| `resultRenderMs` | The `blinkql:results-render` measure: the result reaching the main thread until the frame after its rows are committed (converting included) |
+| `memoryBytes`, `workerMemoryBytes` | `performance.measureUserAgentSpecificMemory()` with the 10,000 rows on screen: the whole page, and the engine's worker within it. Chromium only; left out elsewhere |
+
+Query times (`*Ms` above, except import and render) are the `blinkql:query` measure: from sending the SQL to the engine until the Arrow result is on the main thread. A CSV view reads the file again on every query, so CSV query times include parsing it.
+
+Chromium runs as the full browser in headless mode (`channel: "chromium"`) rather than Playwright's default headless shell, which lacks the memory API.
+
+To add a scenario, create `bench/scenarios/<name>.ts` exporting a `Scenario` (`bench/harness/types.ts`) and add it to `scenarios/index.ts`; `harness/page.ts` has helpers that drive the workbench. The app records marks and measures through `src/lib/user-timing.ts`. Their names and scenario names are compared across commits, so don't rename them.
 
 ## Result file
 
