@@ -17,19 +17,19 @@ export const milestones: readonly Milestone[] = [
     code: "M0",
     name: "Foundations",
     summary: "The project scaffold, CI, deployments and the benchmark harness.",
-    status: "current",
+    status: "done",
   },
   {
     code: "M1",
     name: "Core query loop",
     summary: "Open a file, write SQL and see the results.",
-    status: "planned",
+    status: "done",
   },
   {
     code: "M2",
     name: "Performance pass\u00a0I", // no-break space: the numeral never wraps alone
     summary: "Queries never block the page, even on a million rows.",
-    status: "planned",
+    status: "current",
   },
   {
     code: "M3",

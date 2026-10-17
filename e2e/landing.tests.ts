@@ -6,16 +6,20 @@ import { expect, test } from "./fixtures";
  */
 export function landingTests(colorScheme: "light" | "dark") {
   test.describe(`landing page (${colorScheme})`, () => {
-    test("says what Blinkql is and that it isn't ready yet", async ({ page }) => {
+    test("says what Blinkql is and that it's an early version", async ({ page }) => {
       await page.goto("/");
 
       await expect(page).toHaveTitle("Blinkql: query big files without uploading them");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "Query big files without uploading them",
       );
-      await expect(page.getByText("isn't ready to use yet").first()).toBeVisible();
+      await expect(page.getByText("An early version works today").first()).toBeVisible();
       await expect(page.getByRole("listitem").filter({ hasText: "In progress" })).toContainText(
-        "M0",
+        "M2",
+      );
+      await expect(page.getByRole("link", { name: "Try the early workbench" })).toHaveAttribute(
+        "href",
+        "/app/",
       );
       await expect(page.getByRole("link", { name: "Read the roadmap" })).toHaveAttribute(
         "href",
