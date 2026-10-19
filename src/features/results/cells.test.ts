@@ -4,11 +4,16 @@ import {
   type DataType,
   DateDay,
   Decimal,
+  Dictionary,
+  DurationMillisecond,
   Field,
+  FixedSizeList,
   Float64,
   Int32,
   Int64,
+  LargeBinary,
   List,
+  Map_,
   makeData,
   makeVector,
   RecordBatch,
@@ -19,27 +24,42 @@ import {
   TimestampMicrosecond,
   TimestampMillisecond,
   Utf8,
+  type Vector,
   vectorFromArray,
 } from "apache-arrow";
 import { describe, expect, it } from "vitest";
-import { formatCell, toRowObjects } from "./cells";
+import { resultColumns } from "./cells";
 
-/** The first value of a one-element vector, with its type. */
-function first<T extends DataType>(values: unknown[], type: T) {
-  const vector = vectorFromArray(values, type);
-  return [vector.get(0), vector.type] as const;
+function listOf<T extends DataType>(type: T) {
+  return new List(new Field("item", type));
 }
 
-describe("toRowObjects", () => {
-  it("makes one object per row, keyed by column position", () => {
+/** The text of the first cell of a one-column result holding `vector`. */
+function firstCell(vector: Vector) {
+  const [column] = resultColumns(new Table({ value: vector }));
+  return column?.cell(0);
+}
+
+/** The text of the first cell of a one-column result holding `values` as `type`. */
+function cell(values: unknown[], type: DataType) {
+  return firstCell(vectorFromArray(values, type));
+}
+
+describe("resultColumns", () => {
+  it("reads each column's cells by row, with null for SQL NULL", () => {
     const table = new Table({
       id: vectorFromArray([1, 2], new Int32()),
       name: vectorFromArray(["a", null], new Utf8()),
     });
+    const columns = resultColumns(table);
 
-    expect(toRowObjects(table)).toEqual([
-      { 0: 1, 1: "a" },
-      { 0: 2, 1: null },
+    expect(columns.map(({ name, type }) => [name, String(type)])).toEqual([
+      ["id", "Int32"],
+      ["name", "Utf8"],
+    ]);
+    expect([0, 1].map((row) => columns.map((column) => column.cell(row)))).toEqual([
+      ["1", "a"],
+      ["2", null],
     ]);
   });
 
@@ -55,50 +75,64 @@ describe("toRowObjects", () => {
         makeData({ type: new Int32(), data: new Int32Array([2]) }),
       ],
     });
-    const table = new Table(new RecordBatch(new Schema(schema), data));
+    const columns = resultColumns(new Table(new RecordBatch(new Schema(schema), data)));
 
-    expect(toRowObjects(table)).toEqual([{ 0: 1, 1: 2 }]);
+    expect(columns.map((column) => [column.name, column.cell(0)])).toEqual([
+      ["x", "1"],
+      ["x", "2"],
+    ]);
   });
 
-  it("returns no rows for an empty result", () => {
+  it("reads rows across record batches", () => {
+    // DuckDB sends a large result as several batches, so a column's vector has several chunks.
+    const batch = (ids: number[]) => new Table({ id: vectorFromArray(ids, new Int32()) });
+    const table = batch([1, 2]).concat(batch([3]), batch([4, 5]));
+    const [id] = resultColumns(table);
+
+    expect(table.getChildAt(0)?.data).toHaveLength(3);
+    expect([0, 1, 2, 3, 4].map((row) => id?.cell(row))).toEqual(["1", "2", "3", "4", "5"]);
+  });
+
+  it("has a column but no rows for an empty result", () => {
     const table = new Table({ id: vectorFromArray([], new Int32()) });
-    expect(toRowObjects(table)).toEqual([]);
+    expect(resultColumns(table).map((column) => column.name)).toEqual(["id"]);
+    expect(table.numRows).toBe(0);
   });
 });
 
-describe("formatCell", () => {
-  it("returns null for SQL NULL", () => {
-    expect(formatCell(null, new Utf8())).toBeNull();
-  });
-
+describe("cell formatting", () => {
   it("shows strings, numbers and booleans as they are", () => {
-    expect(formatCell(...first(["hello"], new Utf8()))).toBe("hello");
-    expect(formatCell(...first([42], new Int32()))).toBe("42");
-    expect(formatCell(...first([1.5], new Float64()))).toBe("1.5");
-    expect(formatCell(...first([true], new Bool()))).toBe("true");
+    expect(cell(["hello"], new Utf8())).toBe("hello");
+    expect(cell([42], new Int32())).toBe("42");
+    expect(cell([1.5], new Float64())).toBe("1.5");
+    expect(cell([true], new Bool())).toBe("true");
   });
 
   it("shows 64-bit integers in full", () => {
-    expect(formatCell(...first([9007199254740993n], new Int64()))).toBe("9007199254740993");
+    expect(cell([9007199254740993n], new Int64())).toBe("9007199254740993");
   });
 
   it("shows dates, timestamps and times the way DuckDB writes them", () => {
     const day = Date.UTC(2026, 9, 16);
-    expect(formatCell(...first([new Date(day)], new DateDay()))).toBe("2026-10-16");
-    expect(formatCell(day + 5_237_000, new TimestampMicrosecond())).toBe("2026-10-16 01:27:17");
-    expect(formatCell(day + 5_237_250, new TimestampMillisecond())).toBe("2026-10-16 01:27:17.250");
-    expect(formatCell(...first([19_637_000_000n], new TimeMicrosecond()))).toBe("05:27:17");
-    expect(formatCell(19_637_120_000n, new TimeMicrosecond())).toBe("05:27:17.12");
+    expect(cell([new Date(day)], new DateDay())).toBe("2026-10-16");
+    // Built from stored values: vectorFromArray would take these as milliseconds.
+    const micros = BigInt64Array.of(BigInt(day + 5_237_000) * 1000n);
+    const timestamp = makeData({ type: new TimestampMicrosecond(), length: 1, data: micros });
+    expect(firstCell(makeVector(timestamp))).toBe("2026-10-16 01:27:17");
+    expect(cell([day + 5_237_250], new TimestampMillisecond())).toBe("2026-10-16 01:27:17.250");
+    expect(cell([19_637_000_000n], new TimeMicrosecond())).toBe("05:27:17");
+    const fraction = BigInt64Array.of(19_637_120_000n);
+    const time = makeData({ type: new TimeMicrosecond(), length: 1, data: fraction });
+    expect(firstCell(makeVector(time))).toBe("05:27:17.12");
   });
 
   it("puts the decimal point where the column's scale says", () => {
     const decimal = (unscaled: number, scale: number) => {
-      const type = new Decimal(scale, 18, 128);
       const words = new Uint32Array(4);
       new BigInt64Array(words.buffer)[0] = BigInt(unscaled);
       new BigInt64Array(words.buffer)[1] = unscaled < 0 ? -1n : 0n;
-      const vector = makeVector(makeData({ type, length: 1, nullCount: 0, data: words }));
-      return formatCell(vector.get(0), type);
+      const type = new Decimal(scale, 18, 128);
+      return firstCell(makeVector(makeData({ type, length: 1, nullCount: 0, data: words })));
     };
 
     expect(decimal(12345, 2)).toBe("123.45");
@@ -109,14 +143,124 @@ describe("formatCell", () => {
 
   it("shows bytes the way DuckDB writes a BLOB", () => {
     const bytes = new Uint8Array([0x41, 0x00, 0xff, 0x5c]);
-    expect(formatCell(...first([bytes], new Binary()))).toBe("A\\x00\\xFF\\x5C");
+    expect(cell([bytes], new Binary())).toBe("A\\x00\\xFF\\x5C");
   });
 
-  it("shows lists and structs as JSON", () => {
-    expect(formatCell(...first([[1, 2]], new List(new Field("item", new Int32()))))).toBe("[1,2]");
+  it("shows lists, structs and maps as JSON", () => {
+    expect(cell([[1, null, 2]], listOf(new Int32()))).toBe("[1,null,2]");
     const struct = new Struct([new Field("a", new Int64()), new Field("b", new Utf8())]);
-    expect(formatCell(...first([{ a: 2n ** 60n, b: "x" }], struct))).toBe(
-      '{"a":"1152921504606846976","b":"x"}',
+    expect(cell([{ a: 2n ** 60n, b: "x" }], struct)).toBe('{"a":1152921504606846976,"b":"x"}');
+    const map = new Map_<Utf8, Int32>(
+      new Field(
+        "entries",
+        new Struct([new Field("key", new Utf8(), false), new Field("value", new Int32())]),
+      ),
     );
+    expect(cell([new Map([["k", 1]])], map)).toBe('{"k":1}');
+  });
+
+  it("formats values inside lists, structs and maps by their own type", () => {
+    const day = Date.UTC(2026, 9, 16);
+    expect(cell([[new Date(day)]], listOf(new DateDay()))).toBe('["2026-10-16"]');
+
+    const struct = new Struct([
+      new Field("at", new TimestampMillisecond()),
+      new Field("bytes", new Binary()),
+      new Field("ratio", new Float64()),
+    ]);
+    expect(
+      cell([{ at: day + 5_237_000, bytes: new Uint8Array([0x41, 0x00]), ratio: NaN }], struct),
+    ).toBe('{"at":"2026-10-16 01:27:17","bytes":"A\\\\x00","ratio":"NaN"}');
+
+    const nested = listOf(new Struct([new Field("days", listOf(new DateDay()))]));
+    expect(cell([[{ days: [new Date(day), null] }]], nested)).toBe(
+      '[{"days":["2026-10-16",null]}]',
+    );
+  });
+
+  it("reads struct fields by position, whatever they're called", () => {
+    // Names that are also properties of Arrow's StructRow, and a name used twice.
+    const names = ["toString", "constructor", "__proto__", "x", "x"];
+    const fields = names.map((name) => new Field(name, new Int32()));
+    const struct = makeData({
+      type: new Struct(fields),
+      length: 1,
+      nullCount: 0,
+      children: names.map((_, index) =>
+        makeData({ type: new Int32(), data: Int32Array.of(index + 1) }),
+      ),
+    });
+
+    expect(firstCell(makeVector(struct))).toBe(
+      '{"toString":1,"constructor":2,"__proto__":3,"x":4,"x":5}',
+    );
+  });
+
+  it("writes fixed-size lists, empty lists and infinite floats as JSON", () => {
+    const pair = makeData({
+      type: new FixedSizeList(2, new Field("item", new Int32())),
+      length: 1,
+      nullCount: 0,
+      child: makeData({ type: new Int32(), data: Int32Array.of(1, 2) }),
+    });
+    expect(firstCell(makeVector(pair))).toBe("[1,2]");
+    expect(cell([[]], listOf(new Int32()))).toBe("[]");
+    expect(cell([[Infinity, -Infinity, 0.5]], listOf(new Float64()))).toBe(
+      '["Infinity","-Infinity",0.5]',
+    );
+  });
+
+  it("writes durations inside a list as numbers, in full", () => {
+    expect(cell([[5n, 2n ** 60n]], listOf(new DurationMillisecond()))).toBe(
+      "[5,1152921504606846976]",
+    );
+  });
+
+  it("writes map keys of any type as JSON strings, and null values as null", () => {
+    const map = new Map_<Int32, Utf8>(
+      new Field(
+        "entries",
+        new Struct([new Field("key", new Int32(), false), new Field("value", new Utf8())]),
+      ),
+    );
+    expect(
+      cell(
+        [
+          new Map([
+            [1, "a"],
+            [2, null],
+          ]),
+        ],
+        map,
+      ),
+    ).toBe('{"1":"a","2":null}');
+  });
+
+  it("shows large binary values the way DuckDB writes a BLOB", () => {
+    expect(cell([new Uint8Array([0x41, 0x00])], new LargeBinary())).toBe("A\\x00");
+  });
+
+  it("writes decimals inside a list with their scale", () => {
+    const type = new Decimal(2, 18, 128);
+    const words = new Uint32Array(8);
+    new BigInt64Array(words.buffer)[0] = 12345n;
+    new BigInt64Array(words.buffer)[2] = -5n;
+    new BigInt64Array(words.buffer)[3] = -1n;
+    const decimals = makeData({ type, length: 2, nullCount: 0, data: words });
+    const list = makeData({
+      type: listOf(type),
+      length: 1,
+      nullCount: 0,
+      valueOffsets: new Int32Array([0, 2]),
+      child: decimals,
+    });
+
+    expect(firstCell(makeVector(list))).toBe("[123.45,-0.05]");
+  });
+
+  it("shows a dictionary-encoded column (a DuckDB ENUM) by its values", () => {
+    const vector = vectorFromArray(["RUN", "IDLE"], new Dictionary(new Utf8(), new Int32()));
+    const [status] = resultColumns(new Table({ status: vector }));
+    expect(status?.cell(1)).toBe("IDLE");
   });
 });

@@ -1,12 +1,12 @@
-import { DataType, type Field } from "apache-arrow";
+import { DataType } from "apache-arrow";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { measureSince, measures } from "@/lib/user-timing";
-import { formatCell, type Row, toRowObjects } from "./cells";
+import { type ResultColumn, resultColumns } from "./cells";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 
 type Results = {
-  columns: readonly Field[];
-  rows: readonly Row[];
+  columns: readonly ResultColumn[];
+  rowCount: number;
   /** When the result reached the main thread, which is where its render time starts. */
   finishedAt: number;
 };
@@ -21,9 +21,10 @@ function alignment(type: DataType): string {
 /**
  * The last query's result as a plain table, every row rendered.
  *
- * This is the M1 baseline (#15) and deliberately naive: rows are copied out of Arrow into React
- * state, and there's no virtualization, so very large results are slow to show. P-02 to P-04 fix
- * that against the P-01 measurements; don't optimise it before then.
+ * Cells are read straight from the Arrow result as they render; nothing is copied into row objects
+ * (P-02). The table is otherwise still the M1 baseline (#15): the result passes through React
+ * state, and there's no virtualization, so very large results are slow to show. P-03 and P-04 fix
+ * that against the P-01 measurements.
  */
 export function ResultsTable() {
   const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
@@ -31,10 +32,10 @@ export function ResultsTable() {
 
   useEffect(() => {
     if (run.state === "done") {
-      const converting = performance.now();
-      const rows = toRowObjects(run.table);
-      measureSince(measures.resultsConvert, converting);
-      setResults({ columns: run.table.schema.fields, rows, finishedAt: run.finishedAt });
+      const preparing = performance.now();
+      const columns = resultColumns(run.table);
+      measureSince(measures.resultsConvert, preparing);
+      setResults({ columns, rowCount: run.table.numRows, finishedAt: run.finishedAt });
     } else if (run.state !== "running") {
       setResults(null);
     }
@@ -82,11 +83,11 @@ export function ResultsTable() {
             </tr>
           </thead>
           <tbody>
-            {results.rows.map((row, rowIndex) => (
+            {Array.from({ length: results.rowCount }, (_, rowIndex) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: a result's rows never reorder
               <tr key={rowIndex}>
                 {results.columns.map((column, columnIndex) => {
-                  const text = formatCell(row[columnIndex], column.type);
+                  const text = column.cell(rowIndex);
                   return (
                     <td
                       // biome-ignore lint/suspicious/noArrayIndexKey: see the header row
