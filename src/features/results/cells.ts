@@ -78,21 +78,44 @@ function toJson(value: unknown): string {
 
 const unitsPerSecond = [1, 1_000, 1_000_000, 1_000_000_000] as const;
 
-/** How a cell is shown in the results table, or null for SQL NULL. */
-export function formatCell(value: unknown, type: DataType): string | null {
-  if (value === null || value === undefined) return null;
-  if (DataType.isDate(type) && typeof value === "number") {
-    return formatTimestamp(value).slice(0, 10);
-  }
-  if (DataType.isTimestamp(type) && typeof value === "number") return formatTimestamp(value);
-  if (DataType.isTime(type) && (typeof value === "number" || typeof value === "bigint")) {
-    return formatTime(value, unitsPerSecond[type.unit]);
-  }
-  if (DataType.isDecimal(type)) return formatDecimal(String(value), type.scale);
-  if (DataType.isBinary(type) || DataType.isFixedSizeBinary(type)) {
-    if (value instanceof Uint8Array) return formatBytes(value);
-  }
+/** Turns one non-null value of an Arrow type into text. */
+type Formatter = (value: unknown) => string;
+
+/** Any value as text: strings as they are, objects as JSON. */
+function formatAny(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "object") return toJson(value);
   return String(value);
+}
+
+/** The formatter for values of `type`, chosen once per column rather than once per cell. */
+function formatterFor(type: DataType): Formatter {
+  if (DataType.isDate(type)) {
+    return (value) =>
+      typeof value === "number" ? formatTimestamp(value).slice(0, 10) : formatAny(value);
+  }
+  if (DataType.isTimestamp(type)) {
+    return (value) => (typeof value === "number" ? formatTimestamp(value) : formatAny(value));
+  }
+  if (DataType.isTime(type)) {
+    const perSecond = unitsPerSecond[type.unit];
+    return (value) =>
+      typeof value === "number" || typeof value === "bigint"
+        ? formatTime(value, perSecond)
+        : formatAny(value);
+  }
+  if (DataType.isDecimal(type)) {
+    const { scale } = type;
+    return (value) => formatDecimal(String(value), scale);
+  }
+  if (DataType.isBinary(type) || DataType.isFixedSizeBinary(type)) {
+    return (value) => (value instanceof Uint8Array ? formatBytes(value) : formatAny(value));
+  }
+  return formatAny;
+}
+
+/** How a cell is shown in the results table, or null for SQL NULL. */
+export function formatCell(value: unknown, type: DataType): string | null {
+  if (value === null || value === undefined) return null;
+  return formatterFor(type)(value);
 }
