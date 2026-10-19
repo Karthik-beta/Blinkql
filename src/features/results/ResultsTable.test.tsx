@@ -1,5 +1,6 @@
 import { act, render, screen, within } from "@testing-library/react";
 import { Int32, Table, Utf8, vectorFromArray } from "apache-arrow";
+import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "./query-run";
 import { ResultsTable } from "./ResultsTable";
@@ -69,6 +70,35 @@ describe("ResultsTable", () => {
 
     expect(screen.getByRole("columnheader", { name: "id" })).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(1);
+  });
+
+  it("renders once per result, not when the next query starts or while it runs", async () => {
+    const onRender = vi.fn();
+    render(
+      <Profiler id="results" onRender={onRender}>
+        <ResultsTable />
+      </Profiler>,
+    );
+    await run(machines);
+    onRender.mockClear();
+
+    let finish!: (table: Table) => void;
+    engine.query.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    let next!: Promise<void>;
+    act(() => {
+      next = runQuery("SELECT 7 AS n");
+    });
+    // The previous result stays on screen, untouched.
+    expect(onRender).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+
+    await act(async () => {
+      finish(new Table({ n: vectorFromArray([7], new Int32()) }));
+      await next;
+    });
+    expect(onRender).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("columnheader", { name: "n" })).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(2);
   });
 
   it("clears the previous result when a query fails", async () => {
