@@ -16,7 +16,11 @@ export const measures = {
   import: "blinkql:import",
   /** One query, from being sent to the engine until its Arrow result is on the main thread. */
   query: "blinkql:query",
-  /** Copying a result out of Arrow into row objects for the results table. */
+  /**
+   * Preparing a result for the results table. Until P-02 this copied every row out of Arrow into
+   * row objects; now it only sets up a reader per column, and cells are read as they render. The
+   * name is kept so results stay comparable with older runs.
+   */
   resultsConvert: "blinkql:results-convert",
   /** From a result reaching the main thread until the frame after its rows are committed. */
   resultsRender: "blinkql:results-render",

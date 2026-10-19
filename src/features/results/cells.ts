@@ -1,27 +1,32 @@
-// Turning Arrow results into row objects and cell values into text, for the results table.
+// Reading cells straight from an Arrow result and turning them into text, for the results table.
+// Nothing is copied out of Arrow: a cell is read and formatted only when it's shown (ADR-004, P-02).
 import { DataType, type Table } from "apache-arrow";
 
-/** One result row: cell values keyed by column position, so duplicate column names can't clash. */
-export type Row = Record<number, unknown>;
+/** One column of a result, read from its Arrow vector on demand. */
+export type ResultColumn = {
+  name: string;
+  type: DataType;
+  /** The text for row `rowIndex`, or null for SQL NULL. Reads and formats the value on every call. */
+  cell: (rowIndex: number) => string | null;
+};
 
 /**
- * Every row of `table` as a row object.
- *
- * This is the M1 baseline and deliberately naive: it walks the whole result and allocates an object
- * per row, which ADR-004 exists to avoid. P-02 replaces it with lazy reads from the Arrow vectors;
- * leave it as it is until P-01 has measured it.
+ * The columns of `table`, each reading cells from its Arrow vector with the formatter for its type.
+ * Columns are taken by position, so duplicate column names can't clash.
  */
-export function toRowObjects(table: Table): Row[] {
-  const columns = table.schema.fields.map((_, index) => table.getChildAt(index));
-  const rows: Row[] = [];
-  for (let rowIndex = 0; rowIndex < table.numRows; rowIndex++) {
-    const row: Row = {};
-    for (const [columnIndex, column] of columns.entries()) {
-      row[columnIndex] = column?.get(rowIndex);
-    }
-    rows.push(row);
-  }
-  return rows;
+export function resultColumns(table: Table): ResultColumn[] {
+  return table.schema.fields.map((field, index) => {
+    const vector = table.getChildAt(index);
+    const format = formatterFor(field.type);
+    return {
+      name: field.name,
+      type: field.type,
+      cell: (rowIndex) => {
+        const value: unknown = vector?.get(rowIndex);
+        return value === null || value === undefined ? null : format(value);
+      },
+    };
+  });
 }
 
 /** "2026-10-16 05:47:17", or with milliseconds when there are any, from milliseconds since 1970. */
@@ -178,10 +183,4 @@ function formatterFor(type: DataType): Formatter {
     return (value) => (value instanceof Uint8Array ? formatBytes(value) : formatAny(value));
   }
   return formatAny;
-}
-
-/** How a cell is shown in the results table, or null for SQL NULL. */
-export function formatCell(value: unknown, type: DataType): string | null {
-  if (value === null || value === undefined) return null;
-  return formatterFor(type)(value);
 }
