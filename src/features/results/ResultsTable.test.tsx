@@ -4,9 +4,16 @@ import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "./query-run";
 import { ResultsTable } from "./ResultsTable";
+import { readCell } from "./result-store";
 
 const engine = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/engine/engine", () => engine);
+
+// The real store, with cell reads counted.
+vi.mock("./result-store", async (importOriginal) => {
+  const store = await importOriginal<typeof import("./result-store")>();
+  return { ...store, readCell: vi.fn(store.readCell) };
+});
 
 const machines = new Table({
   id: vectorFromArray([1, 2, 3], new Int32()),
@@ -99,6 +106,15 @@ describe("ResultsTable", () => {
     expect(onRender).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("columnheader", { name: "n" })).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(2);
+  });
+
+  it("doesn't read the cells again when its parent renders", async () => {
+    const { rerender } = render(<ResultsTable />);
+    await run(machines);
+    vi.mocked(readCell).mockClear();
+
+    rerender(<ResultsTable />);
+    expect(readCell).not.toHaveBeenCalled();
   });
 
   it("clears the previous result when a query fails", async () => {

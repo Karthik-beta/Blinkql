@@ -1,5 +1,5 @@
 import { DataType } from "apache-arrow";
-import { useEffect, useSyncExternalStore } from "react";
+import { memo, useEffect, useSyncExternalStore } from "react";
 import { measureSince, measures } from "@/lib/user-timing";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 import { getResult, readCell, subscribeToResult } from "./result-store";
@@ -17,13 +17,14 @@ function alignment(type: DataType): string {
 /**
  * The result on screen as a plain table, every row rendered.
  *
- * The table renders only when the result changes or a query fails: it subscribes to the result's
- * shape and to whether the last run failed, not to the query run, so starting the next query
- * doesn't render it again (P-03). Cells are read from the Arrow result as they render; nothing is
- * copied into row objects (P-02). There's no virtualization yet, so very large results are slow to
- * show; P-04 fixes that against the P-01 measurements.
+ * The table renders only when the result changes, or when the last run starts or stops failing.
+ * It subscribes to the result's shape and to that one flag, not to the whole query run, and it's
+ * memoized, so neither a query starting nor its parent rendering renders every row again (P-03).
+ * Cells are read from the Arrow result as they render; nothing is copied into row objects (P-02).
+ * There's no virtualization yet, so very large results are slow to show; P-04 fixes that against
+ * the P-01 measurements.
  */
-export function ResultsTable() {
+export const ResultsTable = memo(function ResultsTable() {
   const results = useSyncExternalStore(subscribeToResult, getResult);
   const failed = useSyncExternalStore(subscribeToQueryRun, lastRunFailed);
 
@@ -91,4 +92,4 @@ export function ResultsTable() {
       )}
     </section>
   );
-}
+});
