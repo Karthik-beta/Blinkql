@@ -30,7 +30,12 @@ export async function waitForMark(page: Page, name: MarkName, timeout = 30_000):
   return startTime;
 }
 
-type LongFrames = { observer: PerformanceObserver; durations: number[] };
+type LongFrames = {
+  observer: PerformanceObserver;
+  entries: { startTime: number; duration: number }[];
+  /** When the frames were last cleared (a `performance.now()` time). */
+  since: number;
+};
 
 /**
  * Runs in the page before its own scripts: records the duration of every long animation frame,
@@ -42,12 +47,16 @@ type LongFrames = { observer: PerformanceObserver; durations: number[] };
  */
 function recordLongFrames() {
   if (!PerformanceObserver.supportedEntryTypes.includes("long-animation-frame")) return;
-  const durations: number[] = [];
-  const observer = new PerformanceObserver((list) => {
-    for (const entry of list.getEntries()) durations.push(entry.duration);
-  });
-  observer.observe({ type: "long-animation-frame" });
-  const frames: LongFrames = { observer, durations };
+  const frames: LongFrames = {
+    observer: new PerformanceObserver((list) => {
+      for (const { startTime, duration } of list.getEntries()) {
+        frames.entries.push({ startTime, duration });
+      }
+    }),
+    entries: [],
+    since: 0,
+  };
+  frames.observer.observe({ type: "long-animation-frame" });
   Object.assign(window, { blinkqlLongFrames: frames });
 }
 
@@ -104,31 +113,39 @@ export type QueryTimings = {
    */
   longestFrame: number | undefined;
   /**
-   * In React's profiling build only: how many times React rendered the results table from
-   * pressing Run until the rows are shown, and the time it spent doing so.
+   * In React's profiling build only: how many times React rendered the results table while the
+   * query was typed, run and shown, and the time it spent doing so.
    */
   resultsCommits: number | undefined;
   resultsReactMs: number | undefined;
 };
 
-/** Forgets the long animation frames recorded so far. */
+/** Starts counting long animation frames from now. */
 async function clearLongFrames(page: Page): Promise<void> {
   await page.evaluate(() => {
     const frames = (window as { blinkqlLongFrames?: LongFrames }).blinkqlLongFrames;
     if (!frames) return;
     frames.observer.takeRecords();
-    frames.durations.length = 0;
+    frames.entries.length = 0;
+    frames.since = performance.now();
   });
 }
 
-/** The longest frame recorded since `clearLongFrames()`, or undefined if the browser can't tell. */
+/**
+ * The longest frame that ended after `clearLongFrames()`, or undefined if the browser can't tell.
+ * Chromium reports a frame some time after it ends, so one that ended just before the clear, such
+ * as typing the SQL, can still arrive after it; its end time gives it away.
+ */
 async function longestFrame(page: Page): Promise<number | undefined> {
   return page.evaluate(() => {
     const frames = (window as { blinkqlLongFrames?: LongFrames }).blinkqlLongFrames;
     if (!frames) return undefined;
     // Entries the observer hasn't delivered yet, such as the frame that just ended.
-    const pending = frames.observer.takeRecords().map((entry) => entry.duration);
-    return Math.max(0, ...frames.durations, ...pending);
+    const entries = [...frames.entries, ...frames.observer.takeRecords()];
+    const durations = entries
+      .filter((entry) => entry.startTime + entry.duration > frames.since)
+      .map((entry) => entry.duration);
+    return Math.max(0, ...durations);
   });
 }
 

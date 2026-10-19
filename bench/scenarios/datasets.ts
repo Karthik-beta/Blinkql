@@ -1,5 +1,6 @@
 // One scenario per benchmark dataset: import the file, run the query set, show a large result,
-// measure memory and run one more query with that result on screen, all through the UI. Generate the files first with `pnpm bench:data`.
+// measure memory and run one more query with that result on screen, all through the UI. Generate
+// the files first with `pnpm bench:data`.
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { type Dataset, datasets, fileName } from "../datasets/generate.ts";
