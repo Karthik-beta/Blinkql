@@ -63,6 +63,18 @@ test.describe("Results table", () => {
     ]);
   });
 
+  test("shows arrays, enums and oddly named struct fields", async ({ page }) => {
+    // DuckDB sends an ARRAY as a fixed-size list and an ENUM dictionary-encoded.
+    await runSql(
+      page,
+      "SELECT [1, 2]::INTEGER[2] AS pair, 'b'::ENUM('a', 'b') AS letter, " +
+        "{'toString': 7, '__proto__': 8} AS struct",
+    );
+
+    const cells = results(page).getByRole("row").nth(1).getByRole("cell");
+    await expect(cells).toHaveText(["[1,2]", "b", '{"toString":7,"__proto__":8}']);
+  });
+
   test("has no detectable accessibility issues", async ({ page, makeAxeBuilder }) => {
     await runSql(page, "SELECT range AS n, NULL AS nothing FROM range(20)");
     await expect(results(page).getByRole("row")).toHaveCount(21);
