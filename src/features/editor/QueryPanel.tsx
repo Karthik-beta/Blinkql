@@ -34,7 +34,7 @@ function Summary({ run }: { run: QueryRun }) {
     case "done":
       return (
         <span>
-          {formatRows(run.table.numRows)} in {formatDuration(run.durationMs)}
+          {formatRows(run.rowCount)} in {formatDuration(run.durationMs)}
         </span>
       );
     case "failed":

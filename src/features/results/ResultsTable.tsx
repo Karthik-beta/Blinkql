@@ -1,15 +1,11 @@
 import { DataType } from "apache-arrow";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { measureSince, measures } from "@/lib/user-timing";
-import { type ResultColumn, resultColumns } from "./cells";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
+import { getResult, readCell, subscribeToResult } from "./result-store";
 
-type Results = {
-  columns: readonly ResultColumn[];
-  rowCount: number;
-  /** When the result reached the main thread, which is where its render time starts. */
-  finishedAt: number;
-};
+/** Whether the last query failed: the one thing about the query run the table depends on. */
+const lastRunFailed = () => getQueryRun().state === "failed";
 
 /** Numbers line up on the right, so their digits do too. */
 function alignment(type: DataType): string {
@@ -19,28 +15,17 @@ function alignment(type: DataType): string {
 }
 
 /**
- * The last query's result as a plain table, every row rendered.
+ * The result on screen as a plain table, every row rendered.
  *
- * Cells are read straight from the Arrow result as they render; nothing is copied into row objects
- * (P-02). The table is otherwise still the M1 baseline (#15): the result passes through React
- * state, and there's no virtualization, so very large results are slow to show. P-03 and P-04 fix
- * that against the P-01 measurements.
+ * The table renders only when the result changes or a query fails: it subscribes to the result's
+ * shape and to whether the last run failed, not to the query run, so starting the next query
+ * doesn't render it again (P-03). Cells are read from the Arrow result as they render; nothing is
+ * copied into row objects (P-02). There's no virtualization yet, so very large results are slow to
+ * show; P-04 fixes that against the P-01 measurements.
  */
 export function ResultsTable() {
-  const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
-  const [results, setResults] = useState<Results | null>(null);
-
-  useEffect(() => {
-    if (run.state === "done") {
-      const preparing = performance.now();
-      const columns = resultColumns(run.table);
-      measureSince(measures.resultsConvert, preparing);
-      setResults({ columns, rowCount: run.table.numRows, finishedAt: run.finishedAt });
-    } else if (run.state !== "running") {
-      setResults(null);
-    }
-    // Keeps the previous result on screen while the next query runs.
-  }, [run]);
+  const results = useSyncExternalStore(subscribeToResult, getResult);
+  const failed = useSyncExternalStore(subscribeToQueryRun, lastRunFailed);
 
   useEffect(() => {
     if (!results) return;
@@ -62,7 +47,7 @@ export function ResultsTable() {
       tabIndex={0}
       aria-label="Results"
       // A failed query has no results; its error panel, above, gets the room instead.
-      hidden={run.state === "failed"}
+      hidden={failed}
       className="min-h-0 flex-1 overflow-auto border-t"
     >
       {results && (
@@ -87,7 +72,7 @@ export function ResultsTable() {
               // biome-ignore lint/suspicious/noArrayIndexKey: a result's rows never reorder
               <tr key={rowIndex}>
                 {results.columns.map((column, columnIndex) => {
-                  const text = column.cell(rowIndex);
+                  const text = readCell(rowIndex, columnIndex);
                   return (
                     <td
                       // biome-ignore lint/suspicious/noArrayIndexKey: see the header row
