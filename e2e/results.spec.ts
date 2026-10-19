@@ -46,6 +46,23 @@ test.describe("Results table", () => {
     ]);
   });
 
+  test("formats values inside lists, structs and maps by their type", async ({ page }) => {
+    await runSql(
+      page,
+      "SELECT [DATE '2026-10-16', NULL] AS days, [1.5::DECIMAL(3, 1)] AS prices, " +
+        "{'at': TIMESTAMP '2026-10-16 05:47:17', 'raw': 'A\\x00'::BLOB} AS struct, " +
+        "MAP {'k': 2026} AS map",
+    );
+
+    const cells = results(page).getByRole("row").nth(1).getByRole("cell");
+    await expect(cells).toHaveText([
+      '["2026-10-16",null]',
+      "[1.5]",
+      '{"at":"2026-10-16 05:47:17","raw":"A\\\\x00"}',
+      '{"k":2026}',
+    ]);
+  });
+
   test("has no detectable accessibility issues", async ({ page, makeAxeBuilder }) => {
     await runSql(page, "SELECT range AS n, NULL AS nothing FROM range(20)");
     await expect(results(page).getByRole("row")).toHaveCount(21);
