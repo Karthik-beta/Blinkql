@@ -68,8 +68,8 @@ The dataset scenarios record, per iteration:
 | `scanMs`, `filterMs`, `groupByMs`, `joinMs`, `windowMs` | The query set (`querySet` in `scenarios/datasets.ts`). Each returns at most 40 rows, so the time is the engine's work |
 | `resultQueryMs` | `SELECT * … LIMIT 10000`: the engine's work plus transferring 10,000 rows to the main thread |
 | `resultCountMs` | The same rows counted in the engine instead, so `resultQueryMs − resultCountMs` is the cost of the transfer |
-| `resultConvertMs` | The `blinkql:results-convert` measure: the 10,000 rows copied out of Arrow into row objects |
-| `resultRenderMs` | The `blinkql:results-render` measure: the result reaching the main thread until the frame after its rows are committed (converting included) |
+| `resultConvertMs` | The `blinkql:results-convert` measure: preparing the 10,000 rows for the table. Until P-02 this copied them out of Arrow into row objects; since P-02 it only sets up a reader per column, and cells are read as they render |
+| `resultRenderMs` | The `blinkql:results-render` measure: the result reaching the main thread until the frame after its rows are committed (preparing, reading and formatting cells included) |
 | `memoryBytes`, `workerMemoryBytes` | `performance.measureUserAgentSpecificMemory()` with the 10,000 rows on screen: the whole page, and the engine's worker within it. Chromium only; left out elsewhere |
 
 Query times (`*Ms` above, except import and render) are the `blinkql:query` measure: from sending the SQL to the engine until the Arrow result is on the main thread. A CSV view reads the file again on every query, so CSV query times include parsing it.

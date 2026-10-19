@@ -65,7 +65,7 @@ export async function importFile(page: Page, path: string): Promise<number> {
 export type QueryTimings = {
   /** Sent to the engine until the Arrow result is on the main thread. */
   query: number;
-  /** Arrow result to row objects. */
+  /** Preparing the result for the table: row objects until P-02, column readers since. */
   convert: number;
   /** Result on the main thread until the frame after its rows are committed. */
   render: number;
