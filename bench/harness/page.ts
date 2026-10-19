@@ -24,8 +24,30 @@ export async function waitForMark(page: Page, name: MarkName, timeout = 30_000):
   return startTime;
 }
 
+type LongFrames = { observer: PerformanceObserver; durations: number[] };
+
+/**
+ * Runs in the page before its own scripts: records the duration of every long animation frame,
+ * one in which the main thread was busy for 50 ms or more, rendering included. Only Chromium
+ * reports them; elsewhere this records nothing.
+ *
+ * Not the Long Tasks API: Chromium leaves out tasks that run no script, so a frame spent only on
+ * style and layout, such as laying out a large table, wouldn't count.
+ */
+function recordLongFrames() {
+  if (!PerformanceObserver.supportedEntryTypes.includes("long-animation-frame")) return;
+  const durations: number[] = [];
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) durations.push(entry.duration);
+  });
+  observer.observe({ type: "long-animation-frame" });
+  const frames: LongFrames = { observer, durations };
+  Object.assign(window, { blinkqlLongFrames: frames });
+}
+
 /** Opens the workbench and waits until the engine has answered its first query. */
 export async function openWorkbench(page: Page, baseURL: string): Promise<void> {
+  await page.addInitScript(recordLongFrames);
   await page.goto(new URL("/app/", baseURL).href);
   await waitForMark(page, marks.engineReady, ENGINE_TIMEOUT);
 }
@@ -69,7 +91,34 @@ export type QueryTimings = {
   convert: number;
   /** Result on the main thread until the frame after its rows are committed. */
   render: number;
+  /**
+   * The longest animation frame from pressing Run until the rows are shown: the longest the page
+   * went without responding, rendering included. 0 if no frame took 50 ms or more; undefined where
+   * the browser doesn't report long animation frames (only Chromium does).
+   */
+  longestFrame: number | undefined;
 };
+
+/** Forgets the long animation frames recorded so far. */
+async function clearLongFrames(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const frames = (window as { blinkqlLongFrames?: LongFrames }).blinkqlLongFrames;
+    if (!frames) return;
+    frames.observer.takeRecords();
+    frames.durations.length = 0;
+  });
+}
+
+/** The longest frame recorded since `clearLongFrames()`, or undefined if the browser can't tell. */
+async function longestFrame(page: Page): Promise<number | undefined> {
+  return page.evaluate(() => {
+    const frames = (window as { blinkqlLongFrames?: LongFrames }).blinkqlLongFrames;
+    if (!frames) return undefined;
+    // Entries the observer hasn't delivered yet, such as the frame that just ended.
+    const pending = frames.observer.takeRecords().map((entry) => entry.duration);
+    return Math.max(0, ...frames.durations, ...pending);
+  });
+}
 
 /** Types `sql` into the editor, replacing what's there, runs it and waits for its rows to show. */
 export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
@@ -78,6 +127,7 @@ export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
   await page.keyboard.press("ControlOrMeta+A");
   // insertText, not type: the editor's bracket and quote auto-closing would mangle typed SQL.
   await page.keyboard.insertText(sql);
+  await clearLongFrames(page);
   await page.keyboard.press("ControlOrMeta+Enter");
   const render = await waitForMeasure(page, measures.resultsRender);
   const [query, convert] = await page.evaluate(
@@ -87,7 +137,7 @@ export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
   if (query === undefined || convert === undefined) {
     throw new Error("The results rendered without query and convert measures");
   }
-  return { query, convert, render };
+  return { query, convert, render, longestFrame: await longestFrame(page) };
 }
 
 export type MemoryUse = {
