@@ -67,7 +67,10 @@ function formatBytes(bytes: Uint8Array): string {
   return text;
 }
 
-/** JSON for lists, structs and maps. 64-bit integers too big for a number become strings. */
+/**
+ * Plain JSON, for values of types without a format of their own (unions, for example). 64-bit
+ * integers too big for a number become strings.
+ */
 function toJson(value: unknown): string {
   return JSON.stringify(value, (_key, item) => {
     if (typeof item !== "bigint") return item;
@@ -88,8 +91,71 @@ function formatAny(value: unknown): string {
   return String(value);
 }
 
+/** Turns one non-null value of an Arrow type into JSON, for a value inside a list, struct or map. */
+type JsonWriter = (value: unknown) => string;
+
+/** The same writer, also accepting null. */
+function nullable(write: JsonWriter): JsonWriter {
+  return (value) => (value === null || value === undefined ? "null" : write(value));
+}
+
+/**
+ * The JSON writer for values of `type` inside a list, struct or map. Nested values are formatted by
+ * their own type, like top-level cells: dates as "2026-10-16" rather than milliseconds, decimals
+ * with their scale and BLOBs as \xHH escapes. Numbers stay JSON numbers, written in full.
+ */
+function jsonWriterFor(type: DataType): JsonWriter {
+  if (DataType.isDictionary(type)) return jsonWriterFor(type.dictionary);
+  if (DataType.isList(type) || DataType.isFixedSizeList(type)) {
+    const writeItem = nullable(jsonWriterFor(type.valueType));
+    // A list value is an Arrow vector, which iterates its items.
+    return (value) =>
+      `[${Array.from(value as Iterable<unknown>, (item) => writeItem(item)).join(",")}]`;
+  }
+  if (DataType.isStruct(type)) {
+    const fields = type.children.map((field) => ({
+      name: field.name,
+      key: JSON.stringify(field.name),
+      write: nullable(jsonWriterFor(field.type)),
+    }));
+    return (value) => {
+      // A struct value is an Arrow StructRow, which reads its fields by name.
+      const row = value as Record<string, unknown>;
+      return `{${fields.map(({ name, key, write }) => `${key}:${write(row[name])}`).join(",")}}`;
+    };
+  }
+  if (DataType.isMap(type)) {
+    const formatKey = formatterFor(type.keyType);
+    const writeValue = nullable(jsonWriterFor(type.valueType));
+    // A map value is an Arrow MapRow, which iterates [key, value] pairs. JSON keys are strings.
+    return (value) =>
+      `{${Array.from(
+        value as Iterable<[unknown, unknown]>,
+        ([key, item]) => `${JSON.stringify(formatKey(key))}:${writeValue(item)}`,
+      ).join(",")}}`;
+  }
+  // Integers (64-bit ones in full) and decimals are already valid JSON numbers.
+  if (DataType.isInt(type) || DataType.isDecimal(type)) return formatterFor(type);
+  if (DataType.isFloat(type)) {
+    // JSON has no NaN or Infinity, so those become strings.
+    return (value) =>
+      typeof value === "number" && !Number.isFinite(value) ? `"${value}"` : String(value);
+  }
+  const format = formatterFor(type);
+  return format === formatAny ? toJson : (value) => JSON.stringify(format(value));
+}
+
 /** The formatter for values of `type`, chosen once per column rather than once per cell. */
 function formatterFor(type: DataType): Formatter {
+  if (DataType.isDictionary(type)) return formatterFor(type.dictionary);
+  if (
+    DataType.isList(type) ||
+    DataType.isFixedSizeList(type) ||
+    DataType.isStruct(type) ||
+    DataType.isMap(type)
+  ) {
+    return jsonWriterFor(type);
+  }
   if (DataType.isDate(type)) {
     return (value) =>
       typeof value === "number" ? formatTimestamp(value).slice(0, 10) : formatAny(value);
@@ -108,7 +174,7 @@ function formatterFor(type: DataType): Formatter {
     const { scale } = type;
     return (value) => formatDecimal(String(value), scale);
   }
-  if (DataType.isBinary(type) || DataType.isFixedSizeBinary(type)) {
+  if (DataType.isBinary(type) || DataType.isLargeBinary(type) || DataType.isFixedSizeBinary(type)) {
     return (value) => (value instanceof Uint8Array ? formatBytes(value) : formatAny(value));
   }
   return formatAny;

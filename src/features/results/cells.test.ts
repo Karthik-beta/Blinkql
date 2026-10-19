@@ -4,11 +4,13 @@ import {
   type DataType,
   DateDay,
   Decimal,
+  Dictionary,
   Field,
   Float64,
   Int32,
   Int64,
   List,
+  Map_,
   makeData,
   makeVector,
   RecordBatch,
@@ -23,6 +25,10 @@ import {
 } from "apache-arrow";
 import { describe, expect, it } from "vitest";
 import { formatCell, toRowObjects } from "./cells";
+
+function listOf<T extends DataType>(type: T) {
+  return new List(new Field("item", type));
+}
 
 /** The first value of a one-element vector, with its type. */
 function first<T extends DataType>(values: unknown[], type: T) {
@@ -112,11 +118,67 @@ describe("formatCell", () => {
     expect(formatCell(...first([bytes], new Binary()))).toBe("A\\x00\\xFF\\x5C");
   });
 
-  it("shows lists and structs as JSON", () => {
-    expect(formatCell(...first([[1, 2]], new List(new Field("item", new Int32()))))).toBe("[1,2]");
+  it("shows lists, structs and maps as JSON", () => {
+    expect(formatCell(...first([[1, null, 2]], listOf(new Int32())))).toBe("[1,null,2]");
     const struct = new Struct([new Field("a", new Int64()), new Field("b", new Utf8())]);
     expect(formatCell(...first([{ a: 2n ** 60n, b: "x" }], struct))).toBe(
-      '{"a":"1152921504606846976","b":"x"}',
+      '{"a":1152921504606846976,"b":"x"}',
     );
+    const map = new Map_<Utf8, Int32>(
+      new Field(
+        "entries",
+        new Struct([new Field("key", new Utf8(), false), new Field("value", new Int32())]),
+      ),
+    );
+    expect(formatCell(...first([new Map([["k", 1]])], map))).toBe('{"k":1}');
+  });
+
+  it("formats values inside lists, structs and maps by their own type", () => {
+    const day = Date.UTC(2026, 9, 16);
+    expect(formatCell(...first([[new Date(day)]], listOf(new DateDay())))).toBe('["2026-10-16"]');
+
+    const struct = new Struct([
+      new Field("at", new TimestampMillisecond()),
+      new Field("bytes", new Binary()),
+      new Field("ratio", new Float64()),
+    ]);
+    expect(
+      formatCell(
+        ...first(
+          [{ at: day + 5_237_000, bytes: new Uint8Array([0x41, 0x00]), ratio: NaN }],
+          struct,
+        ),
+      ),
+    ).toBe('{"at":"2026-10-16 01:27:17","bytes":"A\\\\x00","ratio":"NaN"}');
+
+    const nested = listOf(new Struct([new Field("days", listOf(new DateDay()))]));
+    expect(formatCell(...first([[{ days: [new Date(day), null] }]], nested))).toBe(
+      '[{"days":["2026-10-16",null]}]',
+    );
+  });
+
+  it("writes decimals inside a list with their scale", () => {
+    const type = new Decimal(2, 18, 128);
+    const words = new Uint32Array(8);
+    new BigInt64Array(words.buffer)[0] = 12345n;
+    new BigInt64Array(words.buffer)[2] = -5n;
+    new BigInt64Array(words.buffer)[3] = -1n;
+    const decimals = makeData({ type, length: 2, nullCount: 0, data: words });
+    const list = makeVector(
+      makeData({
+        type: listOf(type),
+        length: 1,
+        nullCount: 0,
+        valueOffsets: new Int32Array([0, 2]),
+        child: decimals,
+      }),
+    );
+
+    expect(formatCell(list.get(0), list.type)).toBe("[123.45,-0.05]");
+  });
+
+  it("shows a dictionary-encoded column (a DuckDB ENUM) by its values", () => {
+    const vector = vectorFromArray(["RUN", "IDLE"], new Dictionary(new Utf8(), new Int32()));
+    expect(formatCell(vector.get(1), vector.type)).toBe("IDLE");
   });
 });
