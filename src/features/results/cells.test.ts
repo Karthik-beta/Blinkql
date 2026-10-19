@@ -5,10 +5,13 @@ import {
   DateDay,
   Decimal,
   Dictionary,
+  DurationMillisecond,
   Field,
+  FixedSizeList,
   Float64,
   Int32,
   Int64,
+  LargeBinary,
   List,
   Map_,
   makeData,
@@ -90,9 +93,10 @@ describe("resultColumns", () => {
     expect([0, 1, 2, 3, 4].map((row) => id?.cell(row))).toEqual(["1", "2", "3", "4", "5"]);
   });
 
-  it("has a column but no cells for an empty result", () => {
-    const [id] = resultColumns(new Table({ id: vectorFromArray([], new Int32()) }));
-    expect(id?.name).toBe("id");
+  it("has a column but no rows for an empty result", () => {
+    const table = new Table({ id: vectorFromArray([], new Int32()) });
+    expect(resultColumns(table).map((column) => column.name)).toEqual(["id"]);
+    expect(table.numRows).toBe(0);
   });
 });
 
@@ -172,6 +176,68 @@ describe("cell formatting", () => {
     expect(cell([[{ days: [new Date(day), null] }]], nested)).toBe(
       '[{"days":["2026-10-16",null]}]',
     );
+  });
+
+  it("reads struct fields by position, whatever they're called", () => {
+    // Names that are also properties of Arrow's StructRow, and a name used twice.
+    const names = ["toString", "constructor", "__proto__", "x", "x"];
+    const fields = names.map((name) => new Field(name, new Int32()));
+    const struct = makeData({
+      type: new Struct(fields),
+      length: 1,
+      nullCount: 0,
+      children: names.map((_, index) =>
+        makeData({ type: new Int32(), data: Int32Array.of(index + 1) }),
+      ),
+    });
+
+    expect(firstCell(makeVector(struct))).toBe(
+      '{"toString":1,"constructor":2,"__proto__":3,"x":4,"x":5}',
+    );
+  });
+
+  it("writes fixed-size lists, empty lists and infinite floats as JSON", () => {
+    const pair = makeData({
+      type: new FixedSizeList(2, new Field("item", new Int32())),
+      length: 1,
+      nullCount: 0,
+      child: makeData({ type: new Int32(), data: Int32Array.of(1, 2) }),
+    });
+    expect(firstCell(makeVector(pair))).toBe("[1,2]");
+    expect(cell([[]], listOf(new Int32()))).toBe("[]");
+    expect(cell([[Infinity, -Infinity, 0.5]], listOf(new Float64()))).toBe(
+      '["Infinity","-Infinity",0.5]',
+    );
+  });
+
+  it("writes durations inside a list as numbers, in full", () => {
+    expect(cell([[5n, 2n ** 60n]], listOf(new DurationMillisecond()))).toBe(
+      "[5,1152921504606846976]",
+    );
+  });
+
+  it("writes map keys of any type as JSON strings, and null values as null", () => {
+    const map = new Map_<Int32, Utf8>(
+      new Field(
+        "entries",
+        new Struct([new Field("key", new Int32(), false), new Field("value", new Utf8())]),
+      ),
+    );
+    expect(
+      cell(
+        [
+          new Map([
+            [1, "a"],
+            [2, null],
+          ]),
+        ],
+        map,
+      ),
+    ).toBe('{"1":"a","2":null}');
+  });
+
+  it("shows large binary values the way DuckDB writes a BLOB", () => {
+    expect(cell([new Uint8Array([0x41, 0x00])], new LargeBinary())).toBe("A\\x00");
   });
 
   it("writes decimals inside a list with their scale", () => {

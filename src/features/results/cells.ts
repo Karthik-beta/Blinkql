@@ -118,16 +118,18 @@ function jsonWriterFor(type: DataType): JsonWriter {
       `[${Array.from(value as Iterable<unknown>, (item) => writeItem(item)).join(",")}]`;
   }
   if (DataType.isStruct(type)) {
-    const fields = type.children.map((field) => ({
-      name: field.name,
-      key: JSON.stringify(field.name),
-      write: nullable(jsonWriterFor(field.type)),
-    }));
-    return (value) => {
-      // A struct value is an Arrow StructRow, which reads its fields by name.
-      const row = value as Record<string, unknown>;
-      return `{${fields.map(({ name, key, write }) => `${key}:${write(row[name])}`).join(",")}}`;
-    };
+    const writeFields = type.children.map((field) => {
+      const key = JSON.stringify(field.name);
+      const write = nullable(jsonWriterFor(field.type));
+      return (item: unknown) => `${key}:${write(item)}`;
+    });
+    // A struct value is an Arrow StructRow, which iterates [name, value] pairs in field order.
+    // Reading fields by name instead would go through StructRow's proxy, where its own methods win
+    // over fields of the same name (toString, constructor, __proto__) and duplicate names clash.
+    return (value) =>
+      `{${Array.from(value as Iterable<[string, unknown]>, ([, item], index) =>
+        writeFields[index]?.(item),
+      ).join(",")}}`;
   }
   if (DataType.isMap(type)) {
     const formatKey = formatterFor(type.keyType);
@@ -139,8 +141,10 @@ function jsonWriterFor(type: DataType): JsonWriter {
         ([key, item]) => `${JSON.stringify(formatKey(key))}:${writeValue(item)}`,
       ).join(",")}}`;
   }
-  // Integers (64-bit ones in full) and decimals are already valid JSON numbers.
-  if (DataType.isInt(type) || DataType.isDecimal(type)) return formatterFor(type);
+  // Integers (64-bit ones in full), durations and decimals are already valid JSON numbers.
+  if (DataType.isInt(type) || DataType.isDuration(type) || DataType.isDecimal(type)) {
+    return formatterFor(type);
+  }
   if (DataType.isFloat(type)) {
     // JSON has no NaN or Infinity, so those become strings.
     return (value) =>
