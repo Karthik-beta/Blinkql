@@ -62,6 +62,9 @@ const selected = args.scenario
 const requestedModes = args.mode?.map((m) =>
   modes.includes(m as Mode) ? (m as Mode) : usage(`Unknown mode "${m}"`),
 );
+if (reactProfiling && args.url) {
+  usage("BLINKQL_REACT_PROFILING=1 needs the local profiling build; it can't be used with --url");
+}
 const browserName = args.browser as keyof typeof browserTypes;
 const browserType = browserTypes[browserName] ?? usage(`Unknown browser "${args.browser}"`);
 const iterations = {

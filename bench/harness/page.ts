@@ -167,6 +167,13 @@ export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
     throw new Error("The results rendered without query and convert measures");
   }
   const commits = reactProfiling ? await resultsCommits(page) : undefined;
+  // Every query shows a new result, so the table renders at least once.
+  if (commits?.length === 0) {
+    throw new Error(
+      "BLINKQL_REACT_PROFILING=1, but the results table reported no renders, so the build under " +
+        "test isn't React's profiling build. Run it through `pnpm bench`, which builds it.",
+    );
+  }
   return {
     query,
     convert,
