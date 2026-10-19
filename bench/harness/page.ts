@@ -3,6 +3,12 @@
 import type { Page } from "@playwright/test";
 import { type MarkName, type MeasureName, marks, measures } from "../../src/lib/user-timing.ts";
 
+/**
+ * Whether the build under test is React's profiling build (`BLINKQL_REACT_PROFILING=1`, which
+ * vite.config.ts reads too). Only that build reports renders of the results table.
+ */
+export const reactProfiling = process.env.BLINKQL_REACT_PROFILING === "1";
+
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
 // A naive import or query over a 1M-row, 50-column CSV can take minutes.
@@ -97,6 +103,12 @@ export type QueryTimings = {
    * the browser doesn't report long animation frames (only Chromium does).
    */
   longestFrame: number | undefined;
+  /**
+   * In React's profiling build only: how many times React rendered the results table from
+   * pressing Run until the rows are shown, and the time it spent doing so.
+   */
+  resultsCommits: number | undefined;
+  resultsReactMs: number | undefined;
 };
 
 /** Forgets the long animation frames recorded so far. */
@@ -137,7 +149,27 @@ export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
   if (query === undefined || convert === undefined) {
     throw new Error("The results rendered without query and convert measures");
   }
-  return { query, convert, render, longestFrame: await longestFrame(page) };
+  const commits = reactProfiling ? await resultsCommits(page) : undefined;
+  return {
+    query,
+    convert,
+    render,
+    longestFrame: await longestFrame(page),
+    resultsCommits: commits?.length,
+    resultsReactMs: commits?.reduce((sum, duration) => sum + duration, 0),
+  };
+}
+
+/** How long each render of the results table took, since the measures were cleared. */
+async function resultsCommits(page: Page): Promise<number[]> {
+  return page.evaluate(
+    (name) =>
+      performance
+        .getEntriesByName(name, "measure")
+        .filter((entry) => (entry as PerformanceMeasure).detail?.id === "results")
+        .map((entry) => entry.duration),
+    measures.reactCommit,
+  );
 }
 
 export type MemoryUse = {

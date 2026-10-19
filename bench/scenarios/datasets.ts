@@ -63,10 +63,14 @@ function datasetScenario(dataset: Dataset): Scenario {
       resultConvertMs: "ms",
       resultRenderMs: "ms",
       resultLongestFrameMs: "ms",
+      resultCommits: "count",
+      resultReactMs: "ms",
       memoryBytes: "bytes",
       workerMemoryBytes: "bytes",
       nextQueryRenderMs: "ms",
       nextQueryLongestFrameMs: "ms",
+      nextQueryCommits: "count",
+      nextQueryReactMs: "ms",
       nextQueryMemoryBytes: "bytes",
     },
     async run(page, baseURL) {
@@ -95,6 +99,8 @@ function datasetScenario(dataset: Dataset): Scenario {
       values.resultConvertMs = result.convert;
       values.resultRenderMs = result.render;
       values.resultLongestFrameMs = result.longestFrame;
+      values.resultCommits = result.resultsCommits;
+      values.resultReactMs = result.resultsReactMs;
 
       // Taken with the large result on screen, which is when the naive table holds the most.
       const memory = await measureMemory(page);
@@ -106,6 +112,8 @@ function datasetScenario(dataset: Dataset): Scenario {
       const next = await runQuery(page, querySet.scan(t));
       values.nextQueryRenderMs = next.render;
       values.nextQueryLongestFrameMs = next.longestFrame;
+      values.nextQueryCommits = next.resultsCommits;
+      values.nextQueryReactMs = next.resultsReactMs;
       values.nextQueryMemoryBytes = (await measureMemory(page))?.total;
       return values;
     },

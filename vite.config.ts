@@ -6,6 +6,11 @@ import { headersOnEveryResponse } from "./scripts/headers.ts";
 import { duckdbExtensions } from "./src/engine/vite-plugin.ts";
 import { landingPage } from "./src/landing/vite-plugin.ts";
 
+// `BLINKQL_REACT_PROFILING=1 pnpm bench` builds with React's profiling build, so <Profiler>s report
+// renders in production too (bench/README.md). It's slower, so its results aren't compared with
+// those of a normal build.
+const reactProfiling = process.env.BLINKQL_REACT_PROFILING === "1";
+
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), landingPage(), duckdbExtensions(), headersOnEveryResponse()],
@@ -21,6 +26,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      ...(reactProfiling && { "react-dom/client": "react-dom/profiling" }),
     },
   },
   // Both servers send the same isolation and security headers as production (vercel.json),

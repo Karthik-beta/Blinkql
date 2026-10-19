@@ -74,10 +74,19 @@ The dataset scenarios record, per iteration:
 | `resultLongestFrameMs` | The longest animation frame from pressing Run until the 10,000 rows are shown, or 0 if none took 50 ms or more: the longest the page went without responding, style, layout and paint included. Chromium only (the Long Animation Frames API; the Long Tasks API leaves out tasks that run no script, such as a frame spent laying out the table) |
 | `nextQueryRenderMs`, `nextQueryLongestFrameMs` | The same two measures for a one-row query (`scan`) run next, while the 10,000 rows are still on screen: what a large result costs the UI while it is replaced |
 | `nextQueryMemoryBytes` | The page's memory after that query, once the 10,000 rows have been replaced. Chromium only |
+| `resultCommits`, `resultReactMs`, `nextQueryCommits`, `nextQueryReactMs` | React's profiling build only (see below): how many times React rendered the results table in each of those two steps, and the total time it spent rendering it (the `<Profiler>`'s `actualDuration`) |
 
 Query times (`*Ms` above, except import and render) are the `blinkql:query` measure: from sending the SQL to the engine until the Arrow result is on the main thread. A CSV view reads the file again on every query, so CSV query times include parsing it.
 
 Chromium runs as the full browser in headless mode (`channel: "chromium"`) rather than Playwright's default headless shell, which lacks the memory API.
+
+### React's profiling build
+
+```bash
+BLINKQL_REACT_PROFILING=1 pnpm bench --scenario dataset-s-wide-parquet
+```
+
+builds the app with React's profiling build (`react-dom/profiling`), in which the `<Profiler>` around the results table (`src/app/App.tsx`) reports every render as a `blinkql:react-commit` measure. The dataset scenarios then also record the `*Commits` and `*ReactMs` metrics above. Profiling makes React slower, so compare a profiling run only with another profiling run; the result file says which it is (`config.reactProfiling`).
 
 To add a scenario, create `bench/scenarios/<name>.ts` exporting a `Scenario` (`bench/harness/types.ts`) and add it to `scenarios/index.ts`; `harness/page.ts` has helpers that drive the workbench. The app records marks and measures through `src/lib/user-timing.ts`. Their names and scenario names are compared across commits, so don't rename them.
 
@@ -96,7 +105,7 @@ To add a scenario, create `bench/scenarios/<name>.ts` exporting a `Scenario` (`b
     "browser": { "name": "chromium", "version": "156.0.8078.4" },
     "ci": false
   },
-  "config": { "warmup": 3, "measured": 10, "target": "local-preview", "url": null },
+  "config": { "warmup": 3, "measured": 10, "target": "local-preview", "url": null, "reactProfiling": false },
   "results": [
     {
       "scenario": "time-to-app-shell",

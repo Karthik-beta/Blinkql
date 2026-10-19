@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { markOnce, marks, measureSince, measures } from "./user-timing";
+import { markOnce, marks, measureSince, measures, recordCommit } from "./user-timing";
 
 describe("markOnce", () => {
   afterEach(() => {
@@ -40,5 +40,22 @@ describe("measureSince", () => {
     measureSince(measures.query, performance.now());
 
     expect(performance.getEntriesByName(measures.query, "measure")).toHaveLength(2);
+  });
+});
+
+describe("recordCommit", () => {
+  afterEach(() => {
+    performance.clearMeasures();
+  });
+
+  it("records how long React rendered the profiled tree, and which tree", () => {
+    recordCommit("results", "update", 12.5, 30, 100, 115);
+
+    const [entry] = performance.getEntriesByName(measures.reactCommit, "measure");
+    expect(entry).toMatchObject({
+      startTime: 100,
+      duration: 12.5,
+      detail: { id: "results", phase: "update" },
+    });
   });
 });
