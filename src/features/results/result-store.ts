@@ -1,6 +1,6 @@
-// The result on screen. Its Arrow table stays here, outside React (ADR-004): components subscribe
-// to a small description of it (row count and columns) and read each cell from here as they render
-// it, so React never holds the data.
+// The result on screen. Its data stays here, outside React (ADR-004), as one reader per column over
+// the Arrow vectors: components subscribe to a small description of it (row count and columns) and
+// read each cell from here as they render it, so React never holds the data.
 import type { DataType, Table } from "apache-arrow";
 import { measureSince, measures } from "@/lib/user-timing";
 import { type ResultColumn, resultColumns } from "./cells";
@@ -56,7 +56,13 @@ export function clearResult(): void {
   notify();
 }
 
-/** The text of a cell of the result on screen, or null for SQL `NULL`. */
+/**
+ * The text of a cell of the result on screen, or null for SQL `NULL`.
+ *
+ * Reads the current result, not a given snapshot. That's safe while the table renders through
+ * useSyncExternalStore, whose renders are synchronous and see the result they render. A render
+ * React can interrupt, such as one in a transition, could see a newer result than it was given.
+ */
 export function readCell(rowIndex: number, columnIndex: number): string | null {
   const column = readers[columnIndex];
   if (!column) throw new RangeError(`The result has no column ${columnIndex}`);
