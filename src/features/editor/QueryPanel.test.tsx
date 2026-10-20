@@ -1,5 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { tableFromArrays } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "@/features/results/query-run";
 import { QueryPanel } from "./QueryPanel";
@@ -60,7 +61,7 @@ describe("QueryPanel", () => {
     expect(screen.getByText("Running…")).toBeInTheDocument();
 
     await act(async () => {
-      engine.finish({ numRows: 40 });
+      engine.finish(tableFromArrays({ n: Int32Array.from({ length: 40 }, (_, i) => i) }));
       await running;
     });
     expect(screen.getByRole("button", { name: "Run" })).toHaveAttribute("aria-disabled", "false");

@@ -4,6 +4,7 @@
 //   pnpm bench --scenario time-to-app-shell --mode warm
 //   pnpm bench --browser firefox --iterations 20
 //   pnpm bench --url https://blinkql.vercel.app   benchmark a deployment instead of a local preview
+//   BLINKQL_REACT_PROFILING=1 pnpm bench          React's profiling build, which counts renders
 //
 // Method (see the Performance & Benchmarks wiki page): 3 warm-up and 10 measured iterations per
 // scenario and mode, median and p95 reported, raw samples kept.
@@ -14,6 +15,7 @@ import { chromium, firefox, webkit } from "@playwright/test";
 import { preview } from "vite";
 import { describeCommit, describeEnvironment } from "./harness/environment.ts";
 import { measure, type ScenarioResult } from "./harness/measure.ts";
+import { reactProfiling } from "./harness/page.ts";
 import type { Mode } from "./harness/types.ts";
 import { scenarios } from "./scenarios/index.ts";
 
@@ -60,6 +62,9 @@ const selected = args.scenario
 const requestedModes = args.mode?.map((m) =>
   modes.includes(m as Mode) ? (m as Mode) : usage(`Unknown mode "${m}"`),
 );
+if (reactProfiling && args.url) {
+  usage("BLINKQL_REACT_PROFILING=1 needs the local profiling build; it can't be used with --url");
+}
 const browserName = args.browser as keyof typeof browserTypes;
 const browserType = browserTypes[browserName] ?? usage(`Unknown browser "${args.browser}"`);
 const iterations = {
@@ -104,7 +109,12 @@ try {
     timestamp,
     commit,
     environment: describeEnvironment(browser),
-    config: { ...iterations, target: args.url ? "url" : "local-preview", url: args.url ?? null },
+    config: {
+      ...iterations,
+      target: args.url ? "url" : "local-preview",
+      url: args.url ?? null,
+      reactProfiling,
+    },
     results,
   };
   mkdirSync(args.out, { recursive: true });

@@ -1,5 +1,6 @@
-// One scenario per benchmark dataset: import the file, run the query set, show a large result and
-// measure memory, all through the UI. Generate the files first with `pnpm bench:data`.
+// One scenario per benchmark dataset: import the file, run the query set, show a large result,
+// measure memory and run one more query with that result on screen, all through the UI. Generate
+// the files first with `pnpm bench:data`.
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { type Dataset, datasets, fileName } from "../datasets/generate.ts";
@@ -47,7 +48,7 @@ function datasetScenario(dataset: Dataset): Scenario {
   const t = tableName(dataset);
   return {
     name: `dataset-${file.replace(/^telemetry-/, "").replace(".", "-")}`,
-    description: `${file}: import, the query set, a ${RESULT_ROWS.toLocaleString("en")}-row result and memory, through the UI with the engine cached.`,
+    description: `${file}: import, the query set, a ${RESULT_ROWS.toLocaleString("en")}-row result, memory and a query after it, through the UI with the engine cached.`,
     // The engine download is measured by time-to-engine-ready; here it would only add noise.
     modes: ["warm"],
     metrics: {
@@ -62,8 +63,16 @@ function datasetScenario(dataset: Dataset): Scenario {
       resultCountMs: "ms",
       resultConvertMs: "ms",
       resultRenderMs: "ms",
+      resultLongestFrameMs: "ms",
+      resultCommits: "count",
+      resultReactMs: "ms",
       memoryBytes: "bytes",
       workerMemoryBytes: "bytes",
+      nextQueryRenderMs: "ms",
+      nextQueryLongestFrameMs: "ms",
+      nextQueryCommits: "count",
+      nextQueryReactMs: "ms",
+      nextQueryMemoryBytes: "bytes",
     },
     async run(page, baseURL) {
       const path = join(DATA_DIR, file);
@@ -90,11 +99,23 @@ function datasetScenario(dataset: Dataset): Scenario {
       values.resultQueryMs = result.query;
       values.resultConvertMs = result.convert;
       values.resultRenderMs = result.render;
+      values.resultLongestFrameMs = result.longestFrame;
+      values.resultCommits = result.resultsCommits;
+      values.resultReactMs = result.resultsReactMs;
 
       // Taken with the large result on screen, which is when the naive table holds the most.
       const memory = await measureMemory(page);
       values.memoryBytes = memory?.total;
       values.workerMemoryBytes = memory?.worker;
+
+      // A one-row query with the large result still on screen: what that result costs the UI
+      // while the next query runs and replaces it, and whether its memory is given back.
+      const next = await runQuery(page, querySet.scan(t));
+      values.nextQueryRenderMs = next.render;
+      values.nextQueryLongestFrameMs = next.longestFrame;
+      values.nextQueryCommits = next.resultsCommits;
+      values.nextQueryReactMs = next.resultsReactMs;
+      values.nextQueryMemoryBytes = (await measureMemory(page))?.total;
       return values;
     },
   };

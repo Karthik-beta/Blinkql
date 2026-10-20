@@ -3,6 +3,12 @@
 import type { Page } from "@playwright/test";
 import { type MarkName, type MeasureName, marks, measures } from "../../src/lib/user-timing.ts";
 
+/**
+ * Whether the build under test is React's profiling build (`BLINKQL_REACT_PROFILING=1`, which
+ * vite.config.ts reads too). Only that build reports renders of the results table.
+ */
+export const reactProfiling = process.env.BLINKQL_REACT_PROFILING === "1";
+
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
 // A naive import or query over a 1M-row, 50-column CSV can take minutes.
@@ -24,8 +30,39 @@ export async function waitForMark(page: Page, name: MarkName, timeout = 30_000):
   return startTime;
 }
 
+type LongFrames = {
+  observer: PerformanceObserver;
+  entries: { startTime: number; duration: number }[];
+  /** When the frames were last cleared (a `performance.now()` time). */
+  since: number;
+};
+
+/**
+ * Runs in the page before its own scripts: records the duration of every long animation frame,
+ * one in which the main thread was busy for 50 ms or more, rendering included. Only Chromium
+ * reports them; elsewhere this records nothing.
+ *
+ * Not the Long Tasks API: Chromium leaves out tasks that run no script, so a frame spent only on
+ * style and layout, such as laying out a large table, wouldn't count.
+ */
+function recordLongFrames() {
+  if (!PerformanceObserver.supportedEntryTypes.includes("long-animation-frame")) return;
+  const frames: LongFrames = {
+    observer: new PerformanceObserver((list) => {
+      for (const { startTime, duration } of list.getEntries()) {
+        frames.entries.push({ startTime, duration });
+      }
+    }),
+    entries: [],
+    since: 0,
+  };
+  frames.observer.observe({ type: "long-animation-frame" });
+  Object.assign(window, { blinkqlLongFrames: frames });
+}
+
 /** Opens the workbench and waits until the engine has answered its first query. */
 export async function openWorkbench(page: Page, baseURL: string): Promise<void> {
+  await page.addInitScript(recordLongFrames);
   await page.goto(new URL("/app/", baseURL).href);
   await waitForMark(page, marks.engineReady, ENGINE_TIMEOUT);
 }
@@ -69,7 +106,48 @@ export type QueryTimings = {
   convert: number;
   /** Result on the main thread until the frame after its rows are committed. */
   render: number;
+  /**
+   * The longest animation frame from pressing Run until the rows are shown: the longest the page
+   * went without responding, rendering included. 0 if no frame took 50 ms or more; undefined where
+   * the browser doesn't report long animation frames (only Chromium does).
+   */
+  longestFrame: number | undefined;
+  /**
+   * In React's profiling build only: how many times React rendered the results table while the
+   * query was typed, run and shown, and the time it spent doing so.
+   */
+  resultsCommits: number | undefined;
+  resultsReactMs: number | undefined;
 };
+
+/** Starts counting long animation frames from now. */
+async function clearLongFrames(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const frames = (window as { blinkqlLongFrames?: LongFrames }).blinkqlLongFrames;
+    if (!frames) return;
+    frames.observer.takeRecords();
+    frames.entries.length = 0;
+    frames.since = performance.now();
+  });
+}
+
+/**
+ * The longest frame that ended after `clearLongFrames()`, or undefined if the browser can't tell.
+ * Chromium reports a frame some time after it ends, so one that ended just before the clear, such
+ * as typing the SQL, can still arrive after it; its end time gives it away.
+ */
+async function longestFrame(page: Page): Promise<number | undefined> {
+  return page.evaluate(() => {
+    const frames = (window as { blinkqlLongFrames?: LongFrames }).blinkqlLongFrames;
+    if (!frames) return undefined;
+    // Entries the observer hasn't delivered yet, such as the frame that just ended.
+    const entries = [...frames.entries, ...frames.observer.takeRecords()];
+    const durations = entries
+      .filter((entry) => entry.startTime + entry.duration > frames.since)
+      .map((entry) => entry.duration);
+    return Math.max(0, ...durations);
+  });
+}
 
 /** Types `sql` into the editor, replacing what's there, runs it and waits for its rows to show. */
 export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
@@ -78,6 +156,7 @@ export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
   await page.keyboard.press("ControlOrMeta+A");
   // insertText, not type: the editor's bracket and quote auto-closing would mangle typed SQL.
   await page.keyboard.insertText(sql);
+  await clearLongFrames(page);
   await page.keyboard.press("ControlOrMeta+Enter");
   const render = await waitForMeasure(page, measures.resultsRender);
   const [query, convert] = await page.evaluate(
@@ -87,7 +166,34 @@ export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
   if (query === undefined || convert === undefined) {
     throw new Error("The results rendered without query and convert measures");
   }
-  return { query, convert, render };
+  const commits = reactProfiling ? await resultsCommits(page) : undefined;
+  // Every query shows a new result, so the table renders at least once.
+  if (commits?.length === 0) {
+    throw new Error(
+      "BLINKQL_REACT_PROFILING=1, but the results table reported no renders, so the build under " +
+        "test isn't React's profiling build. Run it through `pnpm bench`, which builds it.",
+    );
+  }
+  return {
+    query,
+    convert,
+    render,
+    longestFrame: await longestFrame(page),
+    resultsCommits: commits?.length,
+    resultsReactMs: commits?.reduce((sum, duration) => sum + duration, 0),
+  };
+}
+
+/** How long each render of the results table took, since the measures were cleared. */
+async function resultsCommits(page: Page): Promise<number[]> {
+  return page.evaluate(
+    (name) =>
+      performance
+        .getEntriesByName(name, "measure")
+        .filter((entry) => (entry as PerformanceMeasure).detail?.id === "results")
+        .map((entry) => entry.duration),
+    measures.reactCommit,
+  );
 }
 
 export type MemoryUse = {

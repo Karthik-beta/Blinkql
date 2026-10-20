@@ -1,11 +1,19 @@
 import { act, render, screen, within } from "@testing-library/react";
 import { Int32, Table, Utf8, vectorFromArray } from "apache-arrow";
+import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "./query-run";
 import { ResultsTable } from "./ResultsTable";
+import { readCell } from "./result-store";
 
 const engine = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/engine/engine", () => engine);
+
+// The real store, with cell reads counted.
+vi.mock("./result-store", async (importOriginal) => {
+  const store = await importOriginal<typeof import("./result-store")>();
+  return { ...store, readCell: vi.fn(store.readCell) };
+});
 
 const machines = new Table({
   id: vectorFromArray([1, 2, 3], new Int32()),
@@ -69,6 +77,44 @@ describe("ResultsTable", () => {
 
     expect(screen.getByRole("columnheader", { name: "id" })).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(1);
+  });
+
+  it("renders once per result, not when the next query starts or while it runs", async () => {
+    const onRender = vi.fn();
+    render(
+      <Profiler id="results" onRender={onRender}>
+        <ResultsTable />
+      </Profiler>,
+    );
+    await run(machines);
+    onRender.mockClear();
+
+    let finish!: (table: Table) => void;
+    engine.query.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    let next!: Promise<void>;
+    act(() => {
+      next = runQuery("SELECT 7 AS n");
+    });
+    // The previous result stays on screen, untouched.
+    expect(onRender).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+
+    await act(async () => {
+      finish(new Table({ n: vectorFromArray([7], new Int32()) }));
+      await next;
+    });
+    expect(onRender).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("columnheader", { name: "n" })).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+  });
+
+  it("doesn't read the cells again when its parent renders", async () => {
+    const { rerender } = render(<ResultsTable />);
+    await run(machines);
+    vi.mocked(readCell).mockClear();
+
+    rerender(<ResultsTable />);
+    expect(readCell).not.toHaveBeenCalled();
   });
 
   it("clears the previous result when a query fails", async () => {

@@ -1,8 +1,9 @@
-// The query that's running or last ran, and its result. The Arrow table lives here, outside React
-// state (ADR-004); components read this store with useSyncExternalStore.
-import type { Table } from "apache-arrow";
+// The query that's running or last ran, and how it went. Its result goes to the result store
+// (result-store.ts); this store only says how many rows it had. Components read it with
+// useSyncExternalStore.
 import { query } from "@/engine/engine";
 import { measureSince, measures } from "@/lib/user-timing";
+import { clearResult, showResult } from "./result-store";
 
 export type QueryRun =
   | { state: "idle" }
@@ -10,10 +11,8 @@ export type QueryRun =
   | {
       state: "done";
       sql: string;
-      table: Table;
+      rowCount: number;
       durationMs: number;
-      /** When the result reached the main thread (a `performance.now()` time). */
-      finishedAt: number;
     }
   | {
       state: "failed";
@@ -44,7 +43,8 @@ export function subscribeToQueryRun(listener: () => void): () => void {
 }
 
 /**
- * Runs `sql` and records the outcome. Does nothing for empty SQL or while another query is
+ * Runs `sql` and records the outcome. Its result replaces the one on screen, which stays there
+ * while it runs; a failure clears it. Does nothing for empty SQL or while another query is
  * running: the engine has one connection, and a second Run press is almost always a double press.
  */
 export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
@@ -55,8 +55,10 @@ export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
     const table = await query(sql);
     measureSince(measures.query, startedAt);
     const finishedAt = performance.now();
-    setRun({ state: "done", sql, table, durationMs: finishedAt - startedAt, finishedAt });
+    showResult(table, finishedAt);
+    setRun({ state: "done", sql, rowCount: table.numRows, durationMs: finishedAt - startedAt });
   } catch (error) {
+    clearResult();
     setRun({
       state: "failed",
       sql,
@@ -67,7 +69,8 @@ export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
   }
 }
 
-/** Back to idle, e.g. after the engine restarts. */
+/** Back to idle with no result, e.g. after the engine restarts. */
 export function resetQueryRun(): void {
+  clearResult();
   setRun({ state: "idle" });
 }
