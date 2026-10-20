@@ -20,6 +20,12 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
+    # The engine hands us tables built by DuckDB-wasm's own copy of Arrow, so ours
+    # must be the major version it depends on (17 as of duckdb-wasm 1.32). Bump
+    # both together by hand when a DuckDB-wasm release moves to a newer Arrow.
+    ignore:
+      - dependency-name: apache-arrow
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: chore
       include: scope
