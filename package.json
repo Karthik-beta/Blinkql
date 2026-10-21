@@ -1,7 +1,7 @@
 {
   "name": "blinkql",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Queries in the blink of an eye.",
   "license": "MIT",
   "type": "module",
