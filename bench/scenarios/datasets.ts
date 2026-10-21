@@ -7,7 +7,7 @@ import { type Dataset, datasets, fileName } from "../datasets/generate.ts";
 import { importFile, measureMemory, openWorkbench, runQuery } from "../harness/page.ts";
 import type { Scenario } from "../harness/types.ts";
 
-const DATA_DIR = resolve("bench", "datasets", "data");
+export const DATA_DIR = resolve("bench", "datasets", "data");
 
 /** Rows in the result that's transferred and rendered, the same for every dataset. */
 export const RESULT_ROWS = 10_000;
@@ -38,7 +38,7 @@ export const querySet = {
 } as const;
 
 /** The view name the workbench gives an imported file (tableNameFor in src/features/catalog). */
-const tableName = (dataset: Dataset) =>
+export const tableName = (dataset: Dataset) =>
   fileName(dataset)
     .replace(/\.\w+$/, "")
     .replaceAll("-", "_");

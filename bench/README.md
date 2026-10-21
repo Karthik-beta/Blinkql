@@ -58,6 +58,7 @@ Use `--size`, `--shape` and `--format` (each repeatable) to generate a subset, e
 | `time-to-app-shell` | cold, warm | `timeToAppShell` (ms): navigation start until the `blinkql:app-shell` mark |
 | `time-to-engine-ready` | cold, warm | `timeToEngineReady` (ms): navigation start until the `blinkql:engine-ready` mark. `bytesTransferred`: response headers and bodies downloaded until then, the engine's worker included; cached responses count 0 |
 | `dataset-<size>-<shape>-<format>` | warm | One per S and M dataset, e.g. `dataset-m-wide-csv`. Each iteration opens the workbench, imports the file with the file picker and runs SQL through the editor, like a user. See below |
+| `scroll-<rows>-<shape>` | warm | Showing and scrolling a large result: `scroll-10k-narrow`, `scroll-100k-narrow` and `scroll-1m-narrow` (from `telemetry-m-narrow.parquet`), `scroll-10k-wide` and `scroll-100k-wide` (from `telemetry-s-wide.parquet`). See [Scrolling](#scrolling) |
 
 The dataset scenarios record, per iteration:
 
@@ -79,6 +80,23 @@ The dataset scenarios record, per iteration:
 Query times (`*Ms` above, except import and render) are the `blinkql:query` measure: from sending the SQL to the engine until the Arrow result is on the main thread. A CSV view reads the file again on every query, so CSV query times include parsing it.
 
 Chromium runs as the full browser in headless mode (`channel: "chromium"`) rather than Playwright's default headless shell, which lacks the memory API.
+
+### Scrolling
+
+Each `scroll-*` iteration imports its file, shows `SELECT * … LIMIT <rows>` and then scrolls the results twice from the top, moving them once per frame from `requestAnimationFrame` for 5 seconds each:
+
+- **wheel**: a steady 3,000 px a second, like spinning a mouse wheel fast;
+- **drag**: from the first row to the last, like dragging the scrollbar down. Every frame shows rows the last one didn't, so this is the hardest case for a virtualized grid.
+
+| Metric | Measures |
+|---|---|
+| `renderMs`, `renderLongestFrameMs` | As `resultRenderMs` and `resultLongestFrameMs` above, for this many rows |
+| `memoryBytes` | The page's memory with the rows on screen. Chromium only |
+| `<kind>FrameMedianMs`, `<kind>FrameP95Ms` | The median and 95th percentile of the time between frames while scrolling. Headless Chromium draws at 75 Hz, so a smooth scroll is about 13.3 ms |
+| `<kind>SlowFrames` | Frames that took more than 25 ms, so the display showed the previous frame again |
+| `<kind>LongestFrameMs` | The longest animation frame while scrolling, as above. It only counts the main thread: a frame that is slow because the compositor is still rasterizing a large table shows in the frame times, not here |
+
+Before P-04 every row is rendered, which makes the 100,000- and 1,000,000-row scenarios slow or impossible to run; pick the ones a build can run with `--scenario`.
 
 ### React's profiling build
 

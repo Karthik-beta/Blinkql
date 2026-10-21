@@ -4,7 +4,7 @@ import { expect, test } from "./fixtures";
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
 
-const results = (page: Page) => page.getByRole("region", { name: "Results" });
+const results = (page: Page) => page.getByRole("grid", { name: "Results" });
 
 async function runSql(page: Page, sql: string) {
   await page.goto("/app/");
@@ -15,13 +15,64 @@ async function runSql(page: Page, sql: string) {
 }
 
 test.describe("Results table", () => {
-  test("shows every row of the result", async ({ page }) => {
+  test("shows the rows in view, and the rest as it scrolls", async ({ page }) => {
     await runSql(page, "SELECT range AS n, range * 2 AS doubled FROM range(500)");
 
     await expect(results(page).getByRole("columnheader")).toHaveText(["n", "doubled"]);
-    // A header row plus all 500 rows: the baseline renders everything.
-    await expect(results(page).getByRole("row")).toHaveCount(501);
+    await expect(results(page).getByRole("row").nth(1)).toHaveText("00");
+    // The header and 500 rows, of which only those in view (and a few more) are in the page.
+    await expect(results(page)).toHaveAttribute("aria-rowcount", "501");
+    expect(await results(page).getByRole("row").count()).toBeLessThan(100);
+
+    await results(page).evaluate((grid) => {
+      grid.scrollTop = grid.scrollHeight;
+    });
     await expect(results(page).getByRole("row").last()).toHaveText("499998");
+    await expect(results(page).getByRole("row").last()).toHaveAttribute("aria-rowindex", "501");
+  });
+
+  test("scrolls through a million rows to the last", async ({ page }) => {
+    // Taller than browsers can lay out (Firefox stops near 17.9 million px), so it's scaled.
+    await runSql(page, "SELECT range AS n FROM range(1000000)");
+    await expect(results(page)).toHaveAttribute("aria-rowcount", "1000001");
+
+    for (const fraction of [0.25, 0.5, 1]) {
+      await results(page).evaluate((grid, fraction) => {
+        grid.scrollTop = (grid.scrollHeight - grid.clientHeight) * fraction;
+      }, fraction);
+      // The first row whole below the header is that far through the result.
+      const firstInView = () =>
+        results(page).evaluate((grid) => {
+          const [header, ...rows] = grid.querySelectorAll('[role="row"]');
+          const below = header?.getBoundingClientRect().bottom ?? 0;
+          const row = rows.find((row) => row.getBoundingClientRect().top >= below - 1);
+          return Number(row?.textContent) / 1_000_000;
+        });
+      await expect.poll(firstInView).toBeCloseTo(fraction, 2);
+    }
+    await expect(results(page).getByRole("row").last()).toHaveText("999999");
+  });
+
+  test("moves the active cell with the keyboard", async ({ page }) => {
+    await runSql(page, "SELECT range AS n, 'row ' || range AS label FROM range(1000000)");
+    await expect(results(page)).toHaveAttribute("aria-rowcount", "1000001");
+    const active = () =>
+      results(page).evaluate((grid) => {
+        const id = grid.getAttribute("aria-activedescendant");
+        return id ? document.getElementById(id)?.textContent : null;
+      });
+
+    await results(page).focus();
+    await expect.poll(active).toBe("0");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(active).toBe("row 1");
+    await page.keyboard.press("ControlOrMeta+End");
+    await expect.poll(active).toBe("row 999999");
+    await page.keyboard.press("ArrowUp");
+    await expect.poll(active).toBe("row 999998");
+    await page.keyboard.press("ControlOrMeta+Home");
+    await expect.poll(active).toBe("0");
   });
 
   test("shows DuckDB's types the way DuckDB writes them", async ({ page }) => {
@@ -32,7 +83,7 @@ test.describe("Results table", () => {
         "[1, 2] AS list, {'a': 'b'} AS struct, 9007199254740993::BIGINT AS big",
     );
 
-    const cells = results(page).getByRole("row").nth(1).getByRole("cell");
+    const cells = results(page).getByRole("row").nth(1).getByRole("gridcell");
     await expect(cells).toHaveText([
       "1",
       "2",
@@ -54,7 +105,7 @@ test.describe("Results table", () => {
         "MAP {'k': 2026} AS map",
     );
 
-    const cells = results(page).getByRole("row").nth(1).getByRole("cell");
+    const cells = results(page).getByRole("row").nth(1).getByRole("gridcell");
     await expect(cells).toHaveText([
       '["2026-10-16",null]',
       "[1.5]",
@@ -71,13 +122,15 @@ test.describe("Results table", () => {
         "{'toString': 7, '__proto__': 8} AS struct",
     );
 
-    const cells = results(page).getByRole("row").nth(1).getByRole("cell");
+    const cells = results(page).getByRole("row").nth(1).getByRole("gridcell");
     await expect(cells).toHaveText(["[1,2]", "b", '{"toString":7,"__proto__":8}']);
   });
 
   test("has no detectable accessibility issues", async ({ page, makeAxeBuilder }) => {
     await runSql(page, "SELECT range AS n, NULL AS nothing FROM range(20)");
-    await expect(results(page).getByRole("row")).toHaveCount(21);
+    await expect(results(page).getByRole("row").nth(1)).toHaveText("0NULL");
+    // With a cell active, as when it's used from the keyboard.
+    await results(page).focus();
 
     const scan = await makeAxeBuilder().include('[aria-label="Results"]').analyze();
     expect(scan.violations).toEqual([]);

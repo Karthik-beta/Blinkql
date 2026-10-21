@@ -60,7 +60,7 @@ async function nativeRows(sql: string, path: string): Promise<string[]> {
   return reader.getRows().map((row) => row.map(String).join(""));
 }
 
-const results = (page: Page) => page.getByRole("region", { name: "Results" });
+const results = (page: Page) => page.getByRole("grid", { name: "Results" });
 
 /** Replaces the editor's contents with `sql` and runs it. */
 async function run(page: Page, sql: string) {
@@ -69,6 +69,9 @@ async function run(page: Page, sql: string) {
   await page.keyboard.insertText(sql);
   await page.keyboard.press("ControlOrMeta+Enter");
 }
+
+// The grid renders only the rows in view; tall enough to show all 40 of the aggregate's at once.
+test.use({ viewport: { width: 1280, height: 1600 } });
 
 for (const format of ["parquet", "csv"] as const) {
   test(`imports and queries a 1M-row ${format === "csv" ? "CSV" : "Parquet"} file`, async ({
