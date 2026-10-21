@@ -19,7 +19,7 @@ describe("result store", () => {
   });
 
   it("describes the result by its row count and columns, without its data", () => {
-    showResult(machines, 1234);
+    showResult(machines, 1000, 1234);
 
     const result = getResult();
     expect(result).toEqual({
@@ -28,6 +28,7 @@ describe("result store", () => {
         { name: "id", type: expect.any(Int32) },
         { name: "machine", type: expect.any(Utf8) },
       ],
+      startedAt: 1000,
       finishedAt: 1234,
     });
     // The same object until the result changes, as useSyncExternalStore needs.
@@ -35,7 +36,7 @@ describe("result store", () => {
   });
 
   it("reads the text of each cell, with null for SQL NULL", () => {
-    showResult(machines, 0);
+    showResult(machines, 0, 0);
 
     expect([0, 1, 2].map((row) => [readCell(row, 0), readCell(row, 1)])).toEqual([
       ["1", "press"],
@@ -46,7 +47,7 @@ describe("result store", () => {
   });
 
   it("times setting up the column readers for the benchmark", () => {
-    showResult(machines, 0);
+    showResult(machines, 0, 0);
 
     expect(performance.getEntriesByName(measures.resultsConvert, "measure")).toHaveLength(1);
   });
@@ -55,20 +56,20 @@ describe("result store", () => {
     const listener = vi.fn();
     const unsubscribe = subscribeToResult(listener);
 
-    showResult(machines, 0);
+    showResult(machines, 0, 0);
     clearResult();
     // Nothing to clear, so nothing changes.
     clearResult();
     unsubscribe();
-    showResult(machines, 0);
+    showResult(machines, 0, 0);
 
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it("replaces the previous result", () => {
-    showResult(machines, 0);
+    showResult(machines, 0, 0);
     const first = getResult();
-    showResult(new Table({ n: vectorFromArray([7], new Int32()) }), 1);
+    showResult(new Table({ n: vectorFromArray([7], new Int32()) }), 1, 1);
 
     expect(getResult()).not.toBe(first);
     expect(getResult()?.rowCount).toBe(1);
@@ -77,7 +78,7 @@ describe("result store", () => {
   });
 
   it("lets go of the result when cleared", () => {
-    showResult(machines, 0);
+    showResult(machines, 0, 0);
     clearResult();
 
     expect(getResult()).toBeNull();

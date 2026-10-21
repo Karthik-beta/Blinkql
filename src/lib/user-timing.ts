@@ -26,6 +26,13 @@ export const measures = {
   /** From a result reaching the main thread until the frame after its rows are committed. */
   resultsRender: "blinkql:results-render",
   /**
+   * From sending a query until the frame after its first rows are committed: how long the user
+   * waits to see rows. Until P-05 the first rows came with the whole result.
+   */
+  firstRows: "blinkql:first-rows",
+  /** From a result's first rows reaching the main thread until the frame after they're committed. */
+  firstRowsRender: "blinkql:first-rows-render",
+  /**
    * React rendering a `<Profiler>`'s tree for one commit; `detail` holds the profiler's `id` and
    * the `phase`. Only recorded in development and in React's profiling build, which
    * `BLINKQL_REACT_PROFILING=1` builds (bench/README.md); production builds skip it.

@@ -9,6 +9,8 @@ import { type ResultColumn, resultColumns } from "./cells";
 export type Result = {
   rowCount: number;
   columns: readonly { name: string; type: DataType }[];
+  /** When its query was sent to the engine (a `performance.now()` time). */
+  startedAt: number;
   /** When the result reached the main thread (a `performance.now()` time). */
   finishedAt: number;
 };
@@ -33,16 +35,18 @@ export function subscribeToResult(listener: () => void): () => void {
 }
 
 /**
- * Shows `table` in place of the current result. The store keeps no reference to the previous
+ * Shows `table`, the result of a query sent at `startedAt` that reached the main thread at
+ * `finishedAt`, in place of the current result. The store keeps no reference to the previous
  * table, so it can be garbage-collected.
  */
-export function showResult(table: Table, finishedAt: number): void {
+export function showResult(table: Table, startedAt: number, finishedAt: number): void {
   const preparing = performance.now();
   readers = resultColumns(table);
   measureSince(measures.resultsConvert, preparing);
   result = {
     rowCount: table.numRows,
     columns: readers.map(({ name, type }) => ({ name, type })),
+    startedAt,
     finishedAt,
   };
   notify();

@@ -293,7 +293,12 @@ export const ResultsTable = memo(function ResultsTable() {
     // A timeout queued from requestAnimationFrame runs once that frame has been painted.
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const frame = requestAnimationFrame(() => {
-      timeout = setTimeout(() => measureSince(measures.resultsRender, results.finishedAt));
+      timeout = setTimeout(() => {
+        measureSince(measures.resultsRender, results.finishedAt);
+        // The whole result arrives at once, so its first rows are shown with the rest.
+        measureSince(measures.firstRows, results.startedAt);
+        measureSince(measures.firstRowsRender, results.finishedAt);
+      });
     });
     return () => {
       cancelAnimationFrame(frame);

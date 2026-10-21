@@ -71,6 +71,8 @@ The dataset scenarios record, per iteration:
 | `resultCountMs` | The same rows counted in the engine instead, so `resultQueryMs − resultCountMs` is the cost of the transfer |
 | `resultConvertMs` | The `blinkql:results-convert` measure: preparing the 10,000 rows for the table. Until P-02 this copied them out of Arrow into row objects; since P-02 it only sets up a reader per column, and cells are read as they render |
 | `resultRenderMs` | The `blinkql:results-render` measure: the result reaching the main thread until the frame after its rows are committed (preparing, reading and formatting cells included) |
+| `resultFirstRowsMs` | The `blinkql:first-rows` measure: pressing Run until the frame after the result's first rows are committed, which is how long the user waits to see rows. Until P-05 the first rows came with the whole result |
+| `resultFirstRowsRenderMs` | The `blinkql:first-rows-render` measure: the first rows reaching the main thread until the frame after they're committed. Budget: 100 ms |
 | `memoryBytes`, `workerMemoryBytes` | `performance.measureUserAgentSpecificMemory()` with the 10,000 rows on screen: the whole page, and the engine's worker within it. Chromium only; left out elsewhere |
 | `resultLongestFrameMs` | The longest animation frame from pressing Run until the 10,000 rows are shown, or 0 if none took 50 ms or more: the longest the page went without responding, style, layout and paint included. Chromium only (the Long Animation Frames API; the Long Tasks API leaves out tasks that run no script, such as a frame spent laying out the table) |
 | `nextQueryRenderMs`, `nextQueryLongestFrameMs` | The same two measures for a one-row query (`scan`) run next, while the 10,000 rows are still on screen: what a large result costs the UI while it is replaced |
@@ -91,6 +93,7 @@ Each `scroll-*` iteration imports its file, shows `SELECT * … LIMIT <rows>` an
 | Metric | Measures |
 |---|---|
 | `renderMs`, `renderLongestFrameMs` | As `resultRenderMs` and `resultLongestFrameMs` above, for this many rows |
+| `firstRowsMs`, `firstRowsRenderMs` | As `resultFirstRowsMs` and `resultFirstRowsRenderMs` above |
 | `memoryBytes` | The page's memory with the rows on screen. Chromium only |
 | `<kind>FrameMedianMs`, `<kind>FrameP95Ms` | The median and 95th percentile of the time between frames while scrolling. Headless Chromium draws at 75 Hz, so a smooth scroll is about 13.3 ms |
 | `<kind>SlowFrames` | Frames that took more than 25 ms, so the display showed the previous frame again |

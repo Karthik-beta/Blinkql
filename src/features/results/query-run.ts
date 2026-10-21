@@ -55,7 +55,7 @@ export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
     const table = await query(sql);
     measureSince(measures.query, startedAt);
     const finishedAt = performance.now();
-    showResult(table, finishedAt);
+    showResult(table, startedAt, finishedAt);
     setRun({ state: "done", sql, rowCount: table.numRows, durationMs: finishedAt - startedAt });
   } catch (error) {
     clearResult();
