@@ -121,7 +121,7 @@ export type QueryTimings = {
 };
 
 /** Starts counting long animation frames from now. */
-async function clearLongFrames(page: Page): Promise<void> {
+export async function clearLongFrames(page: Page): Promise<void> {
   await page.evaluate(() => {
     const frames = (window as { blinkqlLongFrames?: LongFrames }).blinkqlLongFrames;
     if (!frames) return;
@@ -136,7 +136,7 @@ async function clearLongFrames(page: Page): Promise<void> {
  * Chromium reports a frame some time after it ends, so one that ended just before the clear, such
  * as typing the SQL, can still arrive after it; its end time gives it away.
  */
-async function longestFrame(page: Page): Promise<number | undefined> {
+export async function longestFrame(page: Page): Promise<number | undefined> {
   return page.evaluate(() => {
     const frames = (window as { blinkqlLongFrames?: LongFrames }).blinkqlLongFrames;
     if (!frames) return undefined;
@@ -229,4 +229,67 @@ export async function measureMemory(page: Page): Promise<MemoryUse | undefined> 
     )
     .reduce((sum, entry) => sum + entry.bytes, 0);
   return { total: bytes, worker };
+}
+
+/** How the results are scrolled while frames are sampled. */
+export type ScrollKind =
+  /** A steady 3,000 px a second, like spinning a mouse wheel fast. */
+  | "wheel"
+  /** From the first row to the last in the sampling time, like dragging the scrollbar down. */
+  | "drag";
+
+export type ScrollFrames = {
+  /** Time between consecutive frames, the first excluded. */
+  intervals: number[];
+  /** The longest animation frame while scrolling; see QueryTimings.longestFrame. */
+  longestFrame: number | undefined;
+};
+
+/**
+ * Scrolls the results from the top for `durationMs`, moving them once per frame from
+ * requestAnimationFrame, and records the time between frames. A frame that takes long to lay out
+ * or paint delays the next callback, so long intervals are frames the user saw stutter.
+ */
+export async function sampleScroll(
+  page: Page,
+  kind: ScrollKind,
+  durationMs: number,
+): Promise<ScrollFrames> {
+  // Start from the top, and let that scroll's frame finish before sampling.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const results = document.querySelector('[aria-label="Results"]');
+        if (!results) throw new Error("There are no results to scroll");
+        results.scrollTop = 0;
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+  await clearLongFrames(page);
+  const intervals = await page.evaluate(
+    ({ kind, durationMs }) =>
+      new Promise<number[]>((resolve) => {
+        const results = document.querySelector('[aria-label="Results"]') as HTMLElement;
+        const bottom = results.scrollHeight - results.clientHeight;
+        const intervals: number[] = [];
+        let start: number | undefined;
+        let last = 0;
+        const frame = (now: number) => {
+          if (start === undefined) start = now;
+          else intervals.push(now - last);
+          last = now;
+          const elapsed = now - start;
+          if (elapsed >= durationMs) {
+            resolve(intervals);
+            return;
+          }
+          results.scrollTop =
+            kind === "wheel" ? Math.min(bottom, elapsed * 3) : (bottom * elapsed) / durationMs;
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    { kind, durationMs },
+  );
+  return { intervals, longestFrame: await longestFrame(page) };
 }
