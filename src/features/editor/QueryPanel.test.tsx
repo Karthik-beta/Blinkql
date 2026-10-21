@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { tableFromArrays } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "@/features/results/query-run";
+import { streamOf } from "@/features/results/test-utils";
 import { QueryPanel } from "./QueryPanel";
 import { withinSqlEditor } from "./test-utils";
 
@@ -10,7 +11,7 @@ import { withinSqlEditor } from "./test-utils";
 const engine = vi.hoisted(() => {
   let settle: { resolve: (value: unknown) => void; reject: (error: Error) => void } | null = null;
   return {
-    query: vi.fn(
+    streamQuery: vi.fn(
       (_sql: string) =>
         new Promise((resolve, reject) => {
           settle = { resolve, reject };
@@ -46,7 +47,7 @@ describe("QueryPanel", () => {
     render(<QueryPanel />);
 
     await userEvent.click(screen.getByRole("button", { name: "Run" }));
-    expect(engine.query).not.toHaveBeenCalled();
+    expect(engine.streamQuery).not.toHaveBeenCalled();
   });
 
   it("turns Run into a running state with a timer, then reports the result", async () => {
@@ -61,7 +62,7 @@ describe("QueryPanel", () => {
     expect(screen.getByText("Running…")).toBeInTheDocument();
 
     await act(async () => {
-      engine.finish(tableFromArrays({ n: Int32Array.from({ length: 40 }, (_, i) => i) }));
+      engine.finish(streamOf(tableFromArrays({ n: Int32Array.from({ length: 40 }, (_, i) => i) })));
       await running;
     });
     expect(screen.getByRole("button", { name: "Run" })).toHaveAttribute("aria-disabled", "false");
