@@ -58,6 +58,7 @@ Use `--size`, `--shape` and `--format` (each repeatable) to generate a subset, e
 | `time-to-app-shell` | cold, warm | `timeToAppShell` (ms): navigation start until the `blinkql:app-shell` mark |
 | `time-to-engine-ready` | cold, warm | `timeToEngineReady` (ms): navigation start until the `blinkql:engine-ready` mark. `bytesTransferred`: response headers and bodies downloaded until then, the engine's worker included; cached responses count 0 |
 | `dataset-<size>-<shape>-<format>` | warm | One per S and M dataset, e.g. `dataset-m-wide-csv`. Each iteration opens the workbench, imports the file with the file picker and runs SQL through the editor, like a user. See below |
+| `first-rows-<dataset>` | warm | How soon a large result's first rows show, with no LIMIT: every row of `m-narrow-parquet`, `m-narrow-csv` and `s-wide-parquet`, and `m-narrow-parquet-filter` (`WHERE status = 'DOWN'`, about 5% of the rows). See [First rows](#first-rows) |
 | `scroll-<rows>-<shape>` | warm | Showing and scrolling a large result: `scroll-10k-narrow`, `scroll-100k-narrow` and `scroll-1m-narrow` (from `telemetry-m-narrow.parquet`), `scroll-10k-wide` and `scroll-100k-wide` (from `telemetry-s-wide.parquet`). See [Scrolling](#scrolling) |
 
 The dataset scenarios record, per iteration:
@@ -100,6 +101,18 @@ Each `scroll-*` iteration imports its file, shows `SELECT * … LIMIT <rows>` an
 | `<kind>LongestFrameMs` | The longest animation frame while scrolling, as above. It only counts the main thread: a frame that is slow because the compositor is still rasterizing a large table shows in the frame times, not here |
 
 Before P-04 every row is rendered, which makes the 100,000- and 1,000,000-row scenarios slow or impossible to run; pick the ones a build can run with `--scenario`.
+
+### First rows
+
+DuckDB computes a `LIMIT` or `ORDER BY` in full before it hands over any rows, so the dataset and scroll scenarios, which use `LIMIT`, can't show a result's first rows before the rest. The `first-rows-*` scenarios run queries DuckDB can stream, and record:
+
+| Metric | Measures |
+|---|---|
+| `firstRowsMs`, `firstRowsRenderMs` | As `resultFirstRowsMs` and `resultFirstRowsRenderMs` above |
+| `queryMs` | The `blinkql:query` measure: until the last of the result is on the main thread |
+| `renderMs` | As `resultRenderMs` above: the last rows on the main thread until they're shown |
+| `longestFrameMs` | The longest animation frame from pressing Run until every row is shown, as `resultLongestFrameMs` above |
+| `memoryBytes` | The page's memory with the result on screen. Chromium only |
 
 ### React's profiling build
 

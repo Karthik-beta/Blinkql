@@ -1,5 +1,6 @@
 import type { Scenario } from "../harness/types.ts";
 import { datasetScenarios } from "./datasets.ts";
+import { firstRowsScenarios } from "./first-rows.ts";
 import { scrollScenarios } from "./scroll.ts";
 import { timeToAppShell } from "./time-to-app-shell.ts";
 import { timeToEngineReady } from "./time-to-engine-ready.ts";
@@ -10,4 +11,5 @@ export const scenarios: readonly Scenario[] = [
   timeToEngineReady,
   ...datasetScenarios,
   ...scrollScenarios,
+  ...firstRowsScenarios,
 ];
