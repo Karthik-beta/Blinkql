@@ -53,13 +53,12 @@ function alignment(type: DataType): string {
 }
 
 /**
- * Each column's width, fitted to its name and its first rows' values. Every row has the same
- * widths, so the columns don't shift as rows are scrolled in; the font is monospaced, so a
- * character count is enough.
+ * Each column's width, fitted to its name and the values of its first `sampled` rows. Every row
+ * has the same widths, so the columns don't shift as rows are scrolled in; the font is monospaced,
+ * so a character count is enough.
  */
-function columnWidths(result: Result): string[] {
-  const sampled = Math.min(result.rowCount, SIZING_ROWS);
-  return result.columns.map((column, columnIndex) => {
+function columnWidths(columns: Result["columns"], sampled: number): string[] {
+  return columns.map((column, columnIndex) => {
     let chars = column.name.length;
     for (let row = 0; row < sampled; row++) {
       chars = Math.max(chars, (readCell(row, columnIndex) ?? "NULL").length);
@@ -80,7 +79,20 @@ export function scrollScale(element: Element | null, rowCount: number): number {
 }
 
 /** The active cell: a row of the result, or -1 for the header row, and a column. */
-type Active = { result: Result; row: number; column: number };
+type Active = { resultId: number; row: number; column: number };
+
+/** Calls `callback` once the next frame has been painted; returns a function that cancels it. */
+function afterNextPaint(callback: () => void): () => void {
+  // A timeout queued from requestAnimationFrame runs once that frame has been painted.
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const frame = requestAnimationFrame(() => {
+    timeout = setTimeout(callback);
+  });
+  return () => {
+    cancelAnimationFrame(frame);
+    clearTimeout(timeout);
+  };
+}
 
 const cellId = (gridId: string, row: number, column: number) =>
   `${gridId}-${row < 0 ? "h" : row}-${column}`;
@@ -236,8 +248,8 @@ function move(
  * The result on screen as a virtualized grid: only the rows in view, plus a few either side, are
  * in the page, so showing and scrolling a result costs about the same at any size (P-04).
  *
- * The grid renders when the result changes, when the last run starts or stops failing, and as it
- * scrolls. It subscribes to the result's shape and to that one flag, not to the whole query run,
+ * The grid renders when the result changes, including as its rows arrive (P-05), when the last
+ * run starts or stops failing, and as it scrolls. It subscribes to the result's shape and to that one flag, not to the whole query run,
  * and it's memoized, so neither a query starting nor its parent rendering renders it (P-03). Cells
  * are read from the Arrow result as their rows come into view; nothing is copied (P-02).
  *
@@ -252,7 +264,7 @@ export const ResultsTable = memo(function ResultsTable() {
   const gridId = useId();
   const [stored, setActive] = useState<Active | null>(null);
   // The active cell belongs to the result it was chosen in; a new result starts without one.
-  const active = stored?.result === results ? stored : null;
+  const active = stored && stored.resultId === results?.id ? stored : null;
   const rowCount = results?.rowCount ?? 0;
 
   const virtualizer: Virtualizer<HTMLDivElement, Element> = useVirtualizer({
@@ -279,27 +291,36 @@ export const ResultsTable = memo(function ResultsTable() {
       ),
   });
 
-  const widths = useMemo(() => (results ? columnWidths(results) : []), [results]);
+  // Sized again only while the rows they're sized by are still arriving.
+  const columns = results?.columns;
+  const sampled = Math.min(rowCount, SIZING_ROWS);
+  const widths = useMemo(() => (columns ? columnWidths(columns, sampled) : []), [columns, sampled]);
   const template = widths.join(" ");
 
+  const id = results?.id;
   useEffect(() => {
-    if (!results) return;
-    // A new result starts at its first row and column.
+    if (id === undefined) return;
+    // A new result starts at its first row and column; rows arriving later leave it where it is.
     const grid = gridRef.current;
     if (grid) {
       grid.scrollTop = 0;
       grid.scrollLeft = 0;
     }
-    // A timeout queued from requestAnimationFrame runs once that frame has been painted.
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    const frame = requestAnimationFrame(() => {
-      timeout = setTimeout(() => measureSince(measures.resultsRender, results.finishedAt));
+  }, [id]);
+
+  // Timed for the benchmark: each result's first rows on screen, then all of them.
+  const { startedAt, firstRowsAt, finishedAt } = results ?? {};
+  useEffect(() => {
+    if (startedAt === undefined || firstRowsAt === undefined) return;
+    return afterNextPaint(() => {
+      measureSince(measures.firstRows, startedAt);
+      measureSince(measures.firstRowsRender, firstRowsAt);
     });
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(timeout);
-    };
-  }, [results]);
+  }, [startedAt, firstRowsAt]);
+  useEffect(() => {
+    if (finishedAt == null) return;
+    return afterNextPaint(() => measureSince(measures.resultsRender, finishedAt));
+  }, [finishedAt]);
 
   const items = virtualizer.getVirtualItems();
   // Where the rows are drawn: their unscaled position relative to the viewport, plus how far the
@@ -312,7 +333,7 @@ export const ResultsTable = memo(function ResultsTable() {
 
   const activate = (row: number, column: number) => {
     if (!results) return;
-    setActive({ result: results, row, column });
+    setActive({ resultId: results.id, row, column });
     const grid = gridRef.current;
     if (!grid) return;
     if (row >= 0) revealRow(grid, row, rowCount);
@@ -323,7 +344,7 @@ export const ResultsTable = memo(function ResultsTable() {
     if (!results || active || results.columns.length === 0) return;
     // Start on the first row in view, or on the header if there are no rows.
     const first = items.find((item) => item.start - offset >= ROW_HEIGHT);
-    setActive({ result: results, row: rowCount > 0 ? (first?.index ?? 0) : -1, column: 0 });
+    setActive({ resultId: results.id, row: rowCount > 0 ? (first?.index ?? 0) : -1, column: 0 });
   };
 
   const onKeyDown = (event: KeyboardEvent) => {

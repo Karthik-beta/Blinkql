@@ -1,6 +1,6 @@
 // The query engine: DuckDB-wasm running in a Web Worker (ADR-003).
 // The engine starts once per page load and is shared by everything that queries it. Results come
-// back as Arrow tables, which stay outside React state (ADR-004).
+// back as Arrow tables or streams of record batches, which stay outside React state (ADR-004).
 import {
   AsyncDuckDB,
   type AsyncDuckDBConnection,
@@ -8,11 +8,12 @@ import {
   selectBundle,
   VoidLogger,
 } from "@duckdb/duckdb-wasm";
-import type { Table } from "apache-arrow";
+import { DataType, type Field, type RecordBatch, type Schema, type Table } from "apache-arrow";
 import { markOnce, marks } from "@/lib/user-timing";
 import { bundles } from "./bundles";
 import { EngineCrashedError } from "./errors";
 import { EXTENSIONS_PATH, extensionsVersion } from "./extensions";
+import { isSingleRead } from "./read-only";
 
 export type EngineStatus =
   | { state: "idle" }
@@ -27,6 +28,19 @@ type Engine = {
   connection: AsyncDuckDBConnection;
   /** Rejects when the worker dies. */
   crashed: Promise<never>;
+  /**
+   * Waits until no other query is using the connection and takes it; the function it resolves
+   * with gives it back. A result being streamed holds the connection until its last batch, since
+   * DuckDB closes a streaming result as soon as the connection runs another query.
+   */
+  takeConnection: () => Promise<() => void>;
+};
+
+/** A query's result, arriving a record batch at a time (see streamQuery). */
+export type ResultStream = {
+  schema: Schema;
+  /** The result's record batches in order, each as soon as the engine has produced it. */
+  batches: AsyncIterable<RecordBatch>;
 };
 
 let engine: Promise<Engine> | null = null;
@@ -90,11 +104,25 @@ async function boot(): Promise<Engine> {
     }
     markOnce(marks.engineReady);
     setStatus({ state: "ready", version });
-    return { db, connection, crashed };
+    return { db, connection, crashed, takeConnection: connectionQueue() };
   } catch (error) {
     worker.terminate();
     throw error;
   }
+}
+
+/** Hands out a connection to one query at a time, in the order they asked for it. */
+function connectionQueue(): Engine["takeConnection"] {
+  let free = Promise.resolve();
+  return () => {
+    let giveBack = () => {};
+    const given = new Promise<void>((resolve) => {
+      giveBack = resolve;
+    });
+    const taken = free.then(() => giveBack);
+    free = free.then(() => given);
+    return taken;
+  };
 }
 
 function getEngine(): Promise<Engine> {
@@ -144,12 +172,97 @@ function crash(error: unknown): EngineCrashedError {
  */
 export async function query(sql: string): Promise<Table> {
   if (status.state === "crashed") throw status.error;
-  const { connection, crashed } = await getEngine();
+  const { connection, crashed, takeConnection } = await getEngine();
+  const giveBack = await takeConnection();
   try {
     return await Promise.race([connection.query(sql), crashed]);
   } catch (error) {
     throw isCrash(error) ? crash(error) : error;
+  } finally {
+    giveBack();
   }
+}
+
+/**
+ * Runs `sql` and resolves with its result's schema as soon as the engine has one, then streams
+ * the result a record batch at a time, so its first rows can be shown before the last are computed
+ * (P-05). Starts the engine if needed.
+ *
+ * Only a single statement that only reads is streamed. Anything else, such as an INSERT or several
+ * statements, comes back whole, as from query(), but through the same stream: DuckDB-wasm streams
+ * results without their dictionaries, so a result with a dictionary-encoded column (an ENUM, say)
+ * is run a second time, whole, which must change nothing.
+ *
+ * The stream holds the connection, so other queries wait, until its last batch has been read or
+ * the reader stops early. It rejects with an EngineCrashedError if the engine has crashed or
+ * crashes while running it.
+ */
+export async function streamQuery(sql: string): Promise<ResultStream> {
+  if (status.state === "crashed") throw status.error;
+  const { connection, crashed, takeConnection } = await getEngine();
+  const unlessCrashed = <T>(step: Promise<T>) => Promise.race([step, crashed]);
+  const giveBack = await takeConnection();
+  /** The whole result, run with query(), as a stream. */
+  const whole = async (): Promise<ResultStream> => {
+    const table = await unlessCrashed(connection.query(sql));
+    async function* batches(): AsyncGenerator<RecordBatch> {
+      try {
+        yield* table.batches;
+      } finally {
+        giveBack();
+      }
+    }
+    return { schema: table.schema, batches: batches() };
+  };
+  try {
+    if (!isSingleRead(sql)) return await whole();
+    // Allowing a streaming result lets DuckDB hand over each batch as its pipeline produces it,
+    // rather than computing the whole result first.
+    const reader = await unlessCrashed(connection.send(sql, true));
+    await unlessCrashed(reader.open());
+    // Streamed, its dictionaries would be missing. Running it again also closes this stream.
+    if (reader.schema.fields.some(hasDictionary)) return await whole();
+    async function* batches(): AsyncGenerator<RecordBatch> {
+      try {
+        while (true) {
+          const next = await unlessCrashed(reader.next());
+          if (next.done) return;
+          yield next.value;
+        }
+      } catch (error) {
+        throw isCrash(error) ? crash(error) : unwrapped(error);
+      } finally {
+        giveBack();
+      }
+    }
+    return { schema: reader.schema, batches: batches() };
+  } catch (error) {
+    giveBack();
+    throw isCrash(error) ? crash(error) : unwrapped(error);
+  }
+}
+
+/**
+ * `error` as query() would have thrown it. A streamed query's error comes as DuckDB's error JSON
+ * wrapped in another, whose message is the original JSON; this unwraps it.
+ */
+function unwrapped(error: unknown): unknown {
+  if (!(error instanceof Error) || !error.message.startsWith("{")) return error;
+  try {
+    const outer: unknown = JSON.parse(error.message);
+    const inner =
+      typeof outer === "object" && outer !== null && "exception_message" in outer
+        ? outer.exception_message
+        : undefined;
+    return typeof inner === "string" && inner.startsWith("{") ? new Error(inner) : error;
+  } catch {
+    return error;
+  }
+}
+
+/** Whether `field`, or a field inside it, is dictionary-encoded. */
+function hasDictionary(field: Field): boolean {
+  return DataType.isDictionary(field.type) || (field.type.children ?? []).some(hasDictionary);
 }
 
 /**

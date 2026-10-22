@@ -63,6 +63,8 @@ function datasetScenario(dataset: Dataset): Scenario {
       resultCountMs: "ms",
       resultConvertMs: "ms",
       resultRenderMs: "ms",
+      resultFirstRowsMs: "ms",
+      resultFirstRowsRenderMs: "ms",
       resultLongestFrameMs: "ms",
       resultCommits: "count",
       resultReactMs: "ms",
@@ -99,6 +101,8 @@ function datasetScenario(dataset: Dataset): Scenario {
       values.resultQueryMs = result.query;
       values.resultConvertMs = result.convert;
       values.resultRenderMs = result.render;
+      values.resultFirstRowsMs = result.firstRows;
+      values.resultFirstRowsRenderMs = result.firstRowsRender;
       values.resultLongestFrameMs = result.longestFrame;
       values.resultCommits = result.resultsCommits;
       values.resultReactMs = result.resultsReactMs;

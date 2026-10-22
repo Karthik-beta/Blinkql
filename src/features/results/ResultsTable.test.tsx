@@ -11,8 +11,9 @@ import {
   scrollScale,
 } from "./ResultsTable";
 import { readCell } from "./result-store";
+import { streamOf } from "./test-utils";
 
-const engine = vi.hoisted(() => ({ query: vi.fn() }));
+const engine = vi.hoisted(() => ({ streamQuery: vi.fn() }));
 vi.mock("@/engine/engine", () => engine);
 
 // The real store, with cell reads counted.
@@ -43,8 +44,8 @@ function counting(rows: number): Table {
 
 /** Runs a query whose result is `table`, or which fails. */
 async function run(result: Table | Error) {
-  if (result instanceof Error) engine.query.mockRejectedValueOnce(result);
-  else engine.query.mockResolvedValueOnce(result);
+  if (result instanceof Error) engine.streamQuery.mockRejectedValueOnce(result);
+  else engine.streamQuery.mockResolvedValueOnce(streamOf(result));
   await act(() => runQuery("SELECT * FROM machines"));
 }
 
@@ -135,7 +136,7 @@ describe("ResultsTable", () => {
     expect(readCell).not.toHaveBeenCalledWith(500, 0);
   });
 
-  it("renders once per result, not when the next query starts or while it runs", async () => {
+  it("renders for each result, not when the next query starts or while it runs", async () => {
     const onRender = vi.fn();
     render(
       <Profiler id="results" onRender={onRender}>
@@ -145,8 +146,8 @@ describe("ResultsTable", () => {
     await run(machines);
     onRender.mockClear();
 
-    let finish!: (table: Table) => void;
-    engine.query.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    let finish!: (stream: ReturnType<typeof streamOf>) => void;
+    engine.streamQuery.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
     let next!: Promise<void>;
     act(() => {
       next = runQuery("SELECT 7 AS n");
@@ -156,15 +157,16 @@ describe("ResultsTable", () => {
     expect(screen.getAllByRole("row")).toHaveLength(4);
 
     await act(async () => {
-      finish(new Table({ n: vectorFromArray([7], new Int32()) }));
+      finish(streamOf(new Table({ n: vectorFromArray([7], new Int32()) })));
       await next;
     });
-    expect(onRender).toHaveBeenCalledTimes(1);
+    // Once for its first rows, and once when it's complete.
+    expect(onRender).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("columnheader", { name: "n" })).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(2);
   });
 
-  it("shows the first result in one render", async () => {
+  it("shows a result in one render, and renders once more when it's complete", async () => {
     const onRender = vi.fn();
     render(
       <Profiler id="results" onRender={onRender}>
@@ -174,7 +176,41 @@ describe("ResultsTable", () => {
     onRender.mockClear();
     await run(counting(1_000));
 
-    expect(onRender).toHaveBeenCalledTimes(1);
+    expect(onRender).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the first rows before the rest arrive, and keeps the place as they do", async () => {
+    render(<ResultsTable />);
+    // Two batches of 2,000 rows, the second held back until the test lets it through.
+    const rows = counting(4_000);
+    const [first] = rows.slice(0, 2_000).batches;
+    const [second] = rows.slice(2_000).batches;
+    let more!: () => void;
+    const arrived = new Promise<void>((resolve) => (more = resolve));
+    async function* batches() {
+      if (first) yield first;
+      await arrived;
+      if (second) yield second;
+    }
+    engine.streamQuery.mockResolvedValueOnce({ schema: rows.schema, batches: batches() });
+    let done!: Promise<void>;
+    await act(async () => {
+      done = runQuery("SELECT * FROM numbers");
+    });
+
+    expect(grid()).toHaveAttribute("aria-rowcount", "2001");
+    expect(cellTexts()[1]).toEqual(["0", "row 0"]);
+    fireEvent.focus(grid());
+    fireEvent.keyDown(grid(), { key: "ArrowDown" });
+    const active = activeCell();
+    expect(active).toMatchObject({ row: 3, column: 1 });
+
+    await act(async () => {
+      more();
+      await done;
+    });
+    expect(grid()).toHaveAttribute("aria-rowcount", "4001");
+    expect(activeCell()).toEqual(active);
   });
 
   it("doesn't read the cells again when its parent renders", async () => {

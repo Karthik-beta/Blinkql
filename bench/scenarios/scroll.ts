@@ -44,6 +44,8 @@ function scrollScenario(dataset: Dataset, rows: number): Scenario {
     metrics: {
       renderMs: "ms",
       renderLongestFrameMs: "ms",
+      firstRowsMs: "ms",
+      firstRowsRenderMs: "ms",
       memoryBytes: "bytes",
       ...scrollMetrics("wheel"),
       ...scrollMetrics("drag"),
@@ -59,6 +61,8 @@ function scrollScenario(dataset: Dataset, rows: number): Scenario {
       const values: Record<string, number | undefined> = {
         renderMs: result.render,
         renderLongestFrameMs: result.longestFrame,
+        firstRowsMs: result.firstRows,
+        firstRowsRenderMs: result.firstRowsRender,
         memoryBytes: (await measureMemory(page))?.total,
       };
       for (const kind of ["wheel", "drag"] as const) {

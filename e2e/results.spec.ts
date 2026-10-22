@@ -3,6 +3,9 @@ import { expect, test } from "./fixtures";
 
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
+// A million rows arrive in about 490 batches (P-05). Playwright's WebKit on Windows takes a timer
+// tick, about 15.6 ms, per batch, so they take about 8 s there.
+const MILLION_ROWS_TIMEOUT = 30_000;
 
 const results = (page: Page) => page.getByRole("grid", { name: "Results" });
 
@@ -34,7 +37,9 @@ test.describe("Results table", () => {
   test("scrolls through a million rows to the last", async ({ page }) => {
     // Taller than browsers can lay out (Firefox stops near 17.9 million px), so it's scaled.
     await runSql(page, "SELECT range AS n FROM range(1000000)");
-    await expect(results(page)).toHaveAttribute("aria-rowcount", "1000001");
+    await expect(results(page)).toHaveAttribute("aria-rowcount", "1000001", {
+      timeout: MILLION_ROWS_TIMEOUT,
+    });
 
     for (const fraction of [0.25, 0.5, 1]) {
       await results(page).evaluate((grid, fraction) => {
@@ -55,7 +60,9 @@ test.describe("Results table", () => {
 
   test("moves the active cell with the keyboard", async ({ page }) => {
     await runSql(page, "SELECT range AS n, 'row ' || range AS label FROM range(1000000)");
-    await expect(results(page)).toHaveAttribute("aria-rowcount", "1000001");
+    await expect(results(page)).toHaveAttribute("aria-rowcount", "1000001", {
+      timeout: MILLION_ROWS_TIMEOUT,
+    });
     const active = () =>
       results(page).evaluate((grid) => {
         const id = grid.getAttribute("aria-activedescendant");

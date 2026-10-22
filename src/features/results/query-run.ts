@@ -1,9 +1,9 @@
 // The query that's running or last ran, and how it went. Its result goes to the result store
-// (result-store.ts); this store only says how many rows it had. Components read it with
-// useSyncExternalStore.
-import { query } from "@/engine/engine";
+// (result-store.ts) a record batch at a time; this store only says how many rows it had.
+// Components read it with useSyncExternalStore.
+import { streamQuery } from "@/engine/engine";
 import { measureSince, measures } from "@/lib/user-timing";
-import { clearResult, showResult } from "./result-store";
+import { appendRows, clearResult, finishResult, startResult } from "./result-store";
 
 export type QueryRun =
   | { state: "idle" }
@@ -44,20 +44,36 @@ export function subscribeToQueryRun(listener: () => void): () => void {
 
 /**
  * Runs `sql` and records the outcome. Its result replaces the one on screen, which stays there
- * while it runs; a failure clears it. Does nothing for empty SQL or while another query is
- * running: the engine has one connection, and a second Run press is almost always a double press.
+ * until the new result's first rows arrive; the rest follow as the engine produces them. A
+ * failure, even after some rows have arrived, clears it. Does nothing for empty SQL or while
+ * another query is running: the engine has one connection, and a second Run press is almost
+ * always a double press.
  */
 export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
   if (!sql.trim() || run.state === "running") return;
   const startedAt = performance.now();
-  setRun({ state: "running", sql, startedAt });
+  const running: QueryRun = { state: "running", sql, startedAt };
+  setRun(running);
+  // Restarting the engine resets the run (resetQueryRun); this query's rows then don't belong on
+  // screen any more.
+  const abandoned = () => run !== running;
   try {
-    const table = await query(sql);
+    const { schema, batches } = await streamQuery(sql);
+    if (abandoned()) return;
+    startResult(schema, startedAt);
+    let rowCount = 0;
+    for await (const batch of batches) {
+      if (abandoned()) return;
+      appendRows(batch);
+      rowCount += batch.numRows;
+    }
+    if (abandoned()) return;
     measureSince(measures.query, startedAt);
     const finishedAt = performance.now();
-    showResult(table, finishedAt);
-    setRun({ state: "done", sql, rowCount: table.numRows, durationMs: finishedAt - startedAt });
+    finishResult(finishedAt);
+    setRun({ state: "done", sql, rowCount, durationMs: finishedAt - startedAt });
   } catch (error) {
+    if (abandoned()) return;
     clearResult();
     setRun({
       state: "failed",
