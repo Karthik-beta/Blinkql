@@ -117,8 +117,14 @@ test.describe("file import", () => {
     ]);
 
     const alert = page.getByRole("alert");
-    await expect(alert).toContainText("Couldn't import notes.txt: Not a CSV, Parquet or JSON file");
-    await expect(alert).toContainText("Couldn't import broken.parquet:");
+    await expect(alert).toContainText(
+      "Couldn't import notes.txt: Not a CSV, TSV, Parquet, JSON or JSON Lines file",
+    );
+    await expect(alert).toContainText(
+      "Couldn't import broken.parquet: File 'broken.parquet' too small to be a Parquet file",
+    );
+    await expect(alert).not.toContainText("exception_type");
+    await expect(alert).not.toContainText("exception_message");
     await expect(tableList(page)).toHaveCount(0);
   });
 });

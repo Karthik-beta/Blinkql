@@ -57,7 +57,38 @@ describe("catalog", () => {
 
     expect(engine.registerFile).not.toHaveBeenCalled();
     expect(getCatalog().failures).toEqual([
-      { fileName: "notes.txt", message: "Not a CSV, Parquet or JSON file" },
+      { fileName: "notes.txt", message: "Not a CSV, TSV, Parquet, JSON or JSON Lines file" },
+    ]);
+  });
+
+  it.each([
+    [
+      JSON.stringify({
+        exception_type: "Invalid Input",
+        exception_message: "File 'broken.parquet' too small to be a Parquet file",
+        position: "38",
+      }),
+      "File 'broken.parquet' too small to be a Parquet file",
+    ],
+    ["not a Parquet file", "not a Parquet file"],
+    ["Invalid Input Error: not a Parquet file", "Invalid Input Error: not a Parquet file"],
+  ])("reports a readable import failure for %s", async (message, expected) => {
+    engine.query.mockRejectedValueOnce(new Error(message));
+
+    await importFiles([new File(["nope"], "broken.parquet")]);
+
+    expect(getCatalog().failures).toEqual([{ fileName: "broken.parquet", message: expected }]);
+    expect(getCatalog().importing).toEqual([]);
+    expect(getCatalog().tables).toEqual([]);
+  });
+
+  it("preserves failures that aren't Error objects", async () => {
+    engine.registerFile.mockRejectedValueOnce("storage unavailable");
+
+    await importFiles([csv("data.csv")]);
+
+    expect(getCatalog().failures).toEqual([
+      { fileName: "data.csv", message: "storage unavailable" },
     ]);
   });
 
