@@ -1,7 +1,8 @@
-import { FileUp } from "lucide-react";
+import { FileUp, ScanSearch } from "lucide-react";
 import { useRef, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
-import { getCatalog, importFiles, subscribeToCatalog } from "./catalog";
+import { runQuery } from "@/features/results/query-run";
+import { getCatalog, importFiles, profileSql, subscribeToCatalog } from "./catalog";
 import { acceptedExtensions, type FileFormat } from "./formats";
 
 const formatLabels: Readonly<Record<FileFormat, string>> = {
@@ -52,14 +53,26 @@ export function CatalogPanel() {
       ) : (
         <ul aria-label="Tables" className="flex flex-col gap-1">
           {catalog.tables.map((table) => (
-            <li key={table.name} className="flex flex-col rounded-md px-2 py-1">
-              <span className="truncate font-mono text-xs" title={table.fileName}>
-                {table.name}
-              </span>
-              <span className="text-muted-foreground text-xs">
-                {formatLabels[table.format]} · {table.columnCount}{" "}
-                {table.columnCount === 1 ? "column" : "columns"}
-              </span>
+            <li key={table.name} className="flex items-center gap-1 rounded-md px-2 py-1">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate font-mono text-xs" title={table.fileName}>
+                  {table.name}
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  {formatLabels[table.format]} · {table.columnCount}{" "}
+                  {table.columnCount === 1 ? "column" : "columns"}
+                </span>
+              </div>
+              {/* The profile shows in the results grid, like any query, so it needs no SQL. */}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Profile ${table.name}`}
+                title="Profile: types, ranges, distinct values and nulls per column"
+                onClick={() => void runQuery(profileSql(table.name))}
+              >
+                <ScanSearch aria-hidden />
+              </Button>
             </li>
           ))}
         </ul>
