@@ -86,6 +86,11 @@ export function profileSql(table: string): string {
   return `SUMMARIZE ${quoteIdentifier(table)}`;
 }
 
+/** The query that shows every row of `table`. */
+export function rowsSql(table: string): string {
+  return `SELECT * FROM ${quoteIdentifier(table)}`;
+}
+
 /** Imports each file as a table. Files are imported one at a time, in order. */
 export async function importFiles(files: readonly File[]): Promise<void> {
   if (files.length === 0) return;

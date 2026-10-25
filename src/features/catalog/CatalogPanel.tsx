@@ -1,4 +1,4 @@
-import { ChevronRight, FileUp, ScanSearch } from "lucide-react";
+import { ChevronRight, FileUp, ScanSearch, Table2 } from "lucide-react";
 import {
   type FocusEvent,
   type KeyboardEvent,
@@ -17,6 +17,7 @@ import {
   type ImportedTable,
   importFiles,
   profileSql,
+  rowsSql,
   subscribeToCatalog,
   type TableColumn,
 } from "./catalog";
@@ -78,6 +79,10 @@ function profile(table: ImportedTable): void {
   void runQuery(profileSql(table.name));
 }
 
+function showRows(table: ImportedTable): void {
+  void runQuery(rowsSql(table.name));
+}
+
 function TableItem({
   table,
   expanded,
@@ -97,7 +102,7 @@ function TableItem({
       role="treeitem"
       aria-expanded={expanded}
       aria-labelledby={labelId}
-      aria-keyshortcuts="P"
+      aria-keyshortcuts="P R"
       className={itemClass}
       tabIndex={tabIndex}
       {...handlers}
@@ -123,8 +128,22 @@ function TableItem({
             {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
           </div>
         </div>
-        {/* Out of the Tab order, like the chevron: from the keyboard, P profiles the table. The
-            profile shows in the results grid, like any query, so it needs no SQL. */}
+        {/* Out of the Tab order, like the chevron: from the keyboard, R shows the rows and P
+            profiles the table. Both show in the results grid, like any query, so they need no
+            SQL; the rows can then be charted. */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          tabIndex={-1}
+          aria-label={`Show rows of ${table.name}`}
+          title="Show rows (R): every row, ready to chart"
+          onClick={(event) => {
+            event.stopPropagation();
+            showRows(table);
+          }}
+        >
+          <Table2 aria-hidden />
+        </Button>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -181,7 +200,7 @@ function ColumnGroup({ table, itemProps }: { table: ImportedTable; itemProps: It
               </span>
               {columnStats && (
                 <span className="text-muted-foreground text-xs tabular-nums">
-                  {count.format(columnStats.nullPercentage)}% null · ~
+                  {count.format(columnStats.nullPercentage)}% null · {columnStats.exact ? "" : "~"}
                   {count.format(columnStats.distinctCount)} distinct
                 </span>
               )}
@@ -256,6 +275,11 @@ export function CatalogPanel() {
       case "P":
         if (node.column) return;
         profile(node.table);
+        break;
+      case "r":
+      case "R":
+        if (node.column) return;
+        showRows(node.table);
         break;
       default:
         return;

@@ -119,9 +119,9 @@ test.describe("file import", () => {
 
     const columns = table.getByRole("group").getByRole("treeitem");
     await expect(columns).toHaveText([
-      "machine_idVARCHAR0% null · ~2 distinct",
-      "eventVARCHAR0% null · ~2 distinct",
-      "minutesBIGINT0% null · ~2 distinct",
+      "machine_idVARCHAR0% null · 2 distinct",
+      "eventVARCHAR0% null · 2 distinct",
+      "minutesBIGINT0% null · 2 distinct",
     ]);
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("End");

@@ -6,7 +6,7 @@ import { CatalogPanel } from "./CatalogPanel";
 import { importFiles, resetCatalog } from "./catalog";
 
 // The engine is replaced by a fake that knows two tables' columns. Column statistics wait until
-// the test settles them.
+// the test settles them; exact distinct counts come back at once.
 const engine = vi.hoisted(() => {
   const columns: Record<string, [string, string][]> = {
     orders: [
@@ -24,6 +24,9 @@ const engine = vi.hoisted(() => {
           numRows: rows.length,
           toArray: () => rows.map(([column_name, column_type]) => ({ column_name, column_type })),
         };
+      }
+      if (sql.includes("count(DISTINCT")) {
+        return { toArray: () => [{ "Order Date": 30n }] };
       }
       if (sql.includes("SUMMARIZE")) {
         return new Promise((resolve, reject) => {
@@ -132,6 +135,22 @@ describe("CatalogPanel", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it("shows a table's rows with its button or R, without inserting its name", async () => {
+    const tree = await renderWithTables();
+    const [orders] = within(tree).getAllByRole("treeitem");
+    expect(orders).toHaveAttribute("aria-keyshortcuts", "P R");
+
+    const button = within(tree).getByRole("button", { name: "Show rows of orders" });
+    expect(button.tabIndex).toBe(-1);
+    await userEvent.click(button);
+    expect(queryRun.runQuery).toHaveBeenLastCalledWith('SELECT * FROM "orders"');
+
+    act(() => within(tree).getAllByRole("treeitem")[1]?.focus());
+    await userEvent.keyboard("r");
+    expect(queryRun.runQuery).toHaveBeenLastCalledWith('SELECT * FROM "machines"');
+    expect(insert).not.toHaveBeenCalled();
+  });
+
   it("loads column statistics when a table is first expanded", async () => {
     const tree = await renderWithTables();
     act(() => within(tree).getAllByRole("treeitem")[0]?.focus());
@@ -149,7 +168,11 @@ describe("CatalogPanel", () => {
     expect(within(tree).queryByText("Loading column statistics…")).not.toBeInTheDocument();
     const columns = within(within(tree).getByRole("group")).getAllByRole("treeitem");
     expect(columns[0]).toHaveTextContent("0% null · ~1,200 distinct");
-    expect(columns[1]).toHaveTextContent("12.5% null · ~31 distinct");
+    // An estimate this small is replaced by the exact count.
+    expect(columns[1]).toHaveTextContent("12.5% null · 30 distinct");
+    expect(engine.query).toHaveBeenLastCalledWith(
+      'SELECT count(DISTINCT "Order Date") AS "Order Date" FROM "orders"',
+    );
 
     // Collapsing and expanding again reuses the statistics.
     await userEvent.keyboard("{ArrowLeft}{ArrowRight}");
