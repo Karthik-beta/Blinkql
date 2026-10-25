@@ -5,6 +5,7 @@ import { query, registerFile, unregisterFile } from "@/engine/engine";
 import { parseEngineError } from "@/features/results/engine-error";
 import { measureSince, measures } from "@/lib/user-timing";
 import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
+import { deviceMemoryGiB, memoryWarning } from "./memory";
 import { listDatasets, loadDataset, removeDataset, saveDataset } from "./stored-datasets";
 
 export type ImportedTable = {
@@ -34,6 +35,8 @@ export type Catalog = {
   importing: readonly string[];
   /** Files from the most recent import that couldn't be imported. */
   failures: readonly ImportFailure[];
+  /** Files from the most recent import that were imported but may not fit in memory. */
+  warnings: readonly ImportFailure[];
   /** True once a file couldn't be kept in the browser, so its table will be gone after a reload. */
   storageUnavailable: boolean;
 };
@@ -41,7 +44,13 @@ export type Catalog = {
 /** A file to import and, for one imported before, the name and format its table had. */
 type Source = { file: File; name?: string; format?: FileFormat };
 
-const empty: Catalog = { tables: [], importing: [], failures: [], storageUnavailable: false };
+const empty: Catalog = {
+  tables: [],
+  importing: [],
+  failures: [],
+  warnings: [],
+  storageUnavailable: false,
+};
 let catalog = empty;
 let restoring: Promise<void> | null = null;
 /** Table names in use or claimed by an import in progress, so concurrent imports can't clash. */
@@ -127,13 +136,21 @@ async function importSources(sources: readonly Source[], keepCopies: boolean): P
     ...current,
     importing: [...current.importing, ...sources.map(({ file }) => file.name)],
     failures: [],
+    warnings: [],
   }));
 
   for (const source of sources) {
     const { file } = source;
     try {
       const table = await importFile(source);
-      update((current) => ({ ...current, tables: [...current.tables, table] }));
+      const warning = memoryWarning(file.size, { deviceMemoryGiB: deviceMemoryGiB() });
+      update((current) => ({
+        ...current,
+        tables: [...current.tables, table],
+        warnings: warning
+          ? [...current.warnings, { fileName: file.name, message: warning }]
+          : current.warnings,
+      }));
       if (keepCopies) keep(table);
     } catch (error) {
       const message =
