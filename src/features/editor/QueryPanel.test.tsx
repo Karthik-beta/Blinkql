@@ -12,9 +12,10 @@ const engine = vi.hoisted(() => {
   let settle: { resolve: (value: unknown) => void; reject: (error: Error) => void } | null = null;
   return {
     streamQuery: vi.fn(
-      (_sql: string) =>
+      (_sql: string, signal?: AbortSignal) =>
         new Promise((resolve, reject) => {
           settle = { resolve, reject };
+          signal?.addEventListener("abort", () => reject(new Error("query was canceled")));
         }),
     ),
     finish: (value: unknown) => settle?.resolve(value),
@@ -67,6 +68,35 @@ describe("QueryPanel", () => {
     });
     expect(screen.getByRole("button", { name: "Run" })).toHaveAttribute("aria-disabled", "false");
     expect(screen.getByText(/^40 rows in \d+ ms$/)).toBeInTheDocument();
+  });
+
+  it("offers Cancel only while a query runs, and cancels it", async () => {
+    render(<QueryPanel />);
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+
+    let running!: Promise<void>;
+    act(() => {
+      running = runQuery("SELECT * FROM range(40)");
+    });
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel).toHaveAttribute("aria-keyshortcuts", "Escape");
+
+    await userEvent.click(cancel);
+    await act(() => running);
+    expect(screen.getByText(/^Cancelled after \d+ ms$/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+  });
+
+  it("cancels the running query on Escape", async () => {
+    render(<QueryPanel />);
+
+    let running!: Promise<void>;
+    act(() => {
+      running = runQuery("SELECT * FROM range(40)");
+    });
+    await userEvent.keyboard("{Escape}");
+    await act(() => running);
+    expect(screen.getByText(/^Cancelled after \d+ ms$/)).toBeInTheDocument();
   });
 
   it("says when a query failed, and why", async () => {
