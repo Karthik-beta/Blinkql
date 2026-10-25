@@ -2,14 +2,21 @@
 // isn't part of the workbench's first load: it imports only the charts and components used.
 import { BarChart, LineChart, ScatterChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
-import { type EChartsCoreOption, init, use } from "echarts/core";
+import { type EChartsCoreOption, getInstanceByDom, init, use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { afterNextPaint, measureSince, measures } from "@/lib/user-timing";
 import type { ChartData } from "./ChartPanel";
 
 use([BarChart, LineChart, ScatterChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
-type Colours = { ink: string; muted: string; gridline: string; first: string; second: string };
+type Colours = {
+  background: string;
+  ink: string;
+  muted: string;
+  gridline: string;
+  first: string;
+  second: string;
+};
 
 /**
  * The design tokens' colours, as the canvas draws them. The tokens are oklch(), which ECharts
@@ -28,6 +35,7 @@ function readColours(): Colours {
     return `rgb(${r}, ${g}, ${b})`;
   };
   return {
+    background: rgb("--background"),
     ink: rgb("--data-ink"),
     muted: rgb("--muted-foreground"),
     gridline: rgb("--gridline"),
@@ -99,6 +107,15 @@ function option({ spec, rows }: ChartData, colours: Colours): EChartsCoreOption 
         ],
       };
   }
+}
+
+/** The chart drawn in `container` as a PNG data URL, at twice its size, on the page background. */
+export function chartPng(container: HTMLElement): string | undefined {
+  return getInstanceByDom(container)?.getDataURL({
+    type: "png",
+    pixelRatio: 2,
+    backgroundColor: readColours().background,
+  });
 }
 
 /** Draws `data` in `container`, redrawing it as it resizes and the theme changes. Returns a cleanup. */

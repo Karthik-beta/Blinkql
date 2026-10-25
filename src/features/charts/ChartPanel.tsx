@@ -1,9 +1,18 @@
 // A chart of the last query's result. Its points are computed by the engine (chart-sql.ts) and
 // drawn by ECharts, which loads the first time a chart is drawn.
 import type { Table } from "apache-arrow";
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type RefObject,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { query } from "@/engine/engine";
+import { download, exportFileName } from "@/features/results/export";
 import { getQueryRun, subscribeToQueryRun } from "@/features/results/query-run";
 import { getResult, subscribeToResult } from "@/features/results/result-store";
 import {
@@ -118,8 +127,7 @@ function Select({
   );
 }
 
-function ChartCanvas({ data }: { data: ChartData }) {
-  const ref = useRef<HTMLDivElement>(null);
+function ChartCanvas({ data, ref }: { data: ChartData; ref: RefObject<HTMLDivElement | null> }) {
   useEffect(() => {
     let cleanUp: (() => void) | undefined;
     let removed = false;
@@ -130,7 +138,7 @@ function ChartCanvas({ data }: { data: ChartData }) {
       removed = true;
       cleanUp?.();
     };
-  }, [data]);
+  }, [data, ref]);
   return <div ref={ref} className="min-h-0 flex-1" />;
 }
 
@@ -182,6 +190,7 @@ export function ChartPanel() {
   const [aggregate, setAggregate] = useState<Aggregate>("count");
   const [chart, setChart] = useState<ChartData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const canvas = useRef<HTMLDivElement>(null);
   const [showTable, setShowTable] = useState(false);
 
   const resultColumns = result?.columns;
@@ -282,6 +291,19 @@ export function ChartPanel() {
         >
           View as table
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          disabled={!chart || showTable}
+          onClick={async () => {
+            const { chartPng } = await import("./draw-chart");
+            const png = canvas.current && chartPng(canvas.current);
+            if (png) download(png, exportFileName("png", new Date(), "chart"));
+          }}
+        >
+          Export PNG
+        </Button>
       </div>
       {error ? (
         <p role="alert" className="p-3 text-xs text-destructive">
@@ -294,7 +316,8 @@ export function ChartPanel() {
           The result has no column this chart can use.
         </p>
       ) : (
-        chart && (showTable ? <ChartTable data={chart} /> : <ChartCanvas data={chart} />)
+        chart &&
+        (showTable ? <ChartTable data={chart} /> : <ChartCanvas data={chart} ref={canvas} />)
       )}
     </section>
   );
