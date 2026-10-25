@@ -1,3 +1,4 @@
+import { autocompletion, closeCompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { EditorSelection, EditorState, Prec } from "@codemirror/state";
@@ -99,6 +100,8 @@ export function SqlEditor({ ref, onRun }: Props) {
               {
                 key: "Mod-Enter",
                 run: (target) => {
+                  // Otherwise completions still being looked up would take the Escape that cancels.
+                  closeCompletion(target);
                   latestOnRun.current(sqlToRun(target.state));
                   return true;
                 },
@@ -116,6 +119,7 @@ export function SqlEditor({ ref, onRun }: Props) {
           indentOnInput(),
           bracketMatching(),
           duckdbSql(),
+          autocompletion(),
           errorMark,
           blinkqlEditorTheme,
           placeholder(`Write SQL here. ${runShortcut.label} runs it, or just the selected part.`),

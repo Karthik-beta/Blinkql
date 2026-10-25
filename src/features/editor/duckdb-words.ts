@@ -169,3 +169,822 @@ uuidv7 var_pop var_samp variance variant_bytes_to_variant variant_extract varian
 variant_to_parquet_variant variant_typeof vector_type wavg weekday weekofyear weighted_avg
 which_secret write_log xor yearweek
 `;
+
+/** One line per function: its first overload's signature, then +N for the other overloads. */
+export const signatures = `
+abs(x) +12
+acos(x)
+acosh(x)
+age(timestamp) +3
+ago(i)
+alias(expr)
+any_value(arg) +1
+apply(list, lambda(x))
+approx_count_distinct(any)
+approx_quantile(x, pos) +23
+approx_top_k(val, k)
+arbitrary(arg) +1
+arg_max(arg, val) +91
+arg_max_null(arg, val) +90
+arg_max_nulls_last(arg, val) +91
+arg_min(arg, val) +91
+arg_min_null(arg, val) +90
+arg_min_nulls_last(arg, val) +91
+argmax(arg, val) +91
+argmin(arg, val) +91
+array_agg(arg)
+array_aggr(list, function_name, ...)
+array_aggregate(list, function_name, ...)
+array_append(arr, el)
+array_apply(list, lambda(x))
+array_cat(...)
+array_concat(...)
+array_contains(list, element)
+array_cosine_distance(array1, array2) +1
+array_cosine_similarity(array1, array2) +1
+array_cross_product(array, array) +1
+array_distance(array1, array2) +1
+array_distinct(list)
+array_dot_product(array1, array2) +1
+array_extract(col0, col1) +3
+array_filter(list, lambda(x))
+array_grade_up(list) +2
+array_has(list, element)
+array_has_all(list1, list2)
+array_has_any(list1, list2)
+array_indexof(list, element)
+array_inner_product(array1, array2) +1
+array_intersect(list1, list2)
+array_length(list) +1
+array_negative_dot_product(array1, array2) +1
+array_negative_inner_product(array1, array2) +1
+array_pop_back(arr)
+array_pop_front(arr)
+array_position(list, element)
+array_prepend(el, arr)
+array_push_back(arr, e)
+array_push_front(arr, e)
+array_reduce(list, lambda(x,y)) +1
+array_resize(list, size[) +1
+array_reverse(l)
+array_reverse_sort(list) +1
+array_select(value_list, index_list)
+array_slice(list, begin, end) +1
+array_sort(list) +2
+array_to_json(...)
+array_to_string(arr, sep)
+array_to_string_comma_default(arr, sep)
+array_transform(list, lambda(x))
+array_unique(list)
+array_value(...)
+array_where(value_list, mask_list)
+array_zip(...)
+arrow_scan(col0, col1, col2)
+arrow_scan_dumb(col0, col1, col2)
+ascii(string)
+asin(x)
+asinh(x)
+atan(x)
+atan2(y, x)
+atanh(x)
+avg(x) +10
+bar(x, min, max, width) +1
+base64(blob)
+bin(string) +5
+bit_and(arg) +10
+bit_count(x) +5
+bit_length(string) +1
+bit_or(arg) +10
+bit_position(substring, bitstring)
+bit_xor(arg) +10
+bitstring_agg(arg) +19
+bool_and(arg)
+bool_or(arg)
+can_cast_implicitly(source_type, target_type)
+cardinality(map, ...)
+cast_to_type(param, type)
+cbrt(x)
+ceil(x) +2
+ceiling(x) +2
+char_length(string) +2
+character_length(string) +2
+check_peg_parser(col0)
+chr(code_point)
+col_description(table_oid, column_number)
+combine(col0, col1)
+concat(value, ...)
+concat_ws(separator, string, ...)
+constant_or_null(arg1, arg2, ...)
+contains(string, search_string) +3
+corr(y, x)
+cos(x)
+cosh(x)
+cot(x)
+count(arg) +1
+count_if(arg)
+count_star()
+countif(arg)
+covar_pop(y, x)
+covar_samp(y, x)
+create_sort_key(parameters..., ...)
+cume_dist()
+current_catalog()
+current_connection_id()
+current_database() +1
+current_date()
+current_localtime()
+current_localtimestamp()
+current_query() +1
+current_query_id()
+current_role()
+current_schema() +1
+current_schemas(include_implicit) +1
+current_setting(setting_name)
+current_transaction_id()
+current_user()
+currval('sequence_name')
+damerau_levenshtein(s1, s2)
+date_add(date, interval)
+date_diff(part, startdate, enddate) +3
+date_part(ts, col1) +13
+date_sub(part, startdate, enddate) +3
+date_trunc(part, timestamp) +3
+datediff(part, startdate, enddate) +3
+datepart(ts, col1) +13
+datesub(part, startdate, enddate) +3
+datetrunc(part, timestamp) +3
+dayname(ts) +2
+dayofmonth(ts) +3
+dayofweek(ts) +3
+dayofyear(ts) +3
+days_in_month(date)
+decode(blob) +1
+degrees(x)
+dense_rank()
+disable_logging()
+disable_peg_parser()
+disable_profiling()
+divide(col0, col1) +11
+duckdb_approx_database_count()
+duckdb_columns()
+duckdb_connection_count()
+duckdb_constraints()
+duckdb_coordinate_systems()
+duckdb_databases()
+duckdb_dependencies()
+duckdb_extensions()
+duckdb_external_file_cache()
+duckdb_functions()
+duckdb_indexes()
+duckdb_keywords()
+duckdb_log_contexts()
+duckdb_logs(denormalized_table)
+duckdb_logs_parsed(log_type)
+duckdb_memory()
+duckdb_optimizers()
+duckdb_prepared_statements()
+duckdb_profiling_settings()
+duckdb_schemas()
+duckdb_secret_types()
+duckdb_secrets(redact)
+duckdb_sequences()
+duckdb_settings()
+duckdb_table_sample(col0)
+duckdb_tables()
+duckdb_temporary_files()
+duckdb_types()
+duckdb_variables()
+duckdb_views()
+editdist3(s1, s2)
+element_at(map, key)
+enable_logging(level, storage, storage_config, storage_path, ...)
+enable_peg_parser()
+enable_profiling(format, coverage, save_location, mode, ...)
+encode(string)
+ends_with(string, search_string)
+entropy(x)
+enum_code(enum)
+enum_first(enum)
+enum_last(enum)
+enum_range(enum)
+enum_range_boundary(start, end)
+epoch(temporal) +6
+epoch_ms(temporal) +7
+epoch_ns(temporal) +7
+epoch_us(temporal) +6
+equi_width_bins(min, max, bin_count, nice_rounding) +3
+era(ts) +3
+even(x)
+exp(x)
+factorial(x)
+favg(x)
+fdiv(x, y)
+fill(col0)
+finalize(col0)
+first_value(col0)
+flatten(nested_list)
+floor(x) +2
+fmod(x, y)
+force_checkpoint() +1
+format(format, ...)
+format_bytes(integer)
+format_pg_type(logical_type, type_name)
+format_type(type_oid, typemod)
+from_base64(string)
+from_binary(value)
+from_hex(value)
+from_json(col0, col1) +1
+from_json_strict(col0, col1) +1
+fsum(arg)
+gamma(x)
+gcd(x, y) +1
+gen_random_uuid()
+generate_series(col0) +9
+generate_subscripts(arr, dim)
+geomean(x)
+geometric_mean(x)
+get_bit(bitstring, index)
+get_block_size(db_name)
+get_current_time()
+get_current_timestamp()
+get_type(expression)
+getvariable(col0)
+grade_up(list) +2
+greatest(arg1, ...)
+greatest_common_divisor(x, y) +1
+group_concat(str) +1
+hamming(s1, s2)
+has_any_column_privilege(table, privilege) +1
+has_column_privilege(table, column, privilege) +1
+has_database_privilege(database, privilege) +1
+has_foreign_data_wrapper_privilege(fdw, privilege) +1
+has_function_privilege(function, privilege) +1
+has_language_privilege(language, privilege) +1
+has_schema_privilege(schema, privilege) +1
+has_sequence_privilege(sequence, privilege) +1
+has_server_privilege(server, privilege) +1
+has_table_privilege(table, privilege) +1
+has_tablespace_privilege(tablespace, privilege) +1
+hash(value, ...)
+hex(string) +6
+histogram(arg, col1) +2
+histogram_exact(arg, bins)
+histogram_values(source, col_name, bin_count, technique)
+icu_calendar_names()
+icu_collate_af(col0)
+icu_collate_am(col0)
+icu_collate_ar(col0)
+icu_collate_ar_sa(col0)
+icu_collate_as(col0)
+icu_collate_az(col0)
+icu_collate_be(col0)
+icu_collate_bg(col0)
+icu_collate_bn(col0)
+icu_collate_bo(col0)
+icu_collate_br(col0)
+icu_collate_bs(col0)
+icu_collate_ca(col0)
+icu_collate_ceb(col0)
+icu_collate_chr(col0)
+icu_collate_cs(col0)
+icu_collate_cy(col0)
+icu_collate_da(col0)
+icu_collate_de(col0)
+icu_collate_de_at(col0)
+icu_collate_dsb(col0)
+icu_collate_dz(col0)
+icu_collate_ee(col0)
+icu_collate_el(col0)
+icu_collate_en(col0)
+icu_collate_en_us(col0)
+icu_collate_eo(col0)
+icu_collate_es(col0)
+icu_collate_et(col0)
+icu_collate_fa(col0)
+icu_collate_fa_af(col0)
+icu_collate_ff(col0)
+icu_collate_fi(col0)
+icu_collate_fil(col0)
+icu_collate_fo(col0)
+icu_collate_fr(col0)
+icu_collate_fr_ca(col0)
+icu_collate_ga(col0)
+icu_collate_gl(col0)
+icu_collate_gu(col0)
+icu_collate_ha(col0)
+icu_collate_haw(col0)
+icu_collate_he(col0)
+icu_collate_he_il(col0)
+icu_collate_hi(col0)
+icu_collate_hr(col0)
+icu_collate_hsb(col0)
+icu_collate_hu(col0)
+icu_collate_hy(col0)
+icu_collate_id(col0)
+icu_collate_id_id(col0)
+icu_collate_ig(col0)
+icu_collate_is(col0)
+icu_collate_it(col0)
+icu_collate_ja(col0)
+icu_collate_ka(col0)
+icu_collate_kk(col0)
+icu_collate_kl(col0)
+icu_collate_km(col0)
+icu_collate_kn(col0)
+icu_collate_ko(col0)
+icu_collate_kok(col0)
+icu_collate_ku(col0)
+icu_collate_ky(col0)
+icu_collate_lb(col0)
+icu_collate_lkt(col0)
+icu_collate_ln(col0)
+icu_collate_lo(col0)
+icu_collate_lt(col0)
+icu_collate_lv(col0)
+icu_collate_mk(col0)
+icu_collate_ml(col0)
+icu_collate_mn(col0)
+icu_collate_mr(col0)
+icu_collate_ms(col0)
+icu_collate_mt(col0)
+icu_collate_my(col0)
+icu_collate_nb(col0)
+icu_collate_nb_no(col0)
+icu_collate_ne(col0)
+icu_collate_nl(col0)
+icu_collate_nn(col0)
+icu_collate_noaccent(col0)
+icu_collate_om(col0)
+icu_collate_or(col0)
+icu_collate_pa(col0)
+icu_collate_pa_in(col0)
+icu_collate_pl(col0)
+icu_collate_ps(col0)
+icu_collate_pt(col0)
+icu_collate_ro(col0)
+icu_collate_ru(col0)
+icu_collate_sa(col0)
+icu_collate_se(col0)
+icu_collate_si(col0)
+icu_collate_sk(col0)
+icu_collate_sl(col0)
+icu_collate_smn(col0)
+icu_collate_sq(col0)
+icu_collate_sr(col0)
+icu_collate_sr_ba(col0)
+icu_collate_sr_me(col0)
+icu_collate_sr_rs(col0)
+icu_collate_sv(col0)
+icu_collate_sw(col0)
+icu_collate_ta(col0)
+icu_collate_te(col0)
+icu_collate_th(col0)
+icu_collate_tk(col0)
+icu_collate_to(col0)
+icu_collate_tr(col0)
+icu_collate_ug(col0)
+icu_collate_uk(col0)
+icu_collate_ur(col0)
+icu_collate_uz(col0)
+icu_collate_vi(col0)
+icu_collate_wae(col0)
+icu_collate_wo(col0)
+icu_collate_xh(col0)
+icu_collate_yi(col0)
+icu_collate_yo(col0)
+icu_collate_yue(col0)
+icu_collate_yue_cn(col0)
+icu_collate_zh(col0)
+icu_collate_zh_cn(col0)
+icu_collate_zh_hk(col0)
+icu_collate_zh_mo(col0)
+icu_collate_zh_sg(col0)
+icu_collate_zh_tw(col0)
+icu_collate_zu(col0)
+icu_sort_key(col0, col1)
+ilike_escape(string, like_specifier, escape_character)
+in_search_path(database_name, schema_name)
+inet_client_addr()
+inet_client_port()
+inet_server_addr()
+inet_server_port()
+instr(string, search_string)
+is_histogram_other_bin(val)
+isfinite(x) +4
+isinf(x) +4
+isnan(x) +1
+isodow(ts) +3
+isoyear(ts) +3
+jaccard(s1, s2)
+jaro_similarity(s1, s2) +1
+jaro_winkler_similarity(s1, s2) +1
+json_array(...)
+json_array_length(col0) +5
+json_contains(col0, col1) +3
+json_deserialize_sql(col0)
+json_each(col0) +3
+json_execute_serialized_sql(col0)
+json_exists(col0, col1) +3
+json_extract(col0, col1) +5
+json_extract_path(col0, col1) +5
+json_extract_path_text(col0, col1) +5
+json_extract_string(col0, col1) +5
+json_group_array(x)
+json_group_object(n, v)
+json_group_structure(x)
+json_keys(col0) +5
+json_merge_patch(col0, col1, ...)
+json_object(...)
+json_pretty(col0)
+json_quote(...)
+json_serialize_plan(col0) +4
+json_serialize_sql(col0) +4
+json_structure(col0) +1
+json_transform(col0, col1) +1
+json_transform_strict(col0, col1) +1
+json_tree(col0) +3
+json_type(col0) +5
+json_valid(col0) +1
+json_value(col0, col1) +5
+julian(ts) +2
+kahan_sum(arg)
+kurtosis(x)
+kurtosis_pop(x)
+lag(col0, col1, col2)
+last_day(ts) +2
+last_value(col0)
+lcase(string)
+lcm(x, y) +1
+lead(col0, col1, col2)
+least(arg1, ...)
+least_common_multiple(x, y) +1
+left_grapheme(string, count)
+len(string) +2
+length(string) +2
+length_grapheme(string)
+levenshtein(s1, s2)
+lgamma(x)
+like_escape(string, like_specifier, escape_character)
+list_aggr(list, function_name, ...)
+list_aggregate(list, function_name, ...)
+list_any_value(l)
+list_append(l, e)
+list_apply(list, lambda(x))
+list_approx_count_distinct(l)
+list_avg(l)
+list_bit_and(l)
+list_bit_or(l)
+list_bit_xor(l)
+list_bool_and(l)
+list_bool_or(l)
+list_cat(...)
+list_concat(...)
+list_contains(list, element)
+list_cosine_distance(list1, list2) +1
+list_cosine_similarity(list1, list2) +1
+list_count(l)
+list_distance(list1, list2) +1
+list_distinct(list)
+list_dot_product(list1, list2) +1
+list_element(list, index) +1
+list_entropy(l)
+list_extract(list, index) +1
+list_filter(list, lambda(x))
+list_first(l)
+list_grade_up(list) +2
+list_has(list, element)
+list_has_all(list1, list2)
+list_has_any(list1, list2)
+list_histogram(l)
+list_indexof(list, element)
+list_inner_product(list1, list2) +1
+list_intersect(list1, list2)
+list_kurtosis(l)
+list_kurtosis_pop(l)
+list_last(l)
+list_mad(l)
+list_max(l)
+list_median(l)
+list_min(l)
+list_mode(l)
+list_negative_dot_product(list1, list2) +1
+list_negative_inner_product(list1, list2) +1
+list_pack() +1
+list_position(list, element)
+list_prepend(e, l)
+list_product(l)
+list_reduce(list, lambda(x,y)) +1
+list_resize(list, size[) +1
+list_reverse(l)
+list_reverse_sort(list) +1
+list_select(value_list, index_list)
+list_sem(l)
+list_skewness(l)
+list_slice(list, begin, end) +1
+list_sort(list) +2
+list_stddev_pop(l)
+list_stddev_samp(l)
+list_string_agg(l)
+list_sum(l)
+list_transform(list, lambda(x))
+list_unique(list)
+list_value() +1
+list_var_pop(l)
+list_var_samp(l)
+list_where(value_list, mask_list)
+list_zip(...)
+listagg(str) +1
+ln(x)
+log(b) +1
+log10(x)
+log2(x)
+lower(string)
+lpad(string, count, character)
+ltrim(string) +1
+mad(x) +7
+make_date(col0) +2
+make_time(hour, minute, seconds)
+make_timestamp(year, month, day, hour, ...) +1
+make_timestamp_ms(nanos)
+make_timestamp_ns(nanos)
+make_timestamptz(col0, col1, col2, col3, ...) +2
+make_type(name, ...)
+map_concat(...)
+map_contains(map, key)
+map_contains_entry(map, key, value)
+map_contains_value(map, value)
+map_entries(map)
+map_extract(map, key)
+map_extract_value(map, key)
+map_from_entries(map)
+map_keys(map)
+map_to_pg_oid(type_name)
+map_values(map)
+max(arg) +1
+max_by(arg, val) +91
+md5(string) +1
+md5_number(string) +1
+md5_number_lower(param)
+md5_number_upper(param)
+mean(x) +10
+median(x)
+min(arg) +1
+min_by(arg, val) +91
+mismatches(s1, s2)
+mod(col0, col1) +12
+monthname(ts) +2
+multiply(col0, col1) +16
+nanosecond(tsns) +7
+nextafter(x, y) +1
+nextval('sequence_name')
+nfc_normalize(string)
+normalized_interval(interval)
+not_ilike_escape(string, like_specifier, escape_character)
+not_like_escape(string, like_specifier, escape_character)
+now()
+nth_value(col0, col1)
+ntile(col0)
+obj_description(object_oid, catalog_name)
+octet_length(blob) +1
+ord(string)
+parquet_bloom_probe(col0, col1, col2) +1
+parquet_file_metadata(col0) +1
+parquet_full_metadata(col0) +1
+parquet_kv_metadata(col0) +1
+parquet_metadata(col0) +1
+parquet_scan(col0, filename, hive_partitioning, union_by_name, ...) +1
+parquet_schema(col0) +1
+parse_dirname(path) +1
+parse_dirpath(path) +1
+parse_duckdb_log_message(type, message)
+parse_filename(string) +3
+parse_formatted_bytes(string)
+parse_path(path) +1
+percent_rank()
+pg_collation_is_visible(collation_oid)
+pg_conf_load_time()
+pg_conversion_is_visible(conversion_oid)
+pg_function_is_visible(function_oid)
+pg_get_constraintdef(constraint_oid) +1
+pg_get_expr(pg_node_tree, relation_oid)
+pg_get_viewdef(oid)
+pg_has_role(user, role, privilege) +1
+pg_is_other_temp_schema(schema_id)
+pg_my_temp_schema()
+pg_opclass_is_visible(opclass_oid)
+pg_operator_is_visible(operator_oid)
+pg_opfamily_is_visible(opclass_oid)
+pg_postmaster_start_time()
+pg_size_pretty(bytes)
+pg_sleep(seconds)
+pg_table_is_visible(table_oid)
+pg_timezone_names()
+pg_ts_config_is_visible(config_oid)
+pg_ts_dict_is_visible(dict_oid)
+pg_ts_parser_is_visible(parser_oid)
+pg_ts_template_is_visible(template_oid)
+pg_type_is_visible(type_oid)
+pg_typeof(expression)
+pi()
+pow(x, y)
+power(x, y)
+pragma_collations()
+pragma_database_size()
+pragma_metadata_info() +1
+pragma_platform()
+pragma_show(col0)
+pragma_storage_info(col0)
+pragma_table_info(col0)
+pragma_user_agent()
+pragma_version()
+prefix(string, search_string)
+printf(format, ...)
+product(arg)
+quantile(x, pos) +2
+quantile_cont(x, pos) +25
+quantile_disc(x, pos) +2
+query(col0)
+query_table(col0) +2
+radians(x)
+random()
+rank()
+rank_dense()
+read_blob(col0) +1
+read_csv(col0, filename, skip, comment, ...) +1
+read_csv_auto(col0, filename, skip, comment, ...) +1
+read_duckdb(col0, filename, hive_partitioning, union_by_name, ...) +1
+read_json(col0, format, filename, hive_partitioning, ...) +1
+read_json_auto(col0, format, filename, hive_partitioning, ...) +1
+read_json_objects(col0, format, filename, hive_partitioning, ...) +1
+read_json_objects_auto(col0, format, filename, hive_partitioning, ...) +1
+read_ndjson(col0, format, filename, hive_partitioning, ...) +1
+read_ndjson_auto(col0, format, filename, hive_partitioning, ...) +1
+read_ndjson_objects(col0, format, filename, hive_partitioning, ...) +1
+read_parquet(col0, filename, hive_partitioning, union_by_name, ...) +1
+read_text(col0) +1
+reduce(list, lambda(x,y)) +1
+regexp_escape(string)
+regexp_extract(string, regex) +4
+regexp_extract_all(string, regex) +4
+regexp_full_match(string, regex) +1
+regexp_matches(string, regex) +1
+regexp_replace(string, regex, replacement) +1
+regexp_split_to_array(string, regex) +1
+regexp_split_to_table(text, pattern)
+regr_avgx(y, x)
+regr_avgy(y, x)
+regr_count(y, x)
+regr_intercept(y, x)
+regr_r2(y, x)
+regr_slope(y, x)
+regr_sxx(y, x)
+regr_sxy(y, x)
+regr_syy(y, x)
+remap_struct(input, target_type, mapping, defaults)
+repeat(col0, col1) +3
+repeat_row(num_rows, ...)
+replace_type(param, type1, type2)
+reservoir_quantile(x, quantile) +31
+reverse(string)
+right_grapheme(string, count)
+round(x) +15
+round_even(x, n)
+roundbankers(x, n)
+row_number()
+row_to_json(...)
+rpad(string, count, character)
+rtrim(string) +1
+sem(x)
+seq_scan()
+session_user()
+set_bit(bitstring, index, new_value)
+setseed(col0)
+sha1(value) +1
+sha256(value) +1
+shobj_description(object_oid, catalog_name)
+sign(x) +11
+signbit(x) +1
+sin(x)
+sinh(x)
+skewness(x)
+sleep_ms(milliseconds)
+sniff_csv(col0, sep, delim, nullstr, ...)
+split(string, separator)
+split_part(string, delimiter, position)
+sql_auto_complete(col0, max_suggestion_count, max_file_suggestion_count, max_exact_suggestion_count)
+sqrt(x)
+st_asbinary(geom)
+st_astext(geom)
+st_aswkb(geom)
+st_aswkt(geom)
+st_crs(geom)
+st_geomfromwkb(wkb)
+st_intersects_extent(geom1, geom2)
+st_setcrs(geom, crs)
+starts_with(string, search_string)
+stats(expression)
+stddev(x)
+stddev_pop(x)
+stddev_samp(x)
+str_split(string, separator)
+str_split_regex(string, regex) +1
+strftime(data, format) +7
+string_agg(str) +1
+string_split(string, separator)
+string_split_regex(string, regex) +1
+string_to_array(string, separator)
+strip_accents(string)
+strlen(string)
+strpos(string, search_string)
+strptime(text, format) +1
+struct_concat(...)
+struct_contains(struct, 'entry')
+struct_extract(struct, 'entry') +1
+struct_extract_at(struct, 'entry')
+struct_has(struct, 'entry')
+struct_indexof(struct, 'entry')
+struct_insert(...)
+struct_keys(struct)
+struct_pack(...)
+struct_position(struct, 'entry')
+struct_update(...)
+struct_values(struct)
+substr(string, start, length) +1
+substring_grapheme(string, start, length) +1
+subtract(col0) +36
+suffix(string, search_string)
+sum(arg) +7
+sum_no_overflow(arg) +2
+sumkahan(arg)
+summary(col0)
+switch(key, map) +3
+tan(x)
+tanh(x)
+test_all_types(use_large_enum, use_large_bignum)
+test_vector_types(col0, all_flat, ...)
+time_bucket(bucket_width, timestamp) +9
+timetz_byte_comparable(time_tz)
+timezone(ts) +7
+timezone_hour(ts) +3
+timezone_minute(ts) +3
+to_base(number, radix) +1
+to_base64(blob)
+to_binary(string) +5
+to_centuries(integer) +1
+to_days(integer) +1
+to_decades(integer) +1
+to_hex(string) +6
+to_hours(integer)
+to_json(...)
+to_microseconds(integer)
+to_millennia(integer) +1
+to_milliseconds(double)
+to_minutes(integer)
+to_months(integer) +1
+to_quarters(integer) +1
+to_seconds(double)
+to_timestamp(sec)
+to_weeks(integer) +1
+to_years(integer) +1
+today()
+transaction_timestamp()
+translate(string, from, to)
+trunc(x) +25
+truncate_duckdb_logs()
+try_strptime(text, format) +1
+txid_current()
+typeof(expression)
+ucase(string)
+unbin(value)
+unhex(value)
+unicode(string)
+union_extract(union, tag)
+union_tag(union)
+union_value(...)
+unnest(col0)
+unpivot_list(...)
+upper(string)
+url_decode(string)
+url_encode(string)
+uuid_extract_timestamp(uuid)
+uuid_extract_version(uuid)
+uuidv4()
+uuidv7()
+var_pop(x)
+var_samp(x)
+variance(x)
+variant_bytes_to_variant(col0)
+variant_extract(col0, col1) +1
+variant_normalize(input_variant)
+variant_to_parquet_variant(col0)
+variant_typeof(input_variant)
+vector_type(col)
+wavg(value, weight)
+weekday(ts) +3
+weekofyear(ts) +3
+weighted_avg(value, weight)
+which_secret(col0, col1)
+write_log(string, ...)
+xor(left, right) +10
+yearweek(ts) +3
+`;
