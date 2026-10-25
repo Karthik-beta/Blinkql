@@ -280,10 +280,7 @@ export function CatalogPanel() {
   });
 
   return (
-    <aside
-      aria-labelledby="catalog-heading"
-      className="flex w-64 shrink-0 flex-col gap-3 border-r bg-chrome p-3"
-    >
+    <aside aria-labelledby="catalog-heading" className="flex min-h-0 flex-1 flex-col gap-3 p-3">
       <div className="flex items-center justify-between">
         <h2 id="catalog-heading" className="font-medium text-xs">
           Tables

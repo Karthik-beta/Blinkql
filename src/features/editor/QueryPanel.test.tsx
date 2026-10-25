@@ -4,7 +4,7 @@ import { tableFromArrays } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "@/features/results/query-run";
 import { streamOf } from "@/features/results/test-utils";
-import { insertIntoEditor } from "./insert";
+import { editorContents, insertIntoEditor, replaceEditorContents } from "./insert";
 import { QueryPanel } from "./QueryPanel";
 import { withinSqlEditor } from "./test-utils";
 
@@ -62,6 +62,21 @@ describe("QueryPanel", () => {
 
     unmount();
     expect(() => insertIntoEditor("ignored")).not.toThrow();
+  });
+
+  it("lets other parts read and replace the whole editor, such as the query history", async () => {
+    const { unmount } = render(<QueryPanel />);
+
+    act(() => insertIntoEditor("SELECT 1"));
+    expect(editorContents()).toBe("SELECT 1");
+    act(() => replaceEditorContents("SELECT 2"));
+    expect(editorContents()).toBe("SELECT 2");
+    await userEvent.click(screen.getByRole("button", { name: "Run" }));
+    expect(engine.streamQuery).toHaveBeenCalledWith("SELECT 2", expect.anything());
+
+    unmount();
+    expect(editorContents()).toBe("");
+    expect(() => replaceEditorContents("ignored")).not.toThrow();
   });
 
   it("turns Run into a running state with a timer, then reports the result", async () => {
