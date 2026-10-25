@@ -41,6 +41,11 @@ export const measures = {
    * `BLINKQL_REACT_PROFILING=1` builds (bench/README.md); production builds skip it.
    */
   reactCommit: "blinkql:react-commit",
+  /**
+   * From a chart's spec being chosen until the frame after ECharts has drawn it: its query, any
+   * downsampling on the main thread (P-10) and the drawing.
+   */
+  chartRender: "blinkql:chart-render",
 } as const;
 
 export type MeasureName = (typeof measures)[keyof typeof measures];
@@ -54,6 +59,19 @@ export function markOnce(name: MarkName): void {
 /** Records a `name` span from `start` (a `performance.now()` time) until now. */
 export function measureSince(name: MeasureName, start: number): void {
   performance.measure(name, { start, end: performance.now() });
+}
+
+/** Calls `callback` once the next frame has been painted; returns a function that cancels it. */
+export function afterNextPaint(callback: () => void): () => void {
+  // A timeout queued from requestAnimationFrame runs once that frame has been painted.
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const frame = requestAnimationFrame(() => {
+    timeout = setTimeout(callback);
+  });
+  return () => {
+    cancelAnimationFrame(frame);
+    clearTimeout(timeout);
+  };
 }
 
 /** A `<Profiler>`'s `onRender`: records the commit as a `reactCommit` measure. */

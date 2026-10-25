@@ -60,10 +60,13 @@ function recordLongFrames() {
   Object.assign(window, { blinkqlLongFrames: frames });
 }
 
-/** Opens the workbench and waits until the engine has answered its first query. */
-export async function openWorkbench(page: Page, baseURL: string): Promise<void> {
+/**
+ * Opens the workbench, with `search` as its query string (e.g. `?downsample=client`), and waits
+ * until the engine has answered its first query.
+ */
+export async function openWorkbench(page: Page, baseURL: string, search = ""): Promise<void> {
   await page.addInitScript(recordLongFrames);
-  await page.goto(new URL("/app/", baseURL).href);
+  await page.goto(new URL(`/app/${search}`, baseURL).href);
   await waitForMark(page, marks.engineReady, ENGINE_TIMEOUT);
 }
 
@@ -72,7 +75,7 @@ export async function openWorkbench(page: Page, baseURL: string): Promise<void> 
  * first alert (an import or query error) if one appears first. Measures are cleared beforehand by
  * `clearMeasures()`, so the one found belongs to the step just started.
  */
-async function waitForMeasure(page: Page, name: MeasureName): Promise<number> {
+export async function waitForMeasure(page: Page, name: MeasureName): Promise<number> {
   const outcome = await page.waitForFunction(
     (name) => {
       const entry = performance.getEntriesByName(name, "measure").at(-1);
@@ -88,7 +91,7 @@ async function waitForMeasure(page: Page, name: MeasureName): Promise<number> {
   return result.duration;
 }
 
-async function clearMeasures(page: Page): Promise<void> {
+export async function clearMeasures(page: Page): Promise<void> {
   await page.evaluate(() => performance.clearMeasures());
 }
 

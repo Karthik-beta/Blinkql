@@ -4,6 +4,7 @@ import { BarChart, LineChart, ScatterChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { type EChartsCoreOption, getInstanceByDom, init, use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
+import { afterNextPaint, measureSince, measures } from "@/lib/user-timing";
 import type { ChartData } from "./ChartPanel";
 
 use([BarChart, LineChart, ScatterChart, GridComponent, TooltipComponent, CanvasRenderer]);
@@ -127,12 +128,14 @@ export function drawChart(container: HTMLElement, data: ChartData): () => void {
     canvas?.setAttribute("aria-label", data.label);
   };
   draw();
+  const cancelMeasure = afterNextPaint(() => measureSince(measures.chartRender, data.startedAt));
   const resize = new ResizeObserver(() => chart.resize());
   resize.observe(container);
   // The theme is a class on the root element (theme-init.js).
   const theme = new MutationObserver(draw);
   theme.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
   return () => {
+    cancelMeasure();
     resize.disconnect();
     theme.disconnect();
     chart.dispose();
