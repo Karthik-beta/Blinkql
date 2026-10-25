@@ -51,8 +51,8 @@
     </script>
     <script type="module" src="/src/landing/main.ts"></script>
   </head>
-  <!-- data-phase drives the hero replay: loading, then running, then done (src/landing/replay.ts) -->
-  <body data-phase="loading">
+  <!-- data-phase drives the hero's live run: idle, then loading, running and done (src/landing/live-run.ts) -->
+  <body data-phase="idle">
     <a class="skip-link" href="#main">Skip to content</a>
 
     <header class="site-header">
@@ -81,7 +81,7 @@
           </p>
         </div>
 
-        <figure class="replay" aria-labelledby="replay-caption">
+        <figure class="demo" aria-labelledby="demo-caption">
           <div class="pane-bar editor-bar" aria-hidden="true">
             <span class="query-tab"><!--landing:query-tab--></span>
             <span class="run-button">
@@ -111,27 +111,27 @@
               <span data-readout="loading">Starting the engine…</span>
               <span data-readout="running">Running…</span>
               <span data-readout="done"
-                ><strong><!--landing:row-count--></strong> rows in
-                <strong><!--landing:elapsed-ms--></strong> ms</span
+                ><strong data-row-count><!--landing:row-count--></strong> rows in
+                <strong data-elapsed-ms><!--landing:elapsed-ms--></strong> ms</span
               >
             </span>
           </div>
-          <div class="grid-pane"><!--landing:grid--></div>
+          <div class="grid-pane" data-grid><!--landing:grid--></div>
         </figure>
-        <div class="replay-footer">
-          <p id="replay-caption" class="caption">
-            A replay of the workbench with synthetic factory data. An early version of the real
-            workbench is <a href="/app/">ready to try</a>.
+        <div class="demo-footer">
+          <p id="demo-caption" class="caption">
+            A sample query over a synthetic factory log. Run it, and the real engine answers it
+            here, in your browser. To query your own files,
+            <a href="/app/">open the workbench</a>.
           </p>
-          <button class="button button-outline" type="button" data-replay>
+          <button class="button button-outline" type="button" data-run-live>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-              <path d="M3 3v5h5" />
+              <path d="M6 4l14 8-14 8z" />
             </svg>
-            Replay
+            Run it live
           </button>
         </div>
-        <p class="sr-only" role="status" data-replay-status></p>
+        <p class="sr-only" role="status" data-run-status></p>
       </section>
 
       <section class="section container split" aria-labelledby="what-title">

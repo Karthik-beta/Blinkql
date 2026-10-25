@@ -1,7 +1,13 @@
 // Renders the landing page's data-driven parts to HTML at build time (see ./vite-plugin.ts), so
 // the page ships as static HTML: it works without JavaScript and makes no requests for content.
 import { type Milestone, statusLabels } from "./milestones.ts";
-import { type ReplayColumn, replayColumns, replayQuery, replayRows } from "./replay-data.ts";
+import {
+  type SampleColumn,
+  type SampleRow,
+  sampleColumns,
+  sampleQuery,
+  sampleRows,
+} from "./sample.ts";
 
 export function escapeHtml(text: string): string {
   return text
@@ -56,8 +62,8 @@ export function highlightSql(line: string): string {
   return html + escapeHtml(line.slice(last));
 }
 
-/** The query in the replay's editor, with line numbers the way the editor draws them. */
-export function renderSql(lines: readonly string[] = replayQuery.sql): string {
+/** The hero's query in the editor, with line numbers the way the editor draws them. */
+export function renderSql(lines: readonly string[] = sampleQuery.sql): string {
   return lines
     .map(
       (line, i) =>
@@ -66,7 +72,7 @@ export function renderSql(lines: readonly string[] = replayQuery.sql): string {
     .join(""); // each line is a block; a newline between them would add a blank line in the <pre>
 }
 
-function columnClass(column: ReplayColumn): string {
+function columnClass(column: SampleColumn): string {
   const classes = column.type === "DOUBLE" ? ["num"] : [];
   if (column.showFrom) classes.push(`show-from-${column.showFrom}`);
   return classes.length > 0 ? ` class="${classes.join(" ")}"` : "";
@@ -77,26 +83,32 @@ function formatCell(value: string | number | null): string {
   return escapeHtml(typeof value === "number" ? value.toFixed(3) : value);
 }
 
-/** The replay's results grid: a real table, so screen readers can read the rows. */
-export function renderGrid(): string {
-  const head = replayColumns
+/**
+ * The hero's results grid: a real table, so screen readers can read the rows. The build renders
+ * the static result; a live run renders its own rows in the browser.
+ */
+export function renderGrid(
+  rows: readonly SampleRow[] = sampleRows,
+  rowCount: number = sampleQuery.rowCount,
+): string {
+  const head = sampleColumns
     .map(
       (column) =>
         `<th scope="col"${columnClass(column)}><span class="col-name">${escapeHtml(column.name)}</span><span class="col-type">${column.type}</span></th>`,
     )
     .join("");
-  const body = replayRows
+  const body = rows
     .map(
       (row, i) =>
         `<tr><th scope="row" class="row-number">${i + 1}</th>${row
           .map((value, c) => {
-            const column = replayColumns[c];
+            const column = sampleColumns[c];
             return `<td${column ? columnClass(column) : ""}>${formatCell(value)}</td>`;
           })
           .join("")}</tr>`,
     )
     .join("");
-  const caption = `The first ${replayRows.length} of ${replayQuery.rowCount} rows`;
+  const caption = `The first ${rows.length} of ${rowCount} rows`;
   return `<table class="grid"><caption class="sr-only">${caption}</caption><thead><tr><th scope="col" class="row-number"><span class="sr-only">Row</span></th>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
@@ -121,7 +133,7 @@ export function currentMilestone(list: readonly Milestone[]): Milestone {
 }
 
 /**
- * The brand wordmark as inline SVG, so its lamp can mirror the replay. The letters take the
+ * The brand wordmark as inline SVG, so its lamp can mirror the hero's run. The letters take the
  * text colour (one SVG for both themes) and the lamp gets a halo for the "done" flash.
  */
 export function inlineWordmark(svg: string): string {
