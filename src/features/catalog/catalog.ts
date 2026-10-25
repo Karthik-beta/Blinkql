@@ -1,6 +1,7 @@
 // The catalog: tables imported from local files. Each file is registered with the engine by handle
 // and gets a view named after it, so SQL reads the file directly (see the Architecture page).
 import { query, registerFile, unregisterFile } from "@/engine/engine";
+import { parseEngineError } from "@/features/results/engine-error";
 import { measureSince, measures } from "@/lib/user-timing";
 import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
 
@@ -50,7 +51,7 @@ export function subscribeToCatalog(listener: () => void): () => void {
 
 async function importFile(file: File): Promise<ImportedTable> {
   const format = detectFormat(file.name);
-  if (!format) throw new Error("Not a CSV, Parquet or JSON file");
+  if (!format) throw new Error("Not a CSV, TSV, Parquet, JSON or JSON Lines file");
 
   const name = tableNameFor(file.name, takenNames);
   takenNames.add(name);
@@ -86,7 +87,10 @@ export async function importFiles(files: readonly File[]): Promise<void> {
       const table = await importFile(file);
       update((current) => ({ ...current, tables: [...current.tables, table] }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message =
+        error instanceof Error
+          ? parseEngineError(error, "", { preservePlainText: true }).message
+          : String(error);
       update((current) => ({
         ...current,
         failures: [...current.failures, { fileName: file.name, message }],

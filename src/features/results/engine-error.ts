@@ -62,7 +62,11 @@ function parseJson(text: string): DuckDBErrorJson | null {
 }
 
 /** Reads an error thrown by the engine while running `sql`. */
-export function parseEngineError(error: Error, sql: string): EngineError {
+export function parseEngineError(
+  error: Error,
+  sql: string,
+  { preservePlainText = false }: { preservePlainText?: boolean } = {},
+): EngineError {
   if (error instanceof EngineCrashedError) {
     return { type: "Engine", message: error.message, candidates: [], crashed: true };
   }
@@ -73,7 +77,7 @@ export function parseEngineError(error: Error, sql: string): EngineError {
     const match = /^([A-Z][\w ]*?) Error: ([\s\S]*)$/.exec(error.message);
     return {
       type: match?.[1] ?? "Engine",
-      message: match?.[2] ?? error.message,
+      message: preservePlainText ? error.message : (match?.[2] ?? error.message),
       candidates: [],
       crashed: false,
     };
