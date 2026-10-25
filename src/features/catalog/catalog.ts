@@ -1,18 +1,21 @@
-// The catalog: tables imported from local files. Each file is registered with the engine by handle
-// and gets a view named after it, so SQL reads the file directly (see the Architecture page).
-import { query, registerFile, unregisterFile } from "@/engine/engine";
+// The catalog: tables imported from local files or read from the web. Each file is registered with
+// the engine, by handle or by URL, and gets a view named after it, so SQL reads the file directly
+// (see the Architecture page).
+import { query, registerFile, registerUrl, unregisterFile } from "@/engine/engine";
 import { parseEngineError } from "@/features/results/engine-error";
 import { measureSince, measures } from "@/lib/user-timing";
 import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
+import { probeRemoteFile, remoteFileName, remoteReadMessage } from "./remote";
 
 export type ImportedTable = {
   /** The view's name, used in SQL. */
   name: string;
+  /** The file's name, or a remote file's full URL. */
   fileName: string;
   format: FileFormat;
   columns: readonly TableColumn[];
-  /** The file itself, kept so it can be imported again into a restarted engine. */
-  file: File;
+  /** The file itself, or its URL, kept so it can be imported again into a restarted engine. */
+  source: File | URL;
 };
 
 export type TableColumn = {
@@ -32,9 +35,11 @@ export type Catalog = {
   importing: readonly string[];
   /** Files from the most recent import that couldn't be imported. */
   failures: readonly ImportFailure[];
+  /** Files from the most recent import that were imported but may be slow to read. */
+  warnings: readonly ImportFailure[];
 };
 
-let catalog: Catalog = { tables: [], importing: [], failures: [] };
+let catalog: Catalog = { tables: [], importing: [], failures: [], warnings: [] };
 /** Table names in use or claimed by an import in progress, so concurrent imports can't clash. */
 const takenNames = new Set<string>();
 const listeners = new Set<() => void>();
@@ -55,24 +60,37 @@ export function subscribeToCatalog(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-async function importFile(file: File): Promise<ImportedTable> {
-  const format = detectFormat(file.name);
-  if (!format) throw new Error("Not a CSV, TSV, Parquet, JSON or JSON Lines file");
+function displayName(source: File | URL): string {
+  return source instanceof URL ? source.href : source.name;
+}
 
-  const name = tableNameFor(file.name, takenNames);
+async function importFile(source: File | URL): Promise<ImportedTable> {
+  const fileName = source instanceof URL ? remoteFileName(source) : source.name;
+  const format = detectFormat(fileName);
+  if (!format) throw new Error("Not a CSV, TSV, Parquet, JSON or JSON Lines file");
+  if (source instanceof URL) {
+    const warning = await probeRemoteFile(source);
+    if (warning) {
+      const warned = { fileName: source.href, message: warning };
+      update((current) => ({ ...current, warnings: [...current.warnings, warned] }));
+    }
+  }
+
+  const name = tableNameFor(fileName, takenNames);
   takenNames.add(name);
   // Registered under the table name, so two files called data.csv in different folders can't clash.
   const path = `${name}.${format}`;
   const started = performance.now();
   try {
-    await registerFile(path, file);
+    if (source instanceof URL) await registerUrl(path, source.href);
+    else await registerFile(path, source);
     // Creating the view reads the schema, so an unreadable file fails here rather than later.
     await query(`CREATE VIEW ${quoteIdentifier(name)} AS SELECT * FROM ${readerFor(format, path)}`);
     const columns = (await query(`DESCRIBE ${quoteIdentifier(name)}`))
       .toArray()
       .map((row) => ({ name: String(row.column_name), type: String(row.column_type) }));
     measureSince(measures.import, started);
-    return { name, fileName: file.name, format, columns, file };
+    return { name, fileName: displayName(source), format, columns, source };
   } catch (error) {
     await query(`DROP VIEW IF EXISTS ${quoteIdentifier(name)}`).catch(() => {});
     await unregisterFile(path).catch(() => {});
@@ -91,35 +109,42 @@ export function rowsSql(table: string): string {
   return `SELECT * FROM ${quoteIdentifier(table)}`;
 }
 
-/** Imports each file as a table. Files are imported one at a time, in order. */
-export async function importFiles(files: readonly File[]): Promise<void> {
+/** Imports each file, local or on the web, as a table, one at a time and in order. */
+export async function importFiles(files: readonly (File | URL)[]): Promise<void> {
   if (files.length === 0) return;
   update((current) => ({
     ...current,
-    importing: [...current.importing, ...files.map((file) => file.name)],
+    importing: [...current.importing, ...files.map(displayName)],
     failures: [],
+    warnings: [],
   }));
 
   for (const file of files) {
+    const fileName = displayName(file);
     try {
       const table = await importFile(file);
       update((current) => ({ ...current, tables: [...current.tables, table] }));
     } catch (error) {
       const message =
         error instanceof Error
-          ? parseEngineError(error, "", { preservePlainText: true }).message
+          ? remoteReadMessage(parseEngineError(error, "", { preservePlainText: true }).message)
           : String(error);
       update((current) => ({
         ...current,
-        failures: [...current.failures, { fileName: file.name, message }],
+        failures: [...current.failures, { fileName, message }],
       }));
     } finally {
       update((current) => {
-        const index = current.importing.indexOf(file.name);
+        const index = current.importing.indexOf(fileName);
         return { ...current, importing: current.importing.toSpliced(index, 1) };
       });
     }
   }
+}
+
+/** Reads the file at `url` as a table. The engine fetches only the parts of it a query needs. */
+export function importUrl(url: URL): Promise<void> {
+  return importFiles([url]);
 }
 
 /**
@@ -127,14 +152,14 @@ export async function importFiles(files: readonly File[]): Promise<void> {
  * imported in the same order, so each table gets its old name back.
  */
 export async function reimportTables(): Promise<void> {
-  const files = catalog.tables.map((table) => table.file);
+  const files = catalog.tables.map((table) => table.source);
   takenNames.clear();
-  update((current) => ({ ...current, tables: [], failures: [] }));
+  update((current) => ({ ...current, tables: [], failures: [], warnings: [] }));
   await importFiles(files);
 }
 
 /** Empties the catalog. For tests; it doesn't drop anything from the engine. */
 export function resetCatalog(): void {
   takenNames.clear();
-  update(() => ({ tables: [], importing: [], failures: [] }));
+  update(() => ({ tables: [], importing: [], failures: [], warnings: [] }));
 }

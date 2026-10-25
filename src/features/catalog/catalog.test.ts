@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getCatalog, importFiles, profileSql, reimportTables, resetCatalog } from "./catalog";
+import {
+  getCatalog,
+  importFiles,
+  importUrl,
+  profileSql,
+  reimportTables,
+  resetCatalog,
+} from "./catalog";
+import { NO_CORS_MESSAGE, NO_RANGE_WARNING } from "./remote";
 
 // The engine is replaced by a fake that "describes" every view as having three columns.
 const engine = vi.hoisted(() => ({
@@ -13,11 +21,17 @@ const engine = vi.hoisted(() => ({
     return {};
   }),
   registerFile: vi.fn(async (_name: string, _file: File) => {}),
+  registerUrl: vi.fn(async (_name: string, _url: string) => {}),
   unregisterFile: vi.fn(async (_name: string) => {}),
 }));
 vi.mock("@/engine/engine", () => engine);
 
+// Remote servers answer the first-byte check with a range unless a test says otherwise.
+const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response("P", { status: 206 }));
+vi.stubGlobal("fetch", fetch);
+
 const csv = (name: string) => new File(["a,b,c\n1,2,3\n"], name);
+const remote = new URL("https://example.com/data/Orders.parquet?token=abc");
 
 describe("catalog", () => {
   afterEach(() => {
@@ -43,7 +57,7 @@ describe("catalog", () => {
           { name: "b", type: "BIGINT" },
           { name: "c", type: "BIGINT" },
         ],
-        file,
+        source: file,
       },
     ]);
     expect(getCatalog().importing).toEqual([]);
@@ -141,6 +155,88 @@ describe("catalog", () => {
       ["data_2.csv", second],
     ]);
     expect(getCatalog().tables.map((table) => table.name)).toEqual(["data", "data_2"]);
+  });
+
+  it("reads a remote file by URL into a view named after it", async () => {
+    await importUrl(remote);
+
+    expect(fetch).toHaveBeenCalledWith(remote, { headers: { Range: "bytes=0-0" } });
+    expect(engine.registerUrl).toHaveBeenCalledWith("orders.parquet", remote.href);
+    expect(engine.query).toHaveBeenCalledWith(
+      `CREATE VIEW "orders" AS SELECT * FROM read_parquet('orders.parquet')`,
+    );
+    expect(getCatalog().tables).toEqual([
+      expect.objectContaining({
+        name: "orders",
+        fileName: remote.href,
+        format: "parquet",
+        source: remote,
+      }),
+    ]);
+    expect(getCatalog().failures).toEqual([]);
+    expect(getCatalog().warnings).toEqual([]);
+  });
+
+  it("warns when a remote server can't send part of a file", async () => {
+    fetch.mockResolvedValueOnce(new Response("the whole file", { status: 200 }));
+
+    await importUrl(remote);
+
+    expect(getCatalog().tables.map((table) => table.name)).toEqual(["orders"]);
+    expect(getCatalog().warnings).toEqual([{ fileName: remote.href, message: NO_RANGE_WARNING }]);
+  });
+
+  it("explains a remote file it can't read, without touching the engine", async () => {
+    fetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    await importUrl(remote);
+
+    expect(engine.registerUrl).not.toHaveBeenCalled();
+    expect(getCatalog().failures).toEqual([{ fileName: remote.href, message: NO_CORS_MESSAGE }]);
+    expect(getCatalog().tables).toEqual([]);
+  });
+
+  it("explains the engine's failed range requests in plain words", async () => {
+    engine.query.mockRejectedValueOnce(
+      new Error(
+        JSON.stringify({
+          exception_type: "IO",
+          exception_message: `Range request for ${remote.href} did returned non-success status: 403`,
+        }),
+      ),
+    );
+
+    await importUrl(remote);
+
+    expect(getCatalog().failures).toEqual([
+      { fileName: remote.href, message: "The server answered 403." },
+    ]);
+  });
+
+  it("reports a remote file in a format it can't read", async () => {
+    await importUrl(new URL("https://example.com/report.pdf"));
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(getCatalog().failures).toEqual([
+      {
+        fileName: "https://example.com/report.pdf",
+        message: "Not a CSV, TSV, Parquet, JSON or JSON Lines file",
+      },
+    ]);
+  });
+
+  it("reads local and remote files again, in order", async () => {
+    const file = csv("orders.csv");
+    await importFiles([file]);
+    await importUrl(remote);
+    engine.registerFile.mockClear();
+    engine.registerUrl.mockClear();
+
+    await reimportTables();
+
+    expect(engine.registerFile.mock.calls).toEqual([["orders.csv", file]]);
+    expect(engine.registerUrl.mock.calls).toEqual([["orders_2.parquet", remote.href]]);
+    expect(getCatalog().tables.map((table) => table.name)).toEqual(["orders", "orders_2"]);
   });
 
   it("profiles a table with SUMMARIZE, quoting its name", () => {

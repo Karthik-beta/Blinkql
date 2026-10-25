@@ -84,6 +84,11 @@ async function boot(): Promise<Engine> {
   const db = new AsyncDuckDB(new VoidLogger(), worker);
   try {
     await unlessCrashed(db.instantiate(bundle.mainModule));
+    // Files on the web are read with range requests, so a query fetches only the parts it needs;
+    // by default the engine downloads them whole. A server that can't send ranges still works.
+    await unlessCrashed(
+      db.open({ filesystem: { allowFullHTTPReads: true, forceFullHTTPReads: false } }),
+    );
     const version = await unlessCrashed(db.getVersion());
     if (version !== extensionsVersion) {
       throw new Error(
@@ -293,7 +298,18 @@ export async function registerFile(name: string, file: File): Promise<void> {
   await db.registerFileHandle(name, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
 }
 
-/** Forgets a file registered with `registerFile()`. */
+/**
+ * Makes a file on the web readable by SQL under `name`. The engine reads it with HTTP range
+ * requests, so a query that needs part of a file, such as a Parquet file's schema, fetches only
+ * that part. The server must allow cross-origin requests.
+ */
+export async function registerUrl(name: string, url: string): Promise<void> {
+  if (status.state === "crashed") throw status.error;
+  const { db } = await getEngine();
+  await db.registerFileURL(name, url, DuckDBDataProtocol.HTTP, false);
+}
+
+/** Forgets a file registered with `registerFile()` or `registerUrl()`. */
 export async function unregisterFile(name: string): Promise<void> {
   if (status.state === "crashed") throw status.error;
   const { db } = await getEngine();
