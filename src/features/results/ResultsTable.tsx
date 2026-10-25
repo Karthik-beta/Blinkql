@@ -8,9 +8,11 @@ import {
 } from "@tanstack/react-virtual";
 import { DataType } from "apache-arrow";
 import {
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   memo,
+  type PointerEvent as ReactPointerEvent,
   useEffect,
   useId,
   useMemo,
@@ -21,6 +23,7 @@ import {
 import { measureSince, measures } from "@/lib/user-timing";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 import { getResult, type Result, readCell, subscribeToResult } from "./result-store";
+import { type Cell, selectionBounds, selectionText } from "./selection";
 
 /** The height of the header row and of every row, its bottom border included, in px. */
 export const ROW_HEIGHT = 24;
@@ -42,6 +45,13 @@ const MAX_COLUMN_CHARS = 50;
 /** A cell's horizontal padding and right border, in px: `px-2` and `border-r`. */
 const CELL_CHROME_PX = 17;
 
+/** The widest a column is fitted to its content, in characters, and the narrowest it's resized to. */
+const MAX_FIT_CHARS = 200;
+const MIN_COLUMN_PX = 32;
+
+/** How far Alt+Left and Alt+Right resize a column, in px. */
+const RESIZE_STEP_PX = 16;
+
 /** Whether the last query failed: the one thing about the query run the table depends on. */
 const lastRunFailed = () => getQueryRun().state === "failed";
 
@@ -58,13 +68,17 @@ function alignment(type: DataType): string {
  * so a character count is enough.
  */
 function columnWidths(columns: Result["columns"], sampled: number): string[] {
-  return columns.map((column, columnIndex) => {
-    let chars = column.name.length;
-    for (let row = 0; row < sampled; row++) {
-      chars = Math.max(chars, (readCell(row, columnIndex) ?? "NULL").length);
-    }
-    return `calc(${Math.min(chars, MAX_COLUMN_CHARS)}ch + ${CELL_CHROME_PX}px)`;
-  });
+  const rows = Array.from({ length: sampled }, (_, row) => row);
+  return columns.map((column, columnIndex) =>
+    fittedWidth(column.name, columnIndex, rows, MAX_COLUMN_CHARS),
+  );
+}
+
+/** A column's width fitted to its name and its values in `rows`, at most `maxChars` wide. */
+function fittedWidth(name: string, column: number, rows: number[], maxChars: number): string {
+  let chars = name.length;
+  for (const row of rows) chars = Math.max(chars, (readCell(row, column) ?? "NULL").length);
+  return `calc(${Math.min(chars, maxChars)}ch + ${CELL_CHROME_PX}px)`;
 }
 
 /**
@@ -78,8 +92,11 @@ export function scrollScale(element: Element | null, rowCount: number): number {
   return (ROW_HEIGHT + rowsHeight - viewport) / (ROW_HEIGHT + MAX_SCROLL_HEIGHT - viewport);
 }
 
-/** The active cell: a row of the result, or -1 for the header row, and a column. */
-type Active = { resultId: number; row: number; column: number };
+/** The active cell, and the cell the selection runs from to it: itself unless Shift extended it. */
+type Active = Cell & { resultId: number; anchor: Cell };
+
+/** Widths set by resizing columns, by column, for one result; the rest keep their fitted widths. */
+type Resized = { resultId: number; widths: Record<number, string> };
 
 /** Calls `callback` once the next frame has been painted; returns a function that cancels it. */
 function afterNextPaint(callback: () => void): () => void {
@@ -97,23 +114,43 @@ function afterNextPaint(callback: () => void): () => void {
 const cellId = (gridId: string, row: number, column: number) =>
   `${gridId}-${row < 0 ? "h" : row}-${column}`;
 
-/** Outlines the active cell while the grid has focus. */
-const activeCell = "group-focus:data-active:outline-2 group-focus:data-active:-outline-offset-2";
+/** Outlines the active cell while the grid has focus, and shades the selected cells. */
+const activeCell =
+  "aria-selected:bg-selection group-focus:data-active:outline-2 group-focus:data-active:-outline-offset-2";
+
+/**
+ * Every row takes its columns' widths from the grid's `--columns` property, so resizing a column
+ * sets that one property rather than rendering every row again.
+ */
+const rowGrid = "grid h-6 grid-cols-(--columns) border-b";
+
+/** Whether `column` is within the selected columns of a row, if any of that row is selected. */
+const isSelected = (column: number, from: number | undefined, to: number | undefined) =>
+  from !== undefined && to !== undefined && column >= from && column <= to;
 
 type RowProps = {
   index: number;
   columns: Result["columns"];
-  template: string;
   gridId: string;
   /** The active cell's column, if it's in this row. */
   activeColumn: number | undefined;
+  /** The first and last selected columns, if the selection takes in this row. */
+  selectedFrom: number | undefined;
+  selectedTo: number | undefined;
 };
 
 /**
  * One row's cells, read from the result store. Memoized apart from the row's position, so a row
  * that moves while it's scrolled doesn't read its cells again.
  */
-const RowCells = memo(function RowCells({ index, columns, gridId, activeColumn }: RowProps) {
+const RowCells = memo(function RowCells({
+  index,
+  columns,
+  gridId,
+  activeColumn,
+  selectedFrom,
+  selectedTo,
+}: RowProps) {
   return columns.map((column, columnIndex) => {
     const text = readCell(index, columnIndex);
     return (
@@ -124,6 +161,7 @@ const RowCells = memo(function RowCells({ index, columns, gridId, activeColumn }
         id={cellId(gridId, index, columnIndex)}
         role="gridcell"
         aria-colindex={columnIndex + 1}
+        aria-selected={isSelected(columnIndex, selectedFrom, selectedTo)}
         data-row={index}
         data-column={columnIndex}
         data-active={activeColumn === columnIndex || undefined}
@@ -142,28 +180,34 @@ const Row = memo(function Row({ top, ...props }: RowProps & { top: number }) {
       role="row"
       // The header is row 1.
       aria-rowindex={props.index + 2}
-      className="absolute left-0 grid h-6 border-b"
-      style={{ top, gridTemplateColumns: props.template }}
+      className={`absolute left-0 ${rowGrid}`}
+      style={{ top }}
     >
       <RowCells {...props} />
     </div>
   );
 });
 
-const HeaderRow = memo(function HeaderRow({
+type HeaderRowProps = Omit<RowProps, "index"> & {
+  /** The id of the text that tells screen readers how to resize a column. */
+  resizeHintId: string;
+  onResizeStart: (event: ReactPointerEvent, column: number) => void;
+  onFit: (column: number) => void;
+};
+
+function HeaderRow({
   columns,
-  template,
   gridId,
   activeColumn,
-}: Omit<RowProps, "index">) {
+  selectedFrom,
+  selectedTo,
+  resizeHintId,
+  onResizeStart,
+  onFit,
+}: HeaderRowProps) {
   return (
     <div role="rowgroup" className="sticky top-0 z-10">
-      <div
-        role="row"
-        aria-rowindex={1}
-        className="grid h-6 border-b bg-chrome"
-        style={{ gridTemplateColumns: template }}
-      >
+      <div role="row" aria-rowindex={1} className={`${rowGrid} bg-chrome`}>
         {columns.map((column, columnIndex) => (
           <div
             // biome-ignore lint/suspicious/noArrayIndexKey: see RowCells
@@ -171,18 +215,29 @@ const HeaderRow = memo(function HeaderRow({
             id={cellId(gridId, -1, columnIndex)}
             role="columnheader"
             aria-colindex={columnIndex + 1}
+            aria-selected={isSelected(columnIndex, selectedFrom, selectedTo)}
+            aria-describedby={resizeHintId}
+            aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
             data-row={-1}
             data-column={columnIndex}
             data-active={activeColumn === columnIndex || undefined}
-            className={`truncate border-r px-2 font-medium leading-[23px] outline-ring ${alignment(column.type)} ${activeCell}`}
+            className={`relative truncate border-r px-2 font-medium leading-[23px] outline-ring ${alignment(column.type)} ${activeCell}`}
           >
             {column.name}
+            {/* For the mouse; the keyboard resizes with Alt+arrows, as the hint says. */}
+            <div
+              aria-hidden
+              title="Drag to resize, double-click to fit"
+              onPointerDown={(event) => onResizeStart(event, columnIndex)}
+              onDoubleClick={() => onFit(columnIndex)}
+              className="absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-ring"
+            />
           </div>
         ))}
       </div>
     </div>
   );
-});
+}
 
 /** Scrolls `grid` up or down, if needed, so the whole of `row` is in view below the header. */
 export function revealRow(grid: HTMLElement, row: number, rowCount: number): void {
@@ -255,7 +310,9 @@ function move(
  *
  * It's an ARIA grid: the focus stays on the grid, and the active cell, moved with the keyboard or
  * by clicking, is its `aria-activedescendant`. Rows and cells carry their position in the whole
- * result, so screen readers announce it even though most rows aren't in the page.
+ * result, so screen readers announce it even though most rows aren't in the page. Shift extends
+ * the selection from the active cell to a block, which Ctrl+C (⌘C) copies as tab-separated text.
+ * Columns resize by dragging or double-clicking a header's edge, or with Alt+Left and Alt+Right.
  */
 export const ResultsTable = memo(function ResultsTable() {
   const results = useSyncExternalStore(subscribeToResult, getResult);
@@ -295,7 +352,6 @@ export const ResultsTable = memo(function ResultsTable() {
   const columns = results?.columns;
   const sampled = Math.min(rowCount, SIZING_ROWS);
   const widths = useMemo(() => (columns ? columnWidths(columns, sampled) : []), [columns, sampled]);
-  const template = widths.join(" ");
 
   const id = results?.id;
   useEffect(() => {
@@ -331,9 +387,18 @@ export const ResultsTable = memo(function ResultsTable() {
   const activeInPage =
     active && (active.row < 0 || items.some((item) => item.index === active.row));
 
-  const activate = (row: number, column: number) => {
+  const selection = active ? selectionBounds(active.anchor, active) : null;
+  /** The selected columns of `row`: `selectedFrom` and `selectedTo`, if it's selected. */
+  const selectedIn = (row: number) =>
+    selection && row >= selection.top && row <= selection.bottom
+      ? { selectedFrom: selection.left, selectedTo: selection.right }
+      : { selectedFrom: undefined, selectedTo: undefined };
+
+  /** Makes a cell the active one; `extend` keeps the selection's anchor, as Shift does. */
+  const activate = (row: number, column: number, extend: boolean) => {
     if (!results) return;
-    setActive({ resultId: results.id, row, column });
+    const anchor = extend && active ? active.anchor : { row, column };
+    setActive({ resultId: results.id, row, column, anchor });
     const grid = gridRef.current;
     if (!grid) return;
     if (row >= 0) revealRow(grid, row, rowCount);
@@ -344,23 +409,83 @@ export const ResultsTable = memo(function ResultsTable() {
     if (!results || active || results.columns.length === 0) return;
     // Start on the first row in view, or on the header if there are no rows.
     const first = items.find((item) => item.start - offset >= ROW_HEIGHT);
-    setActive({ resultId: results.id, row: rowCount > 0 ? (first?.index ?? 0) : -1, column: 0 });
+    const start = { row: rowCount > 0 ? (first?.index ?? 0) : -1, column: 0 };
+    setActive({ resultId: results.id, ...start, anchor: start });
+  };
+
+  const [storedWidths, setResized] = useState<Resized | null>(null);
+  // Like the active cell, resized widths belong to their result.
+  const resized = storedWidths?.resultId === results?.id ? (storedWidths?.widths ?? {}) : {};
+  const template = widths.map((width, column) => resized[column] ?? width).join(" ");
+
+  const resize = (column: number, width: string) => {
+    if (!results) return;
+    const { id } = results;
+    setResized((previous) => ({
+      resultId: id,
+      widths: { ...(previous?.resultId === id && previous.widths), [column]: width },
+    }));
+  };
+  const resizeTo = (column: number, px: number) =>
+    resize(column, `${Math.max(MIN_COLUMN_PX, Math.round(px))}px`);
+  const headerWidth = (column: number) =>
+    document.getElementById(cellId(gridId, -1, column))?.offsetWidth ?? 0;
+
+  const onResizeStart = (event: ReactPointerEvent, column: number) => {
+    if (event.button !== 0) return;
+    // Keeps the drag from selecting the page's text.
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = headerWidth(column);
+    const onMove = (moved: PointerEvent) => resizeTo(column, startWidth + moved.clientX - startX);
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  /** Fits a column to its name and the values of the rows in the page. */
+  const onFit = (column: number) => {
+    const name = results?.columns[column]?.name ?? "";
+    const rows = items.map((item) => item.index);
+    resize(column, fittedWidth(name, column, rows, MAX_FIT_CHARS));
+  };
+
+  /** Copies the selected cells as tab-separated text, the header's as the columns' names. */
+  const copy = () => {
+    if (!results || !selection) return;
+    const read = (row: number, column: number) =>
+      row < 0 ? (results.columns[column]?.name ?? null) : readCell(row, column);
+    void navigator.clipboard.writeText(selectionText(selection, read));
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (!results || !active) return;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      copy();
+      return;
+    }
+    if (event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      const step = event.key === "ArrowLeft" ? -RESIZE_STEP_PX : RESIZE_STEP_PX;
+      resizeTo(active.column, headerWidth(active.column) + step);
+      return;
+    }
     const grid = gridRef.current;
     const page = Math.max(1, Math.floor(((grid?.clientHeight ?? 0) - ROW_HEIGHT) / ROW_HEIGHT));
     const next = move(event, active, { rows: rowCount, columns: results.columns.length, page });
     if (!next) return;
     event.preventDefault();
-    activate(next.row, next.column);
+    activate(next.row, next.column, event.shiftKey);
   };
 
   const onClick = (event: MouseEvent) => {
     const cell = (event.target as Element).closest<HTMLElement>("[data-column]");
     if (!cell) return;
-    activate(Number(cell.dataset.row), Number(cell.dataset.column));
+    activate(Number(cell.dataset.row), Number(cell.dataset.column), event.shiftKey);
   };
 
   // The same element with or without a result, so the virtualizer knows the viewport's size by
@@ -374,6 +499,7 @@ export const ResultsTable = memo(function ResultsTable() {
         "aria-label": "Results",
         "aria-rowcount": rowCount + 1,
         "aria-colcount": results.columns.length,
+        "aria-multiselectable": true,
         "aria-activedescendant":
           active && activeInPage ? cellId(gridId, active.row, active.column) : undefined,
         tabIndex: 0,
@@ -386,12 +512,18 @@ export const ResultsTable = memo(function ResultsTable() {
       className="group min-h-0 flex-1 overflow-auto border-t font-mono text-xs tabular-nums outline-none"
     >
       {results && (
-        <div className="w-max min-w-full">
+        <div className="w-max min-w-full" style={{ "--columns": template } as CSSProperties}>
+          <span id={`${gridId}-resize`} hidden>
+            Alt+Left and Alt+Right resize the column
+          </span>
           <HeaderRow
             columns={results.columns}
-            template={template}
             gridId={gridId}
             activeColumn={active?.row === -1 ? active.column : undefined}
+            {...selectedIn(-1)}
+            resizeHintId={`${gridId}-resize`}
+            onResizeStart={onResizeStart}
+            onFit={onFit}
           />
           <div role="rowgroup" className="relative" style={{ height: bodyHeight }}>
             {items.map((item) => (
@@ -400,9 +532,9 @@ export const ResultsTable = memo(function ResultsTable() {
                 index={item.index}
                 top={Math.round(scrolled + item.start - offset - ROW_HEIGHT)}
                 columns={results.columns}
-                template={template}
                 gridId={gridId}
                 activeColumn={active?.row === item.index ? active.column : undefined}
+                {...selectedIn(item.index)}
               />
             ))}
           </div>

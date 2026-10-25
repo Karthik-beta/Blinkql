@@ -133,6 +133,46 @@ test.describe("Results table", () => {
     await expect(cells).toHaveText(["[1,2]", "b", '{"toString":7,"__proto__":8}']);
   });
 
+  test("resizes columns by mouse and keyboard, and copies a block of cells", async ({ page }) => {
+    // Records what's copied, so the test needn't read the system clipboard.
+    await page.addInitScript(() => {
+      const copied: string[] = [];
+      Object.defineProperty(window, "copied", { value: copied });
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: async (text: string) => void copied.push(text) },
+      });
+    });
+    await runSql(page, "SELECT range AS n, 'row ' || range AS label FROM range(100)");
+    const header = results(page).getByRole("columnheader", { name: "label" });
+    const width = async () => (await header.boundingBox())?.width ?? 0;
+    // Resized widths are whole pixels; fitted ones needn't be.
+    const widened = async (by: number) => Math.abs((await width()) - before - by) < 1;
+    await expect(results(page).getByRole("row").nth(1)).toHaveText("0row 0");
+
+    const before = await width();
+    const edge = await header.getByTitle("Drag to resize, double-click to fit").boundingBox();
+    if (!edge) throw new Error("The header has no edge to drag");
+    await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(edge.x + edge.width / 2 + 60, edge.y + edge.height / 2, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(() => widened(60)).toBe(true);
+    // The rows follow the header.
+    const cell = results(page).getByRole("gridcell", { name: "row 0", exact: true });
+    expect((await cell.boundingBox())?.width).toBeCloseTo(await width(), 0);
+
+    await header.click();
+    await page.keyboard.press("Alt+ArrowRight");
+    await expect.poll(() => widened(76)).toBe(true);
+
+    await results(page).getByRole("gridcell", { name: "0", exact: true }).click();
+    await page.keyboard.press("Shift+ArrowDown");
+    await page.keyboard.press("Shift+ArrowRight");
+    await page.keyboard.press("ControlOrMeta+c");
+    const copied = () => page.evaluate(() => (window as unknown as { copied: string[] }).copied);
+    await expect.poll(copied).toEqual(["0\trow 0\n1\trow 1"]);
+  });
+
   test("has no detectable accessibility issues", async ({ page, makeAxeBuilder }) => {
     await runSql(page, "SELECT range AS n, NULL AS nothing FROM range(20)");
     await expect(results(page).getByRole("row").nth(1)).toHaveText("0NULL");
