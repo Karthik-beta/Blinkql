@@ -34,10 +34,7 @@ test.describe("Results table", () => {
     await expect(results(page).getByRole("row").last()).toHaveAttribute("aria-rowindex", "501");
   });
 
-  // Fails about one run in three: as the last rows arrive, the refresh and the final update each
-  // rebuild the view over every row and the virtualizer recomputes every row's position, often in
-  // the same frame, which then takes 55-80 ms (#119).
-  test.fixme("streams in a million rows without blocking the main thread", async ({
+  test("streams in a million rows without blocking the main thread", async ({
     page,
     longWorkDuringQueries,
   }) => {

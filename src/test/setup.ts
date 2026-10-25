@@ -6,3 +6,10 @@ import { afterEach } from "vitest";
 afterEach(() => {
   cleanup();
 });
+
+// jsdom lays nothing out, so it has no ResizeObserver; sizes in tests come from mocked getters.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
