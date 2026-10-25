@@ -1,11 +1,19 @@
 import { tableFromArrays } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getQueryRun, resetQueryRun, runQuery, subscribeToQueryRun } from "./query-run";
+import {
+  cancelQuery,
+  getQueryRun,
+  resetQueryRun,
+  runQuery,
+  subscribeToQueryRun,
+} from "./query-run";
 import { getResult } from "./result-store";
 import { streamOf } from "./test-utils";
 
 const engine = vi.hoisted(() => ({
-  streamQuery: vi.fn(async (_sql: string): Promise<unknown> => streamOf(range40)),
+  streamQuery: vi.fn(
+    async (_sql: string, _signal?: AbortSignal): Promise<unknown> => streamOf(range40),
+  ),
 }));
 vi.mock("@/engine/engine", () => engine);
 
@@ -24,7 +32,10 @@ describe("query run", () => {
     await runQuery("SELECT * FROM range(40)");
     unsubscribe();
 
-    expect(engine.streamQuery).toHaveBeenCalledWith("SELECT * FROM range(40)");
+    expect(engine.streamQuery).toHaveBeenCalledWith(
+      "SELECT * FROM range(40)",
+      expect.any(AbortSignal),
+    );
     expect(states).toEqual(["running", "done"]);
     expect(getQueryRun()).toEqual({
       state: "done",
@@ -142,12 +153,69 @@ describe("query run", () => {
     expect(getQueryRun()).toEqual({ state: "idle" });
   });
 
-  it("ignores a second run while one is in progress", async () => {
-    const first = runQuery("SELECT 1");
-    await runQuery("SELECT 2");
-    await first;
+  it("cancels a running query and shows none of its rows", async () => {
+    const [first] = range40.slice(0, 10).batches;
+    let signal!: AbortSignal;
+    engine.streamQuery.mockImplementationOnce(async (_sql, given) => {
+      signal = given as AbortSignal;
+      return {
+        schema: range40.schema,
+        batches: (async function* () {
+          yield first;
+          await new Promise((_, reject) =>
+            signal.addEventListener("abort", () => reject(new Error("query was canceled"))),
+          );
+        })(),
+      };
+    });
 
-    expect(engine.streamQuery).toHaveBeenCalledTimes(1);
-    expect(getQueryRun()).toMatchObject({ state: "done", sql: "SELECT 1" });
+    const running = runQuery("SELECT * FROM range(40)");
+    await vi.waitFor(() => expect(getResult()).toMatchObject({ rowCount: 10 }));
+    cancelQuery();
+    await running;
+
+    expect(signal.aborted).toBe(true);
+    expect(getQueryRun()).toEqual({
+      state: "cancelled",
+      sql: "SELECT * FROM range(40)",
+      durationMs: expect.any(Number),
+    });
+    expect(getResult()).toBeNull();
+  });
+
+  it("does nothing when asked to cancel with no query running", async () => {
+    await runQuery("SELECT * FROM range(40)");
+    cancelQuery();
+
+    expect(getQueryRun()).toMatchObject({ state: "done" });
+    expect(getResult()).toMatchObject({ rowCount: 40 });
+  });
+
+  it("cancels the running query when another is run, and never shows its rows", async () => {
+    let more!: () => void;
+    const held = new Promise<void>((resolve) => (more = resolve));
+    let firstSignal!: AbortSignal;
+    engine.streamQuery.mockImplementationOnce(async (_sql, given) => {
+      firstSignal = given as AbortSignal;
+      return {
+        schema: range40.schema,
+        batches: (async function* () {
+          await held;
+          yield* range40.batches;
+        })(),
+      };
+    });
+
+    const first = runQuery("SELECT * FROM range(40)");
+    await vi.waitFor(() => expect(engine.streamQuery).toHaveBeenCalledTimes(1));
+    engine.streamQuery.mockResolvedValueOnce(streamOf(tableFromArrays({ one: Int32Array.of(1) })));
+    const second = runQuery("SELECT 1 AS one");
+    expect(firstSignal.aborted).toBe(true);
+    more();
+    await Promise.all([first, second]);
+
+    expect(engine.streamQuery).toHaveBeenCalledTimes(2);
+    expect(getQueryRun()).toMatchObject({ state: "done", sql: "SELECT 1 AS one" });
+    expect(getResult()).toMatchObject({ rowCount: 1, columns: [{ name: "one" }] });
   });
 });

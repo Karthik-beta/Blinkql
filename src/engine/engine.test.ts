@@ -34,6 +34,7 @@ const duckdb = vi.hoisted(() => {
         reader([Promise.resolve("batch 1"), Promise.resolve("batch 2")]),
     ),
     close: vi.fn(async () => {}),
+    cancelSent: vi.fn(async () => true),
   };
   const db = {
     instantiate: vi.fn(async (_url: string) => null),
@@ -352,6 +353,53 @@ describe("engine", () => {
       duckdb.connection.send.mockRejectedValueOnce(new Error("Binder Error: no such column"));
 
       await expect(streamQuery("SELECT nope")).rejects.toThrow("Binder Error");
+      await expect(query("SELECT 2")).resolves.toBeDefined();
+    });
+
+    it("cancels the query when its signal aborts, and gives the connection back", async () => {
+      let cancelled!: (error: Error) => void;
+      duckdb.connection.send.mockResolvedValueOnce(
+        duckdb.reader([
+          Promise.resolve("batch 1"),
+          new Promise((_, reject) => (cancelled = reject)),
+        ]),
+      );
+      duckdb.connection.cancelSent.mockImplementationOnce(async () => {
+        cancelled(new Error("query was canceled"));
+        return true;
+      });
+      const controller = new AbortController();
+      const { batches } = await streamQuery("SELECT * FROM big", controller.signal);
+      const reader = batches[Symbol.asyncIterator]();
+      await expect(reader.next()).resolves.toEqual({ done: false, value: "batch 1" });
+      const next = reader.next();
+      controller.abort();
+
+      await expect(next).rejects.toThrow("query was canceled");
+      expect(duckdb.connection.cancelSent).toHaveBeenCalledTimes(1);
+      await expect(query("SELECT 2")).resolves.toBeDefined();
+    });
+
+    it("doesn't send a query cancelled while it waited for the connection", async () => {
+      await query("SELECT 1");
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(streamQuery("SELECT * FROM big", controller.signal)).rejects.toThrow(
+        expect.objectContaining({ name: "AbortError" }),
+      );
+      expect(duckdb.connection.send).not.toHaveBeenCalled();
+      await expect(query("SELECT 2")).resolves.toBeDefined();
+    });
+
+    it("reads no more batches once its signal has aborted", async () => {
+      const controller = new AbortController();
+      const { batches } = await streamQuery("SELECT * FROM big", controller.signal);
+      controller.abort();
+      const read: unknown[] = [];
+      for await (const batch of batches) read.push(batch);
+
+      expect(read).toEqual([]);
       await expect(query("SELECT 2")).resolves.toBeDefined();
     });
 
