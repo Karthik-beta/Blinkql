@@ -3,6 +3,8 @@ import { expect, test } from "./fixtures";
 
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
+// Runs for hours unless cancelled.
+const LONG_QUERY = "SELECT sum(range) FROM range(1000000000000)";
 
 const editor = (page: Page) => page.getByRole("textbox", { name: "SQL editor" });
 const summary = (page: Page) => page.getByRole("region", { name: "Query" }).getByText(/ in \d/);
@@ -80,6 +82,40 @@ test.describe("SQL editor", () => {
     await page.keyboard.press("ControlOrMeta+Enter");
 
     await expect(page.getByRole("alert")).toContainText('Syntax error near "SELEC"');
+  });
+
+  test("cancels a long query with Escape, and runs the next one", async ({ page }) => {
+    await openWorkbench(page);
+
+    await editor(page).click();
+    await page.keyboard.type(LONG_QUERY);
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(page.getByRole("button", { name: "Cancel" })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByText(/^Cancelled after /)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cancel" })).toBeHidden();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("SELECT 42 AS answer");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(summary(page)).toHaveText(/^1 row in /);
+  });
+
+  test("cancels a long query when another is run", async ({ page }) => {
+    await openWorkbench(page);
+
+    await editor(page).click();
+    await page.keyboard.type(LONG_QUERY);
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(page.getByRole("button", { name: "Cancel" })).toBeVisible();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("SELECT 42 AS answer");
+    await page.keyboard.press("ControlOrMeta+Enter");
+
+    await expect(summary(page)).toHaveText(/^1 row in /);
+    await expect(page.getByRole("grid", { name: "Results" }).getByRole("row").nth(1)).toHaveText(
+      "42",
+    );
   });
 
   test("doesn't trap keyboard focus", async ({ page }) => {
