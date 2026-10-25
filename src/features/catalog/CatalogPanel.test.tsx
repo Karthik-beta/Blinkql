@@ -192,4 +192,15 @@ describe("CatalogPanel", () => {
     );
     expect(within(within(tree).getByRole("group")).getAllByRole("treeitem")).toHaveLength(2);
   });
+
+  it("warns, without blocking the import, when a file is large for the device", async () => {
+    const file = new File(["x"], "orders.csv");
+    Object.defineProperty(file, "size", { value: 3 * 2 ** 30 });
+    await importFiles([file]);
+    render(<CatalogPanel />);
+
+    expect(screen.getByRole("treeitem", { name: "orders CSV · 2 columns" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/orders\.csv.*large for this device/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
