@@ -1,4 +1,5 @@
 import type { Scenario } from "../harness/types.ts";
+import { chartLineScenarios } from "./chart-line.ts";
 import { datasetScenarios } from "./datasets.ts";
 import { firstRowsScenarios } from "./first-rows.ts";
 import { rerun } from "./rerun.ts";
@@ -14,4 +15,5 @@ export const scenarios: readonly Scenario[] = [
   ...scrollScenarios,
   ...firstRowsScenarios,
   rerun,
+  ...chartLineScenarios,
 ];

@@ -21,6 +21,20 @@ export type ChartSpec = {
 export const BAR_LIMIT = 50;
 /** The most points a line chart shows. */
 export const LINE_POINTS = 1000;
+/**
+ * Where a line chart is reduced to LINE_POINTS (P-10): averaged into buckets by the engine
+ * ("sql", the default), or fetched point by point and reduced with LTTB on the main thread
+ * ("client", `?downsample=client`). Kept so the comparison can be rerun.
+ */
+export type Downsampling = "sql" | "client";
+/** The most rows a line chart fetches when it's downsampled on the main thread. */
+export const RAW_LINE_POINTS = 1_000_000;
+
+/** The downsampling a page's query string (`location.search`) asks for. */
+export function downsampling(search: string): Downsampling {
+  return new URLSearchParams(search).get("downsample") === "client" ? "client" : "sql";
+}
+
 /** The most points a scatter chart shows, sampled at random. */
 export const SCATTER_POINTS = 5000;
 export const HISTOGRAM_BINS = 30;
@@ -83,15 +97,32 @@ export function withoutFinalSemicolon(sql: string): string {
   return sql.trim().replace(/;(\s|--[^\n]*)*$/, "");
 }
 
+function fromSource(source: string): string {
+  // The source becomes a subquery: without its final semicolon, and on lines of its own, so a
+  // comment on its last line doesn't swallow the closing parenthesis.
+  return `FROM (\n${withoutFinalSemicolon(source)}\n) AS source`;
+}
+
+/**
+ * A line chart's points before downsampling: x and y of every row that has both, in order of x,
+ * at most RAW_LINE_POINTS of them. Each row is one point, so `spec.aggregate` doesn't apply.
+ */
+export function lineSeriesSql(source: string, spec: ChartSpec): string {
+  if (!spec.y) throw new Error("A line series needs a y column");
+  return `SELECT ${numeric(spec.x)} AS x, ${numeric(spec.y)} AS y
+${fromSource(source)}
+WHERE ${quote(spec.x.name)} IS NOT NULL AND ${quote(spec.y.name)} IS NOT NULL
+ORDER BY 1
+LIMIT ${RAW_LINE_POINTS}`;
+}
+
 /**
  * The query that computes `spec`'s chart from the result of `source`. Its columns are x and y,
  * plus x_end (where each histogram bin ends) and cumulative_pct (Pareto). x is text for bar and
  * Pareto charts and a DOUBLE for the others; y is always a DOUBLE.
  */
 export function chartSql(source: string, spec: ChartSpec): string {
-  // The source becomes a subquery: without its final semicolon, and on lines of its own, so a
-  // comment on its last line doesn't swallow the closing parenthesis.
-  const from = `FROM (\n${withoutFinalSemicolon(source)}\n) AS source`;
+  const from = fromSource(source);
   const y = spec.y ? quote(spec.y.name) : "NULL";
   switch (spec.type) {
     case "bar":

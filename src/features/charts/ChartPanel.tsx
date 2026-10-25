@@ -23,9 +23,13 @@ import {
   chartLabel,
   chartSql,
   columnKind,
+  downsampling,
+  LINE_POINTS,
+  lineSeriesSql,
   measureName,
 } from "./chart-sql";
 import { chartSummary, formatValue } from "./chart-summary";
+import { lttb } from "./lttb";
 
 /** A chart's points, as its query returned them (see chartSql). */
 export type ChartData = {
@@ -38,7 +42,42 @@ export type ChartData = {
     xEnd: (number | null)[];
     cumulative: (number | null)[];
   };
+  /** When the spec was chosen (a `performance.now()` time), for the chart-render measure. */
+  startedAt: number;
 };
+
+/** Read once: switching strategy means reloading the page with another `?downsample=`. */
+const DOWNSAMPLING = downsampling(location.search);
+
+/** Whether `spec` is a line chart whose points are fetched one per row and reduced here. */
+function downsamplesHere(spec: ChartSpec): boolean {
+  return (
+    DOWNSAMPLING === "client" &&
+    spec.type === "line" &&
+    spec.y !== null &&
+    spec.aggregate !== "count"
+  );
+}
+
+/** `spec`'s chart, from the engine's query and, when it downsamples here, LTTB. */
+async function chartRows(source: string, spec: ChartSpec): Promise<ChartData["rows"]> {
+  if (downsamplesHere(spec)) {
+    const table = await query(lineSeriesSql(source, spec));
+    const { x, y } = lttb(
+      table.getChild("x")?.toArray() ?? [],
+      table.getChild("y")?.toArray() ?? [],
+      LINE_POINTS,
+    );
+    return { x, y, xEnd: [], cumulative: [] };
+  }
+  const table = await query(chartSql(source, spec));
+  return {
+    x: column(table, "x"),
+    y: column(table, "y"),
+    xEnd: column(table, "x_end"),
+    cumulative: column(table, "cumulative_pct"),
+  };
+}
 
 const CHART_TYPES: { value: ChartType; label: string }[] = [
   { value: "bar", label: "Bar" },
@@ -187,17 +226,17 @@ export function ChartPanel() {
       return;
     }
     let current = true;
-    query(chartSql(source, spec)).then(
-      (table) => {
+    const startedAt = performance.now();
+    chartRows(source, spec).then(
+      (rows) => {
         if (!current) return;
         setError(null);
-        const rows: ChartData["rows"] = {
-          x: column(table, "x"),
-          y: column(table, "y"),
-          xEnd: column(table, "x_end"),
-          cumulative: column(table, "cumulative_pct"),
-        };
-        setChart({ spec, label: `${chartLabel(spec)}, ${chartSummary({ spec, rows })}`, rows });
+        setChart({
+          spec,
+          label: `${chartLabel(spec)}, ${chartSummary({ spec, rows })}`,
+          rows,
+          startedAt,
+        });
       },
       (failure: unknown) => {
         if (!current) return;

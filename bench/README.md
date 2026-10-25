@@ -61,6 +61,7 @@ Use `--size`, `--shape` and `--format` (each repeatable) to generate a subset, e
 | `first-rows-<dataset>` | warm | How soon a large result's first rows show, with no LIMIT: every row of `m-narrow-parquet`, `m-narrow-csv` and `s-wide-parquet`, and `m-narrow-parquet-filter` (`WHERE status = 'DOWN'`, about 5% of the rows). See [First rows](#first-rows) |
 | `scroll-<rows>-<shape>` | warm | Showing and scrolling a large result: `scroll-10k-narrow`, `scroll-100k-narrow` and `scroll-1m-narrow` (from `telemetry-m-narrow.parquet`), `scroll-10k-wide` and `scroll-100k-wide` (from `telemetry-s-wide.parquet`). See [Scrolling](#scrolling) |
 | `rerun-while-running` | warm | `rerunMs`: pressing Run on `SELECT 42` while a slow query (a few seconds) is still running, until its row shows. `attempts`: how many times Run had to be pressed; until P-06 a run during another was ignored, so it took two. No dataset needed |
+| `chart-line-1m-<sql\|client>` | warm | A line chart of `avg(y)` over a million-row computed series, downsampled to 1,000 points in the engine (`sql`, the default) or with LTTB on the main thread (`client`, `?downsample=client`). See [Line charts](#line-charts). No dataset needed |
 
 The dataset scenarios record, per iteration:
 
@@ -114,6 +115,17 @@ DuckDB computes a `LIMIT` or `ORDER BY` in full before it hands over any rows, s
 | `renderMs` | As `resultRenderMs` above: the last rows on the main thread until they're shown |
 | `longestFrameMs` | The longest animation frame from pressing Run until every row is shown, as `resultLongestFrameMs` above |
 | `memoryBytes` | The page's memory with the result on screen. Chromium only |
+
+### Line charts
+
+Each `chart-line-1m-*` iteration runs `SELECT range AS x, sin(range / 1000.0) + random() * 0.1 AS y FROM range(1000000)`, opens the Chart view, picks avg of y on the bar chart, then switches to Line and records:
+
+| Metric | Measures |
+|---|---|
+| `chartRenderMs` | The `blinkql:chart-render` measure: choosing Line until the frame after ECharts has drawn it, the chart's query and any downsampling on the main thread included |
+| `chartLongestFrameMs` | The longest animation frame in that time, as `resultLongestFrameMs` above |
+| `hoverFrameMedianMs`, `hoverFrameP95Ms` | The median and 95th percentile of the time between frames while the pointer moves across the chart for 2 seconds, moving its tooltip |
+| `hoverSlowFrames`, `hoverLongestFrameMs` | Frames slower than 25 ms while hovering, and the longest animation frame, as for scrolling |
 
 ### React's profiling build
 
