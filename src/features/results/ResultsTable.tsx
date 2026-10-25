@@ -15,7 +15,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { measureSince, measures } from "@/lib/user-timing";
+import { afterNextPaint, measureSince, measures } from "@/lib/user-timing";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 import { getResult, type Result, readCell, subscribeToResult } from "./result-store";
 import { type Cell, selectionBounds, selectionText } from "./selection";
@@ -92,19 +92,6 @@ type Active = Cell & { resultId: number; anchor: Cell };
 
 /** Widths set by resizing columns, by column, for one result; the rest keep their fitted widths. */
 type Resized = { resultId: number; widths: Record<number, string> };
-
-/** Calls `callback` once the next frame has been painted; returns a function that cancels it. */
-function afterNextPaint(callback: () => void): () => void {
-  // A timeout queued from requestAnimationFrame runs once that frame has been painted.
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  const frame = requestAnimationFrame(() => {
-    timeout = setTimeout(callback);
-  });
-  return () => {
-    cancelAnimationFrame(frame);
-    clearTimeout(timeout);
-  };
-}
 
 const cellId = (gridId: string, row: number, column: number) =>
   `${gridId}-${row < 0 ? "h" : row}-${column}`;

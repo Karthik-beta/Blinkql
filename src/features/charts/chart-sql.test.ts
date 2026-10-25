@@ -8,8 +8,11 @@ import {
   chartLabel,
   chartSql,
   columnKind,
+  downsampling,
   HISTOGRAM_BINS,
   LINE_POINTS,
+  lineSeriesSql,
+  RAW_LINE_POINTS,
   SCATTER_POINTS,
 } from "./chart-sql";
 
@@ -271,5 +274,44 @@ describe("chartSql", () => {
       expect(result).toHaveLength(BAR_LIMIT);
       expect(result.at(-1)?.cumulative_pct).toBeCloseTo((BAR_LIMIT / 10000) * 100);
     });
+  });
+});
+
+describe("downsampling", () => {
+  it("is done in SQL unless the URL asks for the client", () => {
+    expect(downsampling("")).toBe("sql");
+    expect(downsampling("?downsample=sql")).toBe("sql");
+    expect(downsampling("?downsample=nonsense")).toBe("sql");
+    expect(downsampling("?a=1&downsample=client")).toBe("client");
+  });
+});
+
+describe("lineSeriesSql", () => {
+  const spec: ChartSpec = {
+    type: "line",
+    x: { name: "at", kind: "temporal" },
+    y: { name: "temperature", kind: "number" },
+    aggregate: "avg",
+  };
+
+  it("returns every row's x and y in order of x, leaving out rows missing either", async () => {
+    const reader = await connection.runAndReadAll(lineSeriesSql(SOURCE, spec));
+    expect(reader.columnNames()).toEqual(["x", "y"]);
+    const result = reader.getRowObjectsJS();
+    // Every tenth temperature is missing.
+    expect(result).toHaveLength(9000);
+    expect(result[0]).toEqual({ x: Date.UTC(2026, 0, 1, 0, 1), y: 0.5 });
+    const xs = result.map((r) => r.x as number);
+    expect(xs).toEqual([...xs].sort((a, b) => a - b));
+  });
+
+  it(`returns at most ${RAW_LINE_POINTS.toLocaleString("en")} rows`, async () => {
+    const reader = await connection.runAndReadAll(
+      lineSeriesSql(`SELECT range AS at, 1 AS temperature FROM range(${RAW_LINE_POINTS + 5})`, {
+        ...spec,
+        x: { name: "at", kind: "number" },
+      }),
+    );
+    expect(reader.currentRowCount).toBe(RAW_LINE_POINTS);
   });
 });
