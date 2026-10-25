@@ -76,6 +76,7 @@ test.use({ viewport: { width: 1280, height: 1600 } });
 for (const format of ["parquet", "csv"] as const) {
   test(`imports and queries a 1M-row ${format === "csv" ? "CSV" : "Parquet"} file`, async ({
     page,
+    longWorkDuringQueries,
   }) => {
     test.setTimeout(240_000);
     const path = await generate(format);
@@ -106,5 +107,7 @@ for (const format of ["parquet", "csv"] as const) {
       ["machine_idreadingsgooddropouts", ...expectedAggregate],
       { timeout: QUERY_TIMEOUT },
     );
+    // The engine scans the file in its worker; the main thread stays free throughout.
+    expect(await longWorkDuringQueries()).toEqual([]);
   });
 }
