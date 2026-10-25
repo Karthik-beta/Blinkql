@@ -31,7 +31,7 @@ export function landingTests(colorScheme: "light" | "dark") {
       );
       await expect(page.getByText("An early version works today").first()).toBeVisible();
       await expect(page.getByRole("listitem").filter({ hasText: "In progress" })).toContainText(
-        "M2",
+        "M3",
       );
       await expect(page.getByRole("link", { name: "Try the early workbench" })).toHaveAttribute(
         "href",
