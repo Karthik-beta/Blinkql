@@ -60,6 +60,7 @@ Use `--size`, `--shape` and `--format` (each repeatable) to generate a subset, e
 | `dataset-<size>-<shape>-<format>` | warm | One per S and M dataset, e.g. `dataset-m-wide-csv`. Each iteration opens the workbench, imports the file with the file picker and runs SQL through the editor, like a user. See below |
 | `first-rows-<dataset>` | warm | How soon a large result's first rows show, with no LIMIT: every row of `m-narrow-parquet`, `m-narrow-csv` and `s-wide-parquet`, and `m-narrow-parquet-filter` (`WHERE status = 'DOWN'`, about 5% of the rows). See [First rows](#first-rows) |
 | `scroll-<rows>-<shape>` | warm | Showing and scrolling a large result: `scroll-10k-narrow`, `scroll-100k-narrow` and `scroll-1m-narrow` (from `telemetry-m-narrow.parquet`), `scroll-10k-wide` and `scroll-100k-wide` (from `telemetry-s-wide.parquet`). See [Scrolling](#scrolling) |
+| `rerun-while-running` | warm | `rerunMs`: pressing Run on `SELECT 42` while a slow query (a few seconds) is still running, until its row shows. `attempts`: how many times Run had to be pressed; until P-06 a run during another was ignored, so it took two. No dataset needed |
 
 The dataset scenarios record, per iteration:
 
