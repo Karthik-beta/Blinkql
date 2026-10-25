@@ -14,6 +14,7 @@ export type QueryRun =
       rowCount: number;
       durationMs: number;
     }
+  | { state: "cancelled"; sql: string; durationMs: number }
   | {
       state: "failed";
       sql: string;
@@ -24,6 +25,8 @@ export type QueryRun =
     };
 
 let run: QueryRun = { state: "idle" };
+/** Cancels the running query in the engine. */
+let controller: AbortController | null = null;
 const listeners = new Set<() => void>();
 
 function setRun(next: QueryRun): void {
@@ -45,22 +48,24 @@ export function subscribeToQueryRun(listener: () => void): () => void {
 /**
  * Runs `sql` and records the outcome. Its result replaces the one on screen, which stays there
  * until the new result's first rows arrive; the rest follow as the engine produces them. A
- * failure, even after some rows have arrived, clears it. Does nothing for empty SQL or while
- * another query is running: the engine has one connection, and a second Run press is almost
- * always a double press.
+ * failure, even after some rows have arrived, clears it. Does nothing for empty SQL. A query
+ * still running is cancelled, and none of its rows are shown (P-06).
  */
 export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
-  if (!sql.trim() || run.state === "running") return;
+  if (!sql.trim()) return;
+  controller?.abort();
+  const own = new AbortController();
+  controller = own;
   const startedAt = performance.now();
   const running: QueryRun = { state: "running", sql, startedAt };
   setRun(running);
-  // Restarting the engine resets the run (resetQueryRun); this query's rows then don't belong on
-  // screen any more.
+  // Another query, a cancel or an engine restart (resetQueryRun) replaces the run; this query's
+  // rows then don't belong on screen any more.
   const abandoned = () => run !== running;
   try {
-    const { schema, batches } = await streamQuery(sql);
-    if (abandoned()) return;
-    startResult(schema, startedAt);
+    const { schema, batches } = await streamQuery(sql, own.signal);
+    // Read on even when abandoned: the stream holds the engine's connection until it's read.
+    if (!abandoned()) startResult(schema, startedAt);
     let rowCount = 0;
     for await (const batch of batches) {
       if (abandoned()) return;
@@ -85,8 +90,17 @@ export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
   }
 }
 
+/** Cancels the running query, if any. It shows no result, not even the rows that had arrived. */
+export function cancelQuery(): void {
+  if (run.state !== "running") return;
+  controller?.abort();
+  clearResult();
+  setRun({ state: "cancelled", sql: run.sql, durationMs: performance.now() - run.startedAt });
+}
+
 /** Back to idle with no result, e.g. after the engine restarts. */
 export function resetQueryRun(): void {
+  controller?.abort();
   clearResult();
   setRun({ state: "idle" });
 }

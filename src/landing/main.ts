@@ -1,21 +1,29 @@
-// The landing page's only script: it runs the hero replay and keeps the theme in step with the
-// system setting. Everything else on the page is static HTML.
+// The landing page's only script: it runs the hero's sample query live when asked, and keeps the
+// theme in step with the system setting. Everything else on the page is static HTML.
 import "./landing.css";
-import { createReplay } from "./replay.ts";
-import { replayQuery } from "./replay-data.ts";
+import { createLiveRun } from "./live-run.ts";
 
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+// The engine loads only on request, so it costs the page's first load nothing.
+const sample = () => import("./sample-run.ts");
 
-const replay = createReplay({
+const grid = document.querySelector<HTMLElement>("[data-grid]");
+const rowCount = document.querySelector<HTMLElement>("[data-row-count]");
+const elapsed = document.querySelector<HTMLElement>("[data-elapsed-ms]");
+
+const liveRun = createLiveRun({
   root: document.body,
-  status: document.querySelector<HTMLElement>("[data-replay-status]"),
-  doneMessage: `Query finished, ${replayQuery.rowCount} rows in ${replayQuery.elapsedMs} ms`,
-  reducedMotion: () => reducedMotion.matches,
+  status: document.querySelector<HTMLElement>("[data-run-status]"),
+  prepare: async () => (await sample()).prepare(),
+  execute: async () => (await sample()).execute(),
+  show: (result) => {
+    if (grid) grid.innerHTML = result.gridHtml;
+    if (rowCount) rowCount.textContent = String(result.rowCount);
+    if (elapsed) elapsed.textContent = String(result.elapsedMs);
+  },
 });
 
-replay.play();
-document.querySelector("[data-replay]")?.addEventListener("click", () => {
-  replay.play({ announce: true });
+document.querySelector("[data-run-live]")?.addEventListener("click", () => {
+  void liveRun.start();
 });
 
 // public/theme-init.js applies the theme before first paint; this follows later system changes.

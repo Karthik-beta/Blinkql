@@ -10,12 +10,12 @@ import {
   renderMilestones,
   renderSql,
 } from "./render.ts";
-import { replayQuery } from "./replay-data.ts";
+import { sampleQuery } from "./sample.ts";
 
 const wordmarkSvg = new URL("../../brand/logo/blinkql-wordmark-light.svg", import.meta.url);
 
 /**
- * The headline's font: preloading it keeps the largest paint early. Mono (the replay's SQL) isn't
+ * The headline's font: preloading it keeps the largest paint early. Mono (the hero's SQL) isn't
  * preloaded: it would compete with the headline for bandwidth, and its size-matched fallback in
  * landing.css keeps the swap from shifting anything.
  */
@@ -30,9 +30,9 @@ function fragments(): Record<string, string> {
     milestones: renderMilestones(milestones),
     "current-code": current.code,
     "current-name": current.name,
-    "row-count": String(replayQuery.rowCount),
-    "elapsed-ms": String(replayQuery.elapsedMs),
-    "query-tab": replayQuery.tab,
+    "row-count": String(sampleQuery.rowCount),
+    "elapsed-ms": String(sampleQuery.elapsedMs),
+    "query-tab": sampleQuery.tab,
   };
 }
 

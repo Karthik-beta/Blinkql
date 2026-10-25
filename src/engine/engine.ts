@@ -196,18 +196,36 @@ export async function query(sql: string): Promise<Table> {
  * The stream holds the connection, so other queries wait, until its last batch has been read or
  * the reader stops early. It rejects with an EngineCrashedError if the engine has crashed or
  * crashes while running it.
+ *
+ * Aborting `signal` cancels the query (P-06): it rejects with an AbortError if it hasn't been sent
+ * yet, a streamed query fails with DuckDB's error, and the stream yields no more batches. A query
+ * that isn't streamed can't be stopped once sent; it runs to the end.
  */
-export async function streamQuery(sql: string): Promise<ResultStream> {
+export async function streamQuery(sql: string, signal?: AbortSignal): Promise<ResultStream> {
   if (status.state === "crashed") throw status.error;
   const { connection, crashed, takeConnection } = await getEngine();
   const unlessCrashed = <T>(step: Promise<T>) => Promise.race([step, crashed]);
-  const giveBack = await takeConnection();
+  const taken = await takeConnection();
+  if (signal?.aborted) {
+    taken();
+    signal.throwIfAborted();
+  }
+  // DuckDB stops a streamed query it's still computing; anything else has nothing to stop.
+  const cancel = () => void connection.cancelSent().catch(() => {});
+  signal?.addEventListener("abort", cancel);
+  const giveBack = () => {
+    signal?.removeEventListener("abort", cancel);
+    taken();
+  };
   /** The whole result, run with query(), as a stream. */
   const whole = async (): Promise<ResultStream> => {
     const table = await unlessCrashed(connection.query(sql));
     async function* batches(): AsyncGenerator<RecordBatch> {
       try {
-        yield* table.batches;
+        for (const batch of table.batches) {
+          if (signal?.aborted) return;
+          yield batch;
+        }
       } finally {
         giveBack();
       }
@@ -224,7 +242,7 @@ export async function streamQuery(sql: string): Promise<ResultStream> {
     if (reader.schema.fields.some(hasDictionary)) return await whole();
     async function* batches(): AsyncGenerator<RecordBatch> {
       try {
-        while (true) {
+        while (!signal?.aborted) {
           const next = await unlessCrashed(reader.next());
           if (next.done) return;
           yield next.value;
