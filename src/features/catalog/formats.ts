@@ -1,5 +1,7 @@
 // Which files Blinkql can import, and the SQL that reads each kind.
 
+import { keywords } from "@/features/editor/duckdb-words";
+
 export type FileFormat = "csv" | "parquet" | "json" | "jsonl";
 
 const formatsByExtension: Readonly<Record<string, FileFormat>> = {
@@ -50,6 +52,13 @@ export function tableNameFor(fileName: string, taken: ReadonlySet<string>): stri
 /** Quotes a name for use as a SQL identifier. */
 export function quoteIdentifier(name: string): string {
   return `"${name.replaceAll('"', '""')}"`;
+}
+
+const keywordSet = new Set(keywords.split(/\s+/));
+
+/** `name` as SQL refers to it: as is if it's a plain lowercase name, otherwise quoted. */
+export function sqlName(name: string): string {
+  return /^[a-z_][a-z0-9_]*$/.test(name) && !keywordSet.has(name) ? name : quoteIdentifier(name);
 }
 
 function quoteString(value: string): string {

@@ -4,6 +4,7 @@ import { tableFromArrays } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "@/features/results/query-run";
 import { streamOf } from "@/features/results/test-utils";
+import { insertIntoEditor } from "./insert";
 import { QueryPanel } from "./QueryPanel";
 import { withinSqlEditor } from "./test-utils";
 
@@ -49,6 +50,18 @@ describe("QueryPanel", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(engine.streamQuery).not.toHaveBeenCalled();
+  });
+
+  it("runs names inserted from elsewhere, such as the schema browser", async () => {
+    const { unmount } = render(<QueryPanel />);
+
+    act(() => insertIntoEditor("SELECT * FROM "));
+    act(() => insertIntoEditor("orders"));
+    await userEvent.click(screen.getByRole("button", { name: "Run" }));
+    expect(engine.streamQuery).toHaveBeenCalledWith("SELECT * FROM orders", expect.anything());
+
+    unmount();
+    expect(() => insertIntoEditor("ignored")).not.toThrow();
   });
 
   it("turns Run into a running state with a timer, then reports the result", async () => {

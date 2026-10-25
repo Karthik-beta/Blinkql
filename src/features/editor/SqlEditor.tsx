@@ -13,6 +13,7 @@ import {
 } from "@codemirror/view";
 import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
 import { errorMark, hasErrorMark, setErrorMark } from "./error-mark";
+import { setEditorInserter } from "./insert";
 import { duckdbSql } from "./language";
 import { runShortcut } from "./shortcut";
 import { type SqlToRun, sqlToRun } from "./sql-to-run";
@@ -126,7 +127,9 @@ export function SqlEditor({ ref, onRun }: Props) {
       }),
     });
     view.current = editor;
+    setEditorInserter((text) => editor.dispatch(editor.state.replaceSelection(text)));
     return () => {
+      setEditorInserter(null);
       editor.destroy();
       view.current = null;
     };
