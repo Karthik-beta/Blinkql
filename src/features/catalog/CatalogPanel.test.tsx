@@ -36,6 +36,7 @@ const engine = vi.hoisted(() => {
       return {};
     }),
     registerFile: vi.fn(async (_name: string, _file: File) => {}),
+    registerUrl: vi.fn(async (_name: string, _url: string) => {}),
     unregisterFile: vi.fn(async (_name: string) => {}),
     finish: (rows: object[]) => settle?.resolve({ toArray: () => rows }),
     fail: (error: Error) => settle?.reject(error),
@@ -44,6 +45,9 @@ const engine = vi.hoisted(() => {
 vi.mock("@/engine/engine", () => engine);
 const queryRun = vi.hoisted(() => ({ runQuery: vi.fn(async (_sql: string) => {}) }));
 vi.mock("@/features/results/query-run", () => queryRun);
+// Remote servers answer the first-byte check with a range unless a test says otherwise.
+const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response("P", { status: 206 }));
+vi.stubGlobal("fetch", fetch);
 const storage = vi.hoisted(() => ({
   saveDataset: vi.fn(async () => {}),
   listDatasets: vi.fn(async () => []),
@@ -240,6 +244,56 @@ describe("CatalogPanel", () => {
       "could not allocate",
     );
     expect(within(within(tree).getByRole("group")).getAllByRole("treeitem")).toHaveLength(2);
+  });
+
+  it("adds a remote file from a labelled dialog, submitted with Enter", async () => {
+    render(<CatalogPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add from URL" }));
+    const dialog = screen.getByRole("dialog", { name: "Add a file from a URL" });
+    const url = within(dialog).getByRole("textbox", { name: "URL" });
+    expect(url).toHaveFocus();
+    await userEvent.type(url, "https://example.com/data/orders.parquet{Enter}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(engine.registerUrl).toHaveBeenCalledWith(
+      "orders.parquet",
+      "https://example.com/data/orders.parquet",
+    );
+    expect(
+      await screen.findByRole("treeitem", { name: "orders Parquet · 2 columns" }),
+    ).toBeInTheDocument();
+  });
+
+  it("warns about a remote file that will be downloaded whole", async () => {
+    fetch.mockResolvedValueOnce(new Response("the whole file", { status: 200 }));
+    render(<CatalogPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add from URL" }));
+    await userEvent.keyboard("https://example.com/orders.parquet{Enter}");
+
+    expect(
+      await screen.findByText(
+        "https://example.com/orders.parquet: The server doesn't support range requests, so the whole file is downloaded every time it's read.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("explains an address it can't read and keeps the dialog open", async () => {
+    render(<CatalogPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add from URL" }));
+    const dialog = screen.getByRole("dialog", { name: "Add a file from a URL" });
+    const url = within(dialog).getByRole("textbox", { name: "URL" });
+    await userEvent.type(url, "http://example.com/orders.parquet");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    expect(url).toHaveAttribute("aria-invalid", "true");
+    expect(url).toHaveAccessibleDescription("Only https:// addresses can be read.");
+    expect(engine.registerUrl).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("warns, without blocking the import, when a file is large for the device", async () => {

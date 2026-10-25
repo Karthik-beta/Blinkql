@@ -1,6 +1,7 @@
-import { ChevronRight, FileUp, ScanSearch, Table2, Trash2 } from "lucide-react";
+import { ChevronRight, FileUp, Link, ScanSearch, Table2, Trash2 } from "lucide-react";
 import {
   type FocusEvent,
+  type FormEvent,
   type KeyboardEvent,
   useEffect,
   useId,
@@ -9,6 +10,13 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { insertIntoEditor } from "@/features/editor/insert";
 import { parseEngineError } from "@/features/results/engine-error";
 import { runQuery } from "@/features/results/query-run";
@@ -17,6 +25,7 @@ import {
   getCatalog,
   type ImportedTable,
   importFiles,
+  importUrl,
   profileSql,
   rowsSql,
   subscribeToCatalog,
@@ -24,6 +33,7 @@ import {
 } from "./catalog";
 import { type ColumnStats, loadColumnStats } from "./column-stats";
 import { acceptedExtensions, type FileFormat, sqlName } from "./formats";
+import { parseRemoteUrl } from "./remote";
 
 const formatLabels: Readonly<Record<FileFormat, string>> = {
   csv: "CSV",
@@ -143,8 +153,8 @@ function TableItem({
             {table.name}
           </div>
           <div className="text-muted-foreground text-xs">
-            {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"} ·{" "}
-            {formatSize(table.file.size)}
+            {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
+            {table.source instanceof File && ` · ${formatSize(table.source.size)}`}
           </div>
         </div>
         {/* Out of the Tab order, like the chevron: from the keyboard, R shows the rows, P
@@ -244,10 +254,80 @@ function ColumnGroup({ table, itemProps }: { table: ImportedTable; itemProps: It
   );
 }
 
+/** A button that opens a dialog asking for the URL of a file on the web to read as a table. */
+function AddUrlButton() {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const errorId = useId();
+
+  const add = (event: FormEvent) => {
+    event.preventDefault();
+    try {
+      const url = parseRemoteUrl(text);
+      setOpen(false);
+      setText("");
+      void importUrl(url);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : String(problem));
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setError(null);
+      }}
+    >
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Link data-icon="inline-start" aria-hidden />
+        Add from URL
+      </Button>
+      <DialogContent>
+        <DialogTitle>Add a file from a URL</DialogTitle>
+        <DialogDescription>
+          A CSV, Parquet or JSON file on a server that allows cross-origin requests. Only the parts
+          a query needs are downloaded.
+        </DialogDescription>
+        <form noValidate className="flex flex-col gap-3" onSubmit={add}>
+          <label className="flex flex-col gap-1">
+            URL
+            <input
+              type="url"
+              placeholder="https://example.com/data.parquet"
+              className="h-7 rounded-md border bg-background px-2 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
+              value={text}
+              aria-invalid={error !== null}
+              aria-describedby={error === null ? undefined : errorId}
+              onChange={(event) => {
+                setText(event.currentTarget.value);
+                setError(null);
+              }}
+            />
+          </label>
+          {error !== null && (
+            <p id={errorId} className="text-destructive">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <DialogClose render={<Button variant="outline" size="sm" />}>Cancel</DialogClose>
+            <Button type="submit" size="sm">
+              Add
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /**
  * The schema browser: a tree of tables and their columns (the ARIA tree pattern, one Tab stop),
- * with a button that opens the file picker. Clicking a name, or pressing Enter on it, inserts it
- * into the editor.
+ * with buttons that open the file picker and ask for a file's URL. Clicking a name, or pressing
+ * Enter on it, inserts it into the editor.
  */
 export function CatalogPanel() {
   const catalog = useSyncExternalStore(subscribeToCatalog, getCatalog);
@@ -345,10 +425,13 @@ export function CatalogPanel() {
         <h2 id="catalog-heading" className="font-medium text-xs">
           Tables
         </h2>
-        <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
-          <FileUp data-icon="inline-start" aria-hidden />
-          Import files
-        </Button>
+        <div className="flex gap-1">
+          <AddUrlButton />
+          <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
+            <FileUp data-icon="inline-start" aria-hidden />
+            Import files
+          </Button>
+        </div>
         <input
           ref={input}
           type="file"
