@@ -58,6 +58,7 @@ Use `--size`, `--shape` and `--format` (each repeatable) to generate a subset, e
 | `time-to-app-shell` | cold, warm | `timeToAppShell` (ms): navigation start until the `blinkql:app-shell` mark |
 | `time-to-engine-ready` | cold, warm | `timeToEngineReady` (ms): navigation start until the `blinkql:engine-ready` mark. `bytesTransferred`: response headers and bodies downloaded until then, the engine's worker included; cached responses count 0 |
 | `dataset-<size>-<shape>-<format>` | warm | One per S and M dataset, e.g. `dataset-m-wide-csv`. Each iteration opens the workbench, imports the file with the file picker and runs SQL through the editor, like a user. See below |
+| `first-rows-<dataset>` | warm | How soon a large result's first rows show, with no LIMIT: every row of `m-narrow-parquet`, `m-narrow-csv` and `s-wide-parquet`, and `m-narrow-parquet-filter` (`WHERE status = 'DOWN'`, about 5% of the rows). See [First rows](#first-rows) |
 | `scroll-<rows>-<shape>` | warm | Showing and scrolling a large result: `scroll-10k-narrow`, `scroll-100k-narrow` and `scroll-1m-narrow` (from `telemetry-m-narrow.parquet`), `scroll-10k-wide` and `scroll-100k-wide` (from `telemetry-s-wide.parquet`). See [Scrolling](#scrolling) |
 
 The dataset scenarios record, per iteration:
@@ -71,6 +72,8 @@ The dataset scenarios record, per iteration:
 | `resultCountMs` | The same rows counted in the engine instead, so `resultQueryMs − resultCountMs` is the cost of the transfer |
 | `resultConvertMs` | The `blinkql:results-convert` measure: preparing the 10,000 rows for the table. Until P-02 this copied them out of Arrow into row objects; since P-02 it only sets up a reader per column, and cells are read as they render |
 | `resultRenderMs` | The `blinkql:results-render` measure: the result reaching the main thread until the frame after its rows are committed (preparing, reading and formatting cells included) |
+| `resultFirstRowsMs` | The `blinkql:first-rows` measure: pressing Run until the frame after the result's first rows are committed, which is how long the user waits to see rows. Until P-05 the first rows came with the whole result |
+| `resultFirstRowsRenderMs` | The `blinkql:first-rows-render` measure: the first rows reaching the main thread until the frame after they're committed. Budget: 100 ms |
 | `memoryBytes`, `workerMemoryBytes` | `performance.measureUserAgentSpecificMemory()` with the 10,000 rows on screen: the whole page, and the engine's worker within it. Chromium only; left out elsewhere |
 | `resultLongestFrameMs` | The longest animation frame from pressing Run until the 10,000 rows are shown, or 0 if none took 50 ms or more: the longest the page went without responding, style, layout and paint included. Chromium only (the Long Animation Frames API; the Long Tasks API leaves out tasks that run no script, such as a frame spent laying out the table) |
 | `nextQueryRenderMs`, `nextQueryLongestFrameMs` | The same two measures for a one-row query (`scan`) run next, while the 10,000 rows are still on screen: what a large result costs the UI while it is replaced |
@@ -91,12 +94,25 @@ Each `scroll-*` iteration imports its file, shows `SELECT * … LIMIT <rows>` an
 | Metric | Measures |
 |---|---|
 | `renderMs`, `renderLongestFrameMs` | As `resultRenderMs` and `resultLongestFrameMs` above, for this many rows |
+| `firstRowsMs`, `firstRowsRenderMs` | As `resultFirstRowsMs` and `resultFirstRowsRenderMs` above |
 | `memoryBytes` | The page's memory with the rows on screen. Chromium only |
 | `<kind>FrameMedianMs`, `<kind>FrameP95Ms` | The median and 95th percentile of the time between frames while scrolling. Headless Chromium draws at 75 Hz, so a smooth scroll is about 13.3 ms |
 | `<kind>SlowFrames` | Frames that took more than 25 ms, so the display showed the previous frame again |
 | `<kind>LongestFrameMs` | The longest animation frame while scrolling, as above. It only counts the main thread: a frame that is slow because the compositor is still rasterizing a large table shows in the frame times, not here |
 
 Before P-04 every row is rendered, which makes the 100,000- and 1,000,000-row scenarios slow or impossible to run; pick the ones a build can run with `--scenario`.
+
+### First rows
+
+DuckDB computes a `LIMIT` or `ORDER BY` in full before it hands over any rows, so the dataset and scroll scenarios, which use `LIMIT`, can't show a result's first rows before the rest. The `first-rows-*` scenarios run queries DuckDB can stream, and record:
+
+| Metric | Measures |
+|---|---|
+| `firstRowsMs`, `firstRowsRenderMs` | As `resultFirstRowsMs` and `resultFirstRowsRenderMs` above |
+| `queryMs` | The `blinkql:query` measure: until the last of the result is on the main thread |
+| `renderMs` | As `resultRenderMs` above: the last rows on the main thread until they're shown |
+| `longestFrameMs` | The longest animation frame from pressing Run until every row is shown, as `resultLongestFrameMs` above |
+| `memoryBytes` | The page's memory with the result on screen. Chromium only |
 
 ### React's profiling build
 

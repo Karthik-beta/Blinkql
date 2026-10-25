@@ -106,6 +106,10 @@ export type QueryTimings = {
   convert: number;
   /** Result on the main thread until the frame after its rows are committed. */
   render: number;
+  /** Sent to the engine until the frame after the result's first rows are committed. */
+  firstRows: number;
+  /** The first rows on the main thread until the frame after they're committed. */
+  firstRowsRender: number;
   /**
    * The longest animation frame from pressing Run until the rows are shown: the longest the page
    * went without responding, rendering included. 0 if no frame took 50 ms or more; undefined where
@@ -159,12 +163,17 @@ export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
   await clearLongFrames(page);
   await page.keyboard.press("ControlOrMeta+Enter");
   const render = await waitForMeasure(page, measures.resultsRender);
-  const [query, convert] = await page.evaluate(
+  const [query, convert, firstRows, firstRowsRender] = await page.evaluate(
     (names) => names.map((name) => performance.getEntriesByName(name, "measure").at(-1)?.duration),
-    [measures.query, measures.resultsConvert],
+    [measures.query, measures.resultsConvert, measures.firstRows, measures.firstRowsRender],
   );
-  if (query === undefined || convert === undefined) {
-    throw new Error("The results rendered without query and convert measures");
+  if (
+    query === undefined ||
+    convert === undefined ||
+    firstRows === undefined ||
+    firstRowsRender === undefined
+  ) {
+    throw new Error("The results rendered without query, convert and first-rows measures");
   }
   const commits = reactProfiling ? await resultsCommits(page) : undefined;
   // Every query shows a new result, so the table renders at least once.
@@ -178,6 +187,8 @@ export async function runQuery(page: Page, sql: string): Promise<QueryTimings> {
     query,
     convert,
     render,
+    firstRows,
+    firstRowsRender,
     longestFrame: await longestFrame(page),
     resultsCommits: commits?.length,
     resultsReactMs: commits?.reduce((sum, duration) => sum + duration, 0),

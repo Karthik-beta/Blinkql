@@ -15,7 +15,7 @@ export type MarkName = (typeof marks)[keyof typeof marks];
 export const measures = {
   /** Importing one file: registering it with the engine, creating its view and reading its schema. */
   import: "blinkql:import",
-  /** One query, from being sent to the engine until its Arrow result is on the main thread. */
+  /** One query, from being sent to the engine until the last of its result is on the main thread. */
   query: "blinkql:query",
   /**
    * Preparing a result for the results table. Until P-02 this copied every row out of Arrow into
@@ -23,8 +23,18 @@ export const measures = {
    * name is kept so results stay comparable with older runs.
    */
   resultsConvert: "blinkql:results-convert",
-  /** From a result reaching the main thread until the frame after its rows are committed. */
+  /**
+   * From a result's last rows reaching the main thread until the frame after they're committed.
+   * Until P-05 the whole result arrived at once.
+   */
   resultsRender: "blinkql:results-render",
+  /**
+   * From sending a query until the frame after its first rows are committed: how long the user
+   * waits to see rows. Until P-05 the first rows came with the whole result.
+   */
+  firstRows: "blinkql:first-rows",
+  /** From a result's first rows reaching the main thread until the frame after they're committed. */
+  firstRowsRender: "blinkql:first-rows-render",
   /**
    * React rendering a `<Profiler>`'s tree for one commit; `detail` holds the profiler's `id` and
    * the `phase`. Only recorded in development and in React's profiling build, which
