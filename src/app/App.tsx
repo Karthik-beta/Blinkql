@@ -1,5 +1,5 @@
 import { RotateCcw } from "lucide-react";
-import { Profiler, useEffect, useSyncExternalStore } from "react";
+import { Profiler, useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import {
   type EngineStatus,
@@ -9,6 +9,7 @@ import {
 } from "@/engine/engine";
 import { CatalogPanel } from "@/features/catalog/CatalogPanel";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
+import { ChartPanel } from "@/features/charts/ChartPanel";
 import { QueryPanel } from "@/features/editor/QueryPanel";
 import { ResultsTable } from "@/features/results/ResultsTable";
 import { markOnce, marks, recordCommit } from "@/lib/user-timing";
@@ -32,6 +33,7 @@ function describeEngine(status: EngineStatus): string {
 
 export function App() {
   const engine = useSyncExternalStore(subscribeToEngineStatus, getEngineStatus);
+  const [showChart, setShowChart] = useState(false);
 
   useEffect(() => {
     // Benchmarked as "time to app shell" (bench/scenarios/time-to-app-shell.ts).
@@ -50,10 +52,32 @@ export function App() {
         <CatalogPanel />
         <main aria-label="Workspace" className="flex min-w-0 flex-1 flex-col">
           <QueryPanel onRestart={() => void restart()} />
-          {/* Reports each render of the results to the benchmark in profiling builds. */}
-          <Profiler id="results" onRender={recordCommit}>
-            <ResultsTable />
-          </Profiler>
+          <fieldset aria-label="Results view" className="flex gap-1 border-t px-3 py-1">
+            <Button
+              variant={showChart ? "ghost" : "secondary"}
+              size="sm"
+              aria-pressed={!showChart}
+              onClick={() => setShowChart(false)}
+            >
+              Table
+            </Button>
+            <Button
+              variant={showChart ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={showChart}
+              onClick={() => setShowChart(true)}
+            >
+              Chart
+            </Button>
+          </fieldset>
+          {/* The table stays mounted under the chart, so it keeps its scroll and selection. */}
+          <div hidden={showChart} className="flex min-h-0 flex-1 flex-col">
+            {/* Reports each render of the results to the benchmark in profiling builds. */}
+            <Profiler id="results" onRender={recordCommit}>
+              <ResultsTable />
+            </Profiler>
+          </div>
+          {showChart && <ChartPanel />}
         </main>
       </div>
       <footer className="flex h-7 shrink-0 items-center gap-2 border-t bg-chrome px-4">

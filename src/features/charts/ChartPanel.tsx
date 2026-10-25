@@ -1,0 +1,213 @@
+// A chart of the last query's result. Its points are computed by the engine (chart-sql.ts) and
+// drawn by ECharts, which loads the first time a chart is drawn.
+import type { Table } from "apache-arrow";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { query } from "@/engine/engine";
+import { getQueryRun, subscribeToQueryRun } from "@/features/results/query-run";
+import { getResult, subscribeToResult } from "@/features/results/result-store";
+import {
+  type Aggregate,
+  type ChartColumn,
+  type ChartSpec,
+  type ChartType,
+  chartLabel,
+  chartSql,
+  columnKind,
+} from "./chart-sql";
+
+/** A chart's points, as its query returned them (see chartSql). */
+export type ChartData = {
+  spec: ChartSpec;
+  label: string;
+  rows: {
+    x: (string | number | null)[];
+    y: (number | null)[];
+    xEnd: (number | null)[];
+    cumulative: (number | null)[];
+  };
+};
+
+const CHART_TYPES: { value: ChartType; label: string }[] = [
+  { value: "bar", label: "Bar" },
+  { value: "line", label: "Line" },
+  { value: "scatter", label: "Scatter" },
+  { value: "histogram", label: "Histogram" },
+  { value: "pareto", label: "Pareto" },
+];
+const AGGREGATES: Aggregate[] = ["count", "sum", "avg", "min", "max"];
+
+const selectClass = "h-7 rounded-md border border-input bg-background px-1.5 text-xs";
+
+function column<T>(table: Table, name: string): T[] {
+  return Array.from(table.getChild(name) ?? []) as T[];
+}
+
+function Select({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  return (
+    <span className="flex items-center gap-1.5">
+      <label htmlFor={id} className="text-muted-foreground">
+        {label}
+      </label>
+      <select
+        id={id}
+        className={selectClass}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </span>
+  );
+}
+
+function ChartCanvas({ data }: { data: ChartData }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let cleanUp: (() => void) | undefined;
+    let removed = false;
+    void import("./draw-chart").then(({ drawChart }) => {
+      if (!removed && ref.current) cleanUp = drawChart(ref.current, data);
+    });
+    return () => {
+      removed = true;
+      cleanUp?.();
+    };
+  }, [data]);
+  return <div ref={ref} className="min-h-0 flex-1" />;
+}
+
+export function ChartPanel() {
+  const result = useSyncExternalStore(subscribeToResult, getResult);
+  const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
+  const [type, setType] = useState<ChartType>("bar");
+  const [xName, setXName] = useState("");
+  const [yName, setYName] = useState("");
+  const [aggregate, setAggregate] = useState<Aggregate>("count");
+  const [chart, setChart] = useState<ChartData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const resultColumns = result?.columns;
+  const columns: ChartColumn[] = useMemo(
+    () => resultColumns?.map(({ name, type }) => ({ name, kind: columnKind(type) })) ?? [],
+    [resultColumns],
+  );
+  // Line and scatter charts need an x they can place on an axis; a histogram, a number.
+  const xOptions = columns.filter(({ kind }) =>
+    type === "histogram"
+      ? kind === "number"
+      : type === "line" || type === "scatter"
+        ? kind !== "other"
+        : true,
+  );
+  const yOptions = columns.filter(({ kind }) => kind === "number");
+  const x = xOptions.find(({ name }) => name === xName) ?? xOptions[0];
+  const y = yOptions.find(({ name }) => name === yName) ?? yOptions[0];
+  const usesAggregate = type === "bar" || type === "line";
+  const usesY = type === "scatter" || (usesAggregate && aggregate !== "count");
+
+  const spec: ChartSpec | null =
+    x && (!usesY || y)
+      ? { type, x, y: usesY ? (y ?? null) : null, aggregate: usesAggregate ? aggregate : "count" }
+      : null;
+  const source = run.state === "done" ? run.sql : null;
+  const specKey = JSON.stringify(spec);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: specKey stands for spec, a new object on every render.
+  useEffect(() => {
+    if (!source || !spec) {
+      setChart(null);
+      return;
+    }
+    let current = true;
+    query(chartSql(source, spec)).then(
+      (table) => {
+        if (!current) return;
+        setError(null);
+        setChart({
+          spec,
+          label: chartLabel(spec),
+          rows: {
+            x: column(table, "x"),
+            y: column(table, "y"),
+            xEnd: column(table, "x_end"),
+            cumulative: column(table, "cumulative_pct"),
+          },
+        });
+      },
+      (failure: unknown) => {
+        if (!current) return;
+        setChart(null);
+        setError(failure instanceof Error ? failure.message : String(failure));
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [source, specKey]);
+
+  const columnOptions = (options: ChartColumn[]) =>
+    options.map(({ name }) => ({ value: name, label: name }));
+
+  return (
+    <section aria-label="Chart" className="flex min-h-0 flex-1 flex-col border-t">
+      <div className="flex flex-wrap items-center gap-3 border-b bg-chrome px-3 py-1.5 text-xs">
+        <Select
+          label="Chart type"
+          value={type}
+          options={CHART_TYPES}
+          onChange={(value) => setType(value as ChartType)}
+        />
+        <Select
+          label="X"
+          value={x?.name ?? ""}
+          options={columnOptions(xOptions)}
+          onChange={setXName}
+        />
+        {usesAggregate && (
+          <Select
+            label="Aggregate"
+            value={aggregate}
+            options={AGGREGATES.map((value) => ({ value, label: value }))}
+            onChange={(value) => setAggregate(value as Aggregate)}
+          />
+        )}
+        {usesY && (
+          <Select
+            label="Y"
+            value={y?.name ?? ""}
+            options={columnOptions(yOptions)}
+            onChange={setYName}
+          />
+        )}
+      </div>
+      {error ? (
+        <p role="alert" className="p-3 text-xs text-destructive">
+          {error}
+        </p>
+      ) : !source ? (
+        <p className="p-3 text-xs text-muted-foreground">Run a query to chart its result.</p>
+      ) : !spec ? (
+        <p className="p-3 text-xs text-muted-foreground">
+          The result has no column this chart can use.
+        </p>
+      ) : (
+        chart && <ChartCanvas data={chart} />
+      )}
+    </section>
+  );
+}
