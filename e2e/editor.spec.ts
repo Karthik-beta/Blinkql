@@ -118,6 +118,31 @@ test.describe("SQL editor", () => {
     );
   });
 
+  test("completes an imported table's columns after its alias", async ({ page }) => {
+    await openWorkbench(page);
+    await page
+      .getByLabel("Import files")
+      .setInputFiles([
+        { name: "orders.csv", mimeType: "text/csv", buffer: Buffer.from("id,amount\n1,2.5\n") },
+      ]);
+    await expect(page.getByRole("tree", { name: "Tables" }).getByRole("treeitem")).toHaveCount(1);
+
+    await editor(page).click();
+    await page.keyboard.type("SELECT * FROM orders AS o");
+    // Replace the * with `o.`, so the alias is already there when the completions open.
+    await page.keyboard.press("Home");
+    for (let presses = 0; presses < "SELECT ".length; presses++) {
+      await page.keyboard.press("ArrowRight");
+    }
+    await page.keyboard.press("Shift+ArrowRight");
+    await page.keyboard.type("o.");
+
+    await expect(page.getByRole("listbox").getByRole("option")).toHaveText([
+      "amountDOUBLE",
+      "idBIGINT",
+    ]);
+  });
+
   test("doesn't trap keyboard focus", async ({ page }) => {
     await page.goto("/app/");
 
