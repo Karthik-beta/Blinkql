@@ -1,4 +1,12 @@
-import { ChevronRight, FileUp, Link, ScanSearch, Table2, Trash2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  ChevronRight,
+  FileUp,
+  Link,
+  ScanSearch,
+  Table2,
+  Trash2,
+} from "lucide-react";
 import {
   type FocusEvent,
   type FormEvent,
@@ -21,11 +29,13 @@ import { insertIntoEditor } from "@/features/editor/insert";
 import { parseEngineError } from "@/features/results/engine-error";
 import { runQuery } from "@/features/results/query-run";
 import {
+  convertTable,
   forgetTable,
   getCatalog,
   type ImportedTable,
   importFiles,
   importUrl,
+  isConvertible,
   profileSql,
   rowsSql,
   subscribeToCatalog,
@@ -111,26 +121,33 @@ function forget(table: ImportedTable): void {
   void forgetTable(table.name);
 }
 
+function convert(table: ImportedTable): void {
+  void convertTable(table.name);
+}
+
 function TableItem({
   table,
   expanded,
+  converting,
   onToggle,
   itemProps,
 }: {
   table: ImportedTable;
   expanded: boolean;
+  converting: boolean;
   onToggle: () => void;
   itemProps: ItemProps;
 }) {
   const labelId = useId();
   const columns = table.columns.length;
+  const convertible = isConvertible(table);
   const { tabIndex, ...handlers } = itemProps({ key: table.name, table });
   return (
     <div
       role="treeitem"
       aria-expanded={expanded}
       aria-labelledby={labelId}
-      aria-keyshortcuts="P R Delete"
+      aria-keyshortcuts={convertible ? "C P R Delete" : "P R Delete"}
       className={itemClass}
       tabIndex={tabIndex}
       {...handlers}
@@ -155,11 +172,29 @@ function TableItem({
           <div className="text-muted-foreground text-xs">
             {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
             {table.source instanceof File && ` · ${formatSize(table.source.size)}`}
+            {converting && " · Converting to Parquet…"}
           </div>
         </div>
-        {/* Out of the Tab order, like the chevron: from the keyboard, R shows the rows, P
-            profiles the table and Delete forgets it. Rows and profiles show in the results grid,
-            like any query, so they need no SQL; the rows can then be charted. */}
+        {/* Out of the Tab order, like the chevron: from the keyboard, C converts a CSV table to
+            Parquet, R shows the rows, P profiles the table and Delete forgets it. Rows and
+            profiles show in the results grid, like any query, so they need no SQL; the rows can
+            then be charted. */}
+        {convertible && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            tabIndex={-1}
+            disabled={converting}
+            aria-label={`Convert ${table.name} to Parquet`}
+            title="Convert to Parquet (C): faster queries, and a smaller copy kept in this browser"
+            onClick={(event) => {
+              event.stopPropagation();
+              convert(table);
+            }}
+          >
+            <ArrowRightLeft aria-hidden />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -397,6 +432,11 @@ export function CatalogPanel() {
         if (node.column) return;
         forget(node.table);
         break;
+      case "c":
+      case "C":
+        if (node.column || !isConvertible(node.table)) return;
+        convert(node.table);
+        break;
       default:
         return;
     }
@@ -464,6 +504,7 @@ export function CatalogPanel() {
               key={table.name}
               table={table}
               expanded={expanded.has(table.name)}
+              converting={catalog.converting.includes(table.name)}
               onToggle={() => toggle(table.name)}
               itemProps={itemProps}
             />
@@ -482,7 +523,10 @@ export function CatalogPanel() {
         <ul role="alert" className="flex flex-col gap-1 text-destructive text-xs">
           {catalog.failures.map((failure) => (
             <li key={failure.fileName}>
-              Couldn't import {failure.fileName}: {failure.message}
+              {failure.during === "conversion"
+                ? `Couldn't convert ${failure.fileName} to Parquet: `
+                : `Couldn't import ${failure.fileName}: `}
+              {failure.message}
             </li>
           ))}
         </ul>

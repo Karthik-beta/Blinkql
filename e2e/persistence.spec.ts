@@ -19,18 +19,23 @@ async function openWorkbench(page: Page) {
   await expect(page.getByRole("status")).toHaveText(/^Engine ready/, { timeout: ENGINE_TIMEOUT });
 }
 
-/** The table names in the stored datasets' manifest. */
-function storedNames(page: Page): Promise<string[]> {
+/** The stored datasets' manifest. */
+function storedDatasets(page: Page): Promise<{ name: string; format: string }[]> {
   return page.evaluate(async () => {
     try {
       const root = await navigator.storage.getDirectory();
       const datasets = await root.getDirectoryHandle("datasets");
       const manifest = await (await datasets.getFileHandle("manifest.json")).getFile();
-      return (JSON.parse(await manifest.text()) as { name: string }[]).map(({ name }) => name);
+      return JSON.parse(await manifest.text());
     } catch {
       return [];
     }
   });
+}
+
+/** The table names in the stored datasets' manifest. */
+async function storedNames(page: Page): Promise<string[]> {
+  return (await storedDatasets(page)).map(({ name }) => name);
 }
 
 test.describe("kept datasets", () => {
@@ -65,6 +70,42 @@ test.describe("kept datasets", () => {
     await openWorkbench(page);
     await expect(page.getByText(/^No tables yet/)).toBeVisible();
     await expect(page.getByText(/can't keep these files/)).toHaveCount(0);
+  });
+
+  test("converts a CSV table to Parquet, which it stays after a reload", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(
+      browserName === "webkit",
+      "Playwright's WebKit can't open the Origin Private File System; see the first test.",
+    );
+    // It starts the engine twice.
+    test.slow();
+    await openWorkbench(page);
+    await page.getByLabel("Import files").setInputFiles([csv]);
+    await expect(tables(page)).toHaveText(["machine_eventsCSV · 3 columns · 49 B"]);
+
+    await page.getByRole("button", { name: "Convert machine_events to Parquet" }).click();
+    await expect(tables(page)).toHaveText([/^machine_eventsParquet · 3 columns · /]);
+    await expect(
+      page.getByRole("button", { name: "Convert machine_events to Parquet" }),
+    ).toHaveCount(0);
+    await editor(page).click();
+    await page.keyboard.type("SELECT sum(minutes) AS total FROM machine_events");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(summary(page)).toHaveText(/^1 row in /);
+    await expect(page.getByRole("grid", { name: "Results" })).toContainText("49");
+    await expect
+      .poll(async () => (await storedDatasets(page)).map(({ name, format }) => [name, format]))
+      .toEqual([["machine_events", "parquet"]]);
+
+    await openWorkbench(page);
+    await expect(tables(page)).toHaveText([/^machine_eventsParquet · 3 columns · /]);
+    await editor(page).click();
+    await page.keyboard.type("SELECT * FROM machine_events");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(summary(page)).toHaveText(/^2 rows in /);
   });
 
   test("still imports, for this visit, where files can't be kept", async ({ page }) => {
