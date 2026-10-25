@@ -1,8 +1,9 @@
-// The query that's running or last ran, and its result. The Arrow table lives here, outside React
-// state (ADR-004); components read this store with useSyncExternalStore.
-import type { Table } from "apache-arrow";
-import { query } from "@/engine/engine";
+// The query that's running or last ran, and how it went. Its result goes to the result store
+// (result-store.ts) a record batch at a time; this store only says how many rows it had.
+// Components read it with useSyncExternalStore.
+import { streamQuery } from "@/engine/engine";
 import { measureSince, measures } from "@/lib/user-timing";
+import { appendRows, clearResult, finishResult, startResult } from "./result-store";
 
 export type QueryRun =
   | { state: "idle" }
@@ -10,10 +11,8 @@ export type QueryRun =
   | {
       state: "done";
       sql: string;
-      table: Table;
+      rowCount: number;
       durationMs: number;
-      /** When the result reached the main thread (a `performance.now()` time). */
-      finishedAt: number;
     }
   | {
       state: "failed";
@@ -44,19 +43,38 @@ export function subscribeToQueryRun(listener: () => void): () => void {
 }
 
 /**
- * Runs `sql` and records the outcome. Does nothing for empty SQL or while another query is
- * running: the engine has one connection, and a second Run press is almost always a double press.
+ * Runs `sql` and records the outcome. Its result replaces the one on screen, which stays there
+ * until the new result's first rows arrive; the rest follow as the engine produces them. A
+ * failure, even after some rows have arrived, clears it. Does nothing for empty SQL or while
+ * another query is running: the engine has one connection, and a second Run press is almost
+ * always a double press.
  */
 export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
   if (!sql.trim() || run.state === "running") return;
   const startedAt = performance.now();
-  setRun({ state: "running", sql, startedAt });
+  const running: QueryRun = { state: "running", sql, startedAt };
+  setRun(running);
+  // Restarting the engine resets the run (resetQueryRun); this query's rows then don't belong on
+  // screen any more.
+  const abandoned = () => run !== running;
   try {
-    const table = await query(sql);
+    const { schema, batches } = await streamQuery(sql);
+    if (abandoned()) return;
+    startResult(schema, startedAt);
+    let rowCount = 0;
+    for await (const batch of batches) {
+      if (abandoned()) return;
+      appendRows(batch);
+      rowCount += batch.numRows;
+    }
+    if (abandoned()) return;
     measureSince(measures.query, startedAt);
     const finishedAt = performance.now();
-    setRun({ state: "done", sql, table, durationMs: finishedAt - startedAt, finishedAt });
+    finishResult(finishedAt);
+    setRun({ state: "done", sql, rowCount, durationMs: finishedAt - startedAt });
   } catch (error) {
+    if (abandoned()) return;
+    clearResult();
     setRun({
       state: "failed",
       sql,
@@ -67,7 +85,8 @@ export async function runQuery(sql: string, editorOffset = 0): Promise<void> {
   }
 }
 
-/** Back to idle, e.g. after the engine restarts. */
+/** Back to idle with no result, e.g. after the engine restarts. */
 export function resetQueryRun(): void {
+  clearResult();
   setRun({ state: "idle" });
 }

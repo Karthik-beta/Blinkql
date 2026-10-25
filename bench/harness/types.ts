@@ -13,7 +13,7 @@ export type Scenario = {
   /** Modes the scenario runs in when `--mode` isn't given. */
   modes: readonly Mode[];
   /** Metric name → unit, for every value `run` returns. */
-  metrics: Readonly<Record<string, "ms" | "bytes">>;
+  metrics: Readonly<Record<string, "ms" | "bytes" | "count">>;
   /**
    * One iteration on a page that hasn't navigated yet; returns a value per metric. A metric the
    * browser can't measure (e.g. memory outside Chromium) is undefined in every iteration, and is
