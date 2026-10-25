@@ -48,6 +48,13 @@ vi.mock("@/features/results/query-run", () => queryRun);
 // Remote servers answer the first-byte check with a range unless a test says otherwise.
 const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response("P", { status: 206 }));
 vi.stubGlobal("fetch", fetch);
+const storage = vi.hoisted(() => ({
+  saveDataset: vi.fn(async () => {}),
+  listDatasets: vi.fn(async () => []),
+  loadDataset: vi.fn(),
+  removeDataset: vi.fn(async (_name: string) => {}),
+}));
+vi.mock("./stored-datasets", () => storage);
 
 const summarized = (sql: string) => sql.includes("SUMMARIZE");
 
@@ -71,8 +78,12 @@ describe("CatalogPanel", () => {
 
     const tables = within(tree).getAllByRole("treeitem");
     expect(tables).toHaveLength(2);
-    expect(within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns" })).toBe(tables[0]);
-    expect(within(tree).getByRole("treeitem", { name: "machines CSV · 1 column" })).toBe(tables[1]);
+    expect(within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns · 1 B" })).toBe(
+      tables[0],
+    );
+    expect(within(tree).getByRole("treeitem", { name: "machines CSV · 1 column · 1 B" })).toBe(
+      tables[1],
+    );
     expect(tables[0]).toHaveAttribute("aria-expanded", "false");
     expect(tables.map((table) => table.tabIndex)).toEqual([0, -1]);
     expect(engine.query.mock.calls.map(([sql]) => sql).some(summarized)).toBe(false);
@@ -142,7 +153,7 @@ describe("CatalogPanel", () => {
   it("shows a table's rows with its button or R, without inserting its name", async () => {
     const tree = await renderWithTables();
     const [orders] = within(tree).getAllByRole("treeitem");
-    expect(orders).toHaveAttribute("aria-keyshortcuts", "P R");
+    expect(orders).toHaveAttribute("aria-keyshortcuts", "P R Delete");
 
     const button = within(tree).getByRole("button", { name: "Show rows of orders" });
     expect(button.tabIndex).toBe(-1);
@@ -153,6 +164,44 @@ describe("CatalogPanel", () => {
     await userEvent.keyboard("r");
     expect(queryRun.runQuery).toHaveBeenLastCalledWith('SELECT * FROM "machines"');
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("shows each table's size", async () => {
+    await importFiles([new File([new Uint8Array(1536)], "orders.csv")]);
+    render(<CatalogPanel />);
+
+    expect(screen.getByRole("treeitem", { name: "orders CSV · 2 columns · 1.5 KB" })).toBeVisible();
+  });
+
+  it("forgets a table with its button or Delete, without inserting its name", async () => {
+    const tree = await renderWithTables();
+
+    const button = within(tree).getByRole("button", { name: "Forget orders" });
+    expect(button.tabIndex).toBe(-1);
+    await userEvent.click(button);
+    expect(storage.removeDataset).toHaveBeenLastCalledWith("orders");
+    expect(
+      within(tree)
+        .getAllByRole("treeitem")
+        .map((item) => item.textContent),
+    ).toEqual([expect.stringContaining("machines")]);
+
+    act(() => within(tree).getAllByRole("treeitem")[0]?.focus());
+    await userEvent.keyboard("{Delete}");
+    expect(storage.removeDataset).toHaveBeenLastCalledWith("machines");
+    expect(screen.queryByRole("tree")).not.toBeInTheDocument();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("says when files can't be kept after a reload", async () => {
+    storage.saveDataset.mockRejectedValueOnce(new Error("QuotaExceededError"));
+    await renderWithTables();
+
+    expect(
+      await screen.findByText(
+        "This browser can't keep these files, so their tables will be gone after a reload.",
+      ),
+    ).toBeVisible();
   });
 
   it("loads column statistics when a table is first expanded", async () => {
@@ -253,7 +302,9 @@ describe("CatalogPanel", () => {
     await importFiles([file]);
     render(<CatalogPanel />);
 
-    expect(screen.getByRole("treeitem", { name: "orders CSV · 2 columns" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: "orders CSV · 2 columns · 3 GB" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/orders\.csv.*large for this device/);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });

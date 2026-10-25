@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  forgetTable,
   getCatalog,
   importFiles,
   importUrl,
   profileSql,
   reimportTables,
   resetCatalog,
+  restoreDatasets,
 } from "./catalog";
 import { NO_CORS_MESSAGE, NO_RANGE_WARNING } from "./remote";
+import type { StoredDataset } from "./stored-datasets";
 
 // The engine is replaced by a fake that "describes" every view as having three columns.
 const engine = vi.hoisted(() => ({
@@ -30,12 +33,39 @@ vi.mock("@/engine/engine", () => engine);
 const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response("P", { status: 206 }));
 vi.stubGlobal("fetch", fetch);
 
+// The browser's file storage is replaced by one held in memory.
+const storage = vi.hoisted(() => {
+  const files = new Map<string, File>();
+  const datasets = new Map<string, StoredDataset>();
+  return {
+    files,
+    datasets,
+    saveDataset: vi.fn(async (meta: StoredDataset, file: File) => {
+      datasets.set(meta.name, meta);
+      files.set(meta.name, new File([file], meta.name));
+    }),
+    listDatasets: vi.fn(async () => [...datasets.values()]),
+    loadDataset: vi.fn(async (name: string) => {
+      const file = files.get(name);
+      if (!file) throw new DOMException(name, "NotFoundError");
+      return file;
+    }),
+    removeDataset: vi.fn(async (name: string) => {
+      datasets.delete(name);
+      files.delete(name);
+    }),
+  };
+});
+vi.mock("./stored-datasets", () => storage);
+
 const csv = (name: string) => new File(["a,b,c\n1,2,3\n"], name);
 const remote = new URL("https://example.com/data/Orders.parquet?token=abc");
 
 describe("catalog", () => {
   afterEach(() => {
     resetCatalog();
+    storage.files.clear();
+    storage.datasets.clear();
     vi.clearAllMocks();
   });
 
@@ -237,6 +267,131 @@ describe("catalog", () => {
     expect(engine.registerFile.mock.calls).toEqual([["orders.csv", file]]);
     expect(engine.registerUrl.mock.calls).toEqual([["orders_2.parquet", remote.href]]);
     expect(getCatalog().tables.map((table) => table.name)).toEqual(["orders", "orders_2"]);
+  });
+
+  it("keeps a copy of each imported file, but not of a remote one", async () => {
+    const file = csv("Orders.csv");
+    await importFiles([file]);
+    await vi.waitFor(() => expect(storage.saveDataset).toHaveBeenCalledOnce());
+
+    expect(storage.saveDataset).toHaveBeenCalledWith(
+      {
+        name: "orders",
+        fileName: "Orders.csv",
+        format: "csv",
+        size: file.size,
+        savedAt: expect.any(Number),
+      },
+      file,
+    );
+    expect(getCatalog().storageUnavailable).toBe(false);
+
+    await importUrl(remote);
+    expect(getCatalog().tables).toHaveLength(2);
+    expect(storage.saveDataset).toHaveBeenCalledOnce();
+  });
+
+  it("still shows the table when its file can't be kept, and says so", async () => {
+    storage.saveDataset.mockRejectedValueOnce(new DOMException("full", "QuotaExceededError"));
+
+    await importFiles([csv("orders.csv")]);
+
+    expect(getCatalog().tables.map((table) => table.name)).toEqual(["orders"]);
+    await vi.waitFor(() => expect(getCatalog().storageUnavailable).toBe(true));
+    expect(getCatalog().failures).toEqual([]);
+  });
+
+  it("doesn't keep another copy when importing again into a restarted engine", async () => {
+    await importFiles([csv("orders.csv")]);
+    await vi.waitFor(() => expect(storage.saveDataset).toHaveBeenCalledOnce());
+
+    await reimportTables();
+
+    expect(storage.saveDataset).toHaveBeenCalledOnce();
+  });
+
+  it("restores kept files under their old names, once", async () => {
+    await importFiles([csv("data.csv"), csv("data.csv"), csv("other.csv")]);
+    await vi.waitFor(() => expect(storage.saveDataset).toHaveBeenCalledTimes(3));
+    await storage.removeDataset("data");
+    resetCatalog();
+    engine.registerFile.mockClear();
+
+    await Promise.all([restoreDatasets(), restoreDatasets()]);
+
+    expect(getCatalog().tables.map((table) => [table.name, table.fileName])).toEqual([
+      ["data_2", "data.csv"],
+      ["other", "other.csv"],
+    ]);
+    expect(engine.registerFile.mock.calls.map(([path]) => path)).toEqual([
+      "data_2.csv",
+      "other.csv",
+    ]);
+    expect(storage.saveDataset).toHaveBeenCalledTimes(3);
+  });
+
+  it("restores a kept file in its stored format, whatever its original name", async () => {
+    storage.datasets.set("orders", {
+      name: "orders",
+      fileName: "orders.csv",
+      format: "parquet",
+      size: 1,
+      savedAt: 1,
+    });
+    storage.files.set("orders", new File(["x"], "orders"));
+
+    await restoreDatasets();
+
+    expect(engine.registerFile).toHaveBeenCalledWith("orders.parquet", expect.any(File));
+    expect(getCatalog().tables.map((table) => table.format)).toEqual(["parquet"]);
+  });
+
+  it("forgets a kept dataset whose file has gone", async () => {
+    storage.datasets.set("gone", {
+      name: "gone",
+      fileName: "gone.csv",
+      format: "csv",
+      size: 1,
+      savedAt: 1,
+    });
+
+    await restoreDatasets();
+
+    expect(getCatalog().tables).toEqual([]);
+    expect(storage.removeDataset).toHaveBeenCalledWith("gone");
+  });
+
+  it("forgets a table: drops its view and file and deletes its copy", async () => {
+    await importFiles([csv("orders.csv"), csv("other.csv")]);
+
+    await forgetTable("orders");
+
+    expect(getCatalog().tables.map((table) => table.name)).toEqual(["other"]);
+    expect(engine.query).toHaveBeenCalledWith('DROP VIEW IF EXISTS "orders"');
+    expect(engine.unregisterFile).toHaveBeenCalledWith("orders.csv");
+    expect(storage.removeDataset).toHaveBeenCalledWith("orders");
+    // Its name is free again.
+    await importFiles([csv("orders.csv")]);
+    expect(getCatalog().tables.map((table) => table.name)).toEqual(["other", "orders"]);
+  });
+
+  it("doesn't keep a table forgotten while its copy was still being saved", async () => {
+    let finishSaving = () => {};
+    storage.saveDataset.mockImplementationOnce(async (meta, file) => {
+      await new Promise<void>((resolve) => {
+        finishSaving = resolve;
+      });
+      storage.datasets.set(meta.name, meta);
+      storage.files.set(meta.name, file);
+    });
+    await importFiles([csv("orders.csv")]);
+
+    const forgetting = forgetTable("orders");
+    await new Promise((resolve) => setTimeout(resolve));
+    finishSaving();
+    await forgetting;
+
+    expect(storage.datasets.has("orders")).toBe(false);
   });
 
   it("profiles a table with SUMMARIZE, quoting its name", () => {

@@ -1,4 +1,4 @@
-import { ChevronRight, FileUp, Link, ScanSearch, Table2 } from "lucide-react";
+import { ChevronRight, FileUp, Link, ScanSearch, Table2, Trash2 } from "lucide-react";
 import {
   type FocusEvent,
   type FormEvent,
@@ -21,6 +21,7 @@ import { insertIntoEditor } from "@/features/editor/insert";
 import { parseEngineError } from "@/features/results/engine-error";
 import { runQuery } from "@/features/results/query-run";
 import {
+  forgetTable,
   getCatalog,
   type ImportedTable,
   importFiles,
@@ -42,6 +43,19 @@ const formatLabels: Readonly<Record<FileFormat, string>> = {
 };
 
 const count = new Intl.NumberFormat();
+const size = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+
+/** A size in bytes for people: 512 B, 1.5 KB, 12.4 MB. */
+function formatSize(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${size.format(value)} ${units[unit]}`;
+}
 
 /** A row of the schema tree: a table, or one of its columns. */
 type TreeNode = { key: string; table: ImportedTable; column?: TableColumn };
@@ -93,6 +107,10 @@ function showRows(table: ImportedTable): void {
   void runQuery(rowsSql(table.name));
 }
 
+function forget(table: ImportedTable): void {
+  void forgetTable(table.name);
+}
+
 function TableItem({
   table,
   expanded,
@@ -112,7 +130,7 @@ function TableItem({
       role="treeitem"
       aria-expanded={expanded}
       aria-labelledby={labelId}
-      aria-keyshortcuts="P R"
+      aria-keyshortcuts="P R Delete"
       className={itemClass}
       tabIndex={tabIndex}
       {...handlers}
@@ -136,11 +154,12 @@ function TableItem({
           </div>
           <div className="text-muted-foreground text-xs">
             {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
+            {table.source instanceof File && ` · ${formatSize(table.source.size)}`}
           </div>
         </div>
-        {/* Out of the Tab order, like the chevron: from the keyboard, R shows the rows and P
-            profiles the table. Both show in the results grid, like any query, so they need no
-            SQL; the rows can then be charted. */}
+        {/* Out of the Tab order, like the chevron: from the keyboard, R shows the rows, P
+            profiles the table and Delete forgets it. Rows and profiles show in the results grid,
+            like any query, so they need no SQL; the rows can then be charted. */}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -166,6 +185,19 @@ function TableItem({
           }}
         >
           <ScanSearch aria-hidden />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          tabIndex={-1}
+          aria-label={`Forget ${table.name}`}
+          title="Forget (Delete): remove the table and the copy kept in this browser"
+          onClick={(event) => {
+            event.stopPropagation();
+            forget(table);
+          }}
+        >
+          <Trash2 aria-hidden />
         </Button>
       </div>
       {expanded && <ColumnGroup table={table} itemProps={itemProps} />}
@@ -361,6 +393,10 @@ export function CatalogPanel() {
         if (node.column) return;
         showRows(node.table);
         break;
+      case "Delete":
+        if (node.column) return;
+        forget(node.table);
+        break;
       default:
         return;
     }
@@ -437,6 +473,9 @@ export function CatalogPanel() {
 
       <div aria-live="polite" className="text-muted-foreground text-xs">
         {catalog.importing.length > 0 && <p>Importing {catalog.importing.join(", ")}…</p>}
+        {catalog.storageUnavailable && (
+          <p>This browser can't keep these files, so their tables will be gone after a reload.</p>
+        )}
       </div>
 
       {catalog.failures.length > 0 && (
