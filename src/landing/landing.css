@@ -6,7 +6,7 @@
 
 /* ---------- Base ---------- */
 
-/* Local fonts scaled to Atkinson Hyperlegible Mono's advance width (0.632 em), so the replay's SQL
+/* Local fonts scaled to Atkinson Hyperlegible Mono's advance width (0.632 em), so the hero's SQL
    wraps the same before and after the web font arrives and nothing shifts. */
 @font-face {
   font-family: "Mono fallback narrow";
@@ -139,7 +139,7 @@ a:hover {
 }
 
 /* The hero's headline and lede: stacked on phones, side by side on wide screens with the lede on
-   the headline's last line, so the replay starts higher. */
+   the headline's last line, so the sample query starts higher. */
 .hero-head {
   display: grid;
   gap: 16px 48px;
@@ -367,8 +367,8 @@ a:hover {
 }
 
 /* ---------- The lamp: one living signal (Design Language 8.3) ---------- */
-/* Each lamp's resting look below is the replay's final state, which is also what readers without
-   JavaScript see. The `.js` class (public/theme-init.js) opts in to the timed states. */
+/* Each lamp's resting look below is what the page loads with, and what readers without JavaScript
+   see. The `.js` class (public/theme-init.js) opts in to the live run's timed states. */
 
 .lamp-stop,
 .lamp-readout,
@@ -414,7 +414,7 @@ a:hover {
   animation: lamp-breathe var(--lamp-breathe) ease-in-out infinite;
 }
 .js [data-phase="running"] :is(.lamp-stop, .lamp-readout, .wordmark-lamp) {
-  /* Never past 5 s (WCAG 2.2.2); the replay leaves this state after 1 s. */
+  /* Never past 5 s (WCAG 2.2.2), however long the query takes. */
   animation: lamp-blink var(--lamp-blink) steps(1, end) 5;
 }
 .js [data-phase="done"] :is(.lamp-stop, .lamp-readout)::after,
@@ -433,10 +433,10 @@ a:hover {
   }
 }
 
-/* ---------- The replay: docked panes, exactly like the product (Design Language 6.4) ---------- */
+/* ---------- The sample query: docked panes, exactly like the product (Design Language 6.4) ---------- */
 
-.replay {
-  contain: layout; /* the replay's phase changes never re-lay out the rest of the page */
+.demo {
+  contain: layout; /* the live run's phase changes never re-lay out the rest of the page */
   margin-top: 48px;
   /* One step firmer than the hairlines inside it, so the panes read as a single instrument. */
   border: 1px solid color-mix(in oklch, var(--border), var(--foreground) 14%);
@@ -469,7 +469,7 @@ a:hover {
   margin-bottom: -1px;
 }
 
-/* A picture of the Run button, not a control: the replay isn't interactive. */
+/* A picture of the Run button, not a control: the button below the panes starts the live run. */
 .run-button {
   display: inline-flex;
   align-items: center;
@@ -701,13 +701,17 @@ a:hover {
   }
 }
 
-.replay-footer {
+.demo-footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px 24px;
   margin-top: 12px;
+}
+/* The live run needs JavaScript; without it the static result stands on its own. */
+:root:not(.js) [data-run-live] {
+  display: none;
 }
 
 /* ---------- The roadmap as a panel of indicator lamps ---------- */
@@ -754,7 +758,7 @@ a:hover {
   background: var(--lamp-off);
 }
 .milestone[data-status="current"] {
-  box-shadow: inset 0 2px 0 var(--primary); /* the active tab's top edge, as in the replay */
+  box-shadow: inset 0 2px 0 var(--primary); /* the active tab's top edge, as in the hero */
 }
 .milestone[data-status="current"] .milestone-lamp {
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 30%, transparent);
