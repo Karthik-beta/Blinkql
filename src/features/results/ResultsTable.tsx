@@ -1,11 +1,5 @@
 // biome-ignore-all lint/a11y/useSemanticElements: a virtualized grid can't be a <table>; it positions its rows itself, so it uses ARIA grid roles
 // biome-ignore-all lint/a11y/useFocusableInteractive: the grid keeps the focus and points at the active cell with aria-activedescendant, so rows and cells take none
-import {
-  elementScroll,
-  observeElementOffset,
-  useVirtualizer,
-  type Virtualizer,
-} from "@tanstack/react-virtual";
 import { DataType } from "apache-arrow";
 import {
   type CSSProperties,
@@ -15,6 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -239,10 +234,24 @@ function HeaderRow({
   );
 }
 
+/**
+ * The rows in view, plus OVERSCAN either side, for a grid scrolled to `offset` unscaled px with a
+ * viewport `height` px tall. Every row is ROW_HEIGHT tall, so this is arithmetic: it costs the same
+ * at any row count, where a general virtualizer walks every row each time the count changes.
+ */
+function rowsInView(offset: number, height: number, rowCount: number): number[] {
+  if (rowCount === 0) return [];
+  // Row i spans [(i + 1), (i + 2)) * ROW_HEIGHT: the rows start below the header, which stays over
+  // the top row of the viewport. A row is in view if any of it is within [offset, offset + height).
+  const first = Math.max(0, Math.floor(offset / ROW_HEIGHT) - 1 - OVERSCAN);
+  const last = Math.min(rowCount - 1, Math.ceil((offset + height) / ROW_HEIGHT) - 2 + OVERSCAN);
+  return Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => first + i);
+}
+
 /** Scrolls `grid` up or down, if needed, so the whole of `row` is in view below the header. */
 export function revealRow(grid: HTMLElement, row: number, rowCount: number): void {
   const scale = scrollScale(grid, rowCount);
-  // In unscaled px, as the virtualizer sees them: the scrolled offset and the row's top.
+  // In unscaled px, as the rows are placed: the scrolled offset and the row's top.
   const offset = grid.scrollTop * scale;
   const top = row * ROW_HEIGHT;
   const below = grid.clientHeight - ROW_HEIGHT;
@@ -324,29 +333,22 @@ export const ResultsTable = memo(function ResultsTable() {
   const active = stored && stored.resultId === results?.id ? stored : null;
   const rowCount = results?.rowCount ?? 0;
 
-  const virtualizer: Virtualizer<HTMLDivElement, Element> = useVirtualizer({
-    count: rowCount,
-    getScrollElement: () => gridRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: OVERSCAN,
-    // The rows start below the header, which stays over the top row of the viewport.
-    scrollMargin: ROW_HEIGHT,
-    // The virtualizer works in unscaled offsets, as if every row took ROW_HEIGHT; these convert
-    // to and from the scrolling area's, which differ for a result over MAX_SCROLL_HEIGHT. Its
-    // scrollToIndex still compares with the area's real height, so the grid doesn't use it; it
-    // scrolls rows into view itself (revealRow). The offset observer is set up once, with the
-    // grid, so it reads the row count from the current options rather than this render's.
-    observeElementOffset: (instance, onOffset) =>
-      observeElementOffset(instance, (offset, isScrolling) =>
-        onOffset(offset * scrollScale(instance.scrollElement, instance.options.count), isScrolling),
-      ),
-    scrollToFn: (offset, { adjustments = 0, behavior }, instance) =>
-      elementScroll(
-        (offset + adjustments) / scrollScale(instance.scrollElement, instance.options.count),
-        { behavior },
-        instance,
-      ),
-  });
+  // Where the grid is scrolled to and how tall it is, read on every scroll and resize. Read before
+  // the first paint, so the first result shows in one render.
+  const [view, setView] = useState({ scrollTop: 0, height: 0 });
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const read = () => setView({ scrollTop: grid.scrollTop, height: grid.clientHeight });
+    read();
+    grid.addEventListener("scroll", read, { passive: true });
+    const resize = new ResizeObserver(read);
+    resize.observe(grid);
+    return () => {
+      grid.removeEventListener("scroll", read);
+      resize.disconnect();
+    };
+  }, []);
 
   // Sized again only while the rows they're sized by are still arriving.
   const columns = results?.columns;
@@ -378,14 +380,13 @@ export const ResultsTable = memo(function ResultsTable() {
     return afterNextPaint(() => measureSince(measures.resultsRender, finishedAt));
   }, [finishedAt]);
 
-  const items = virtualizer.getVirtualItems();
-  // Where the rows are drawn: their unscaled position relative to the viewport, plus how far the
-  // area has really scrolled. The same as their unscaled position unless the result is scaled.
-  const offset = virtualizer.scrollOffset ?? 0;
-  const scrolled = offset / scrollScale(gridRef.current, rowCount);
+  // Rows are placed in unscaled px, as if every row took ROW_HEIGHT, then moved by how far the area
+  // has really scrolled. The two are the same unless the result is over MAX_SCROLL_HEIGHT.
+  const scrolled = view.scrollTop;
+  const offset = scrolled * scrollScale(gridRef.current, rowCount);
+  const rows = rowsInView(offset, view.height, rowCount);
   const bodyHeight = Math.min(rowCount * ROW_HEIGHT, MAX_SCROLL_HEIGHT);
-  const activeInPage =
-    active && (active.row < 0 || items.some((item) => item.index === active.row));
+  const activeInPage = active && (active.row < 0 || rows.includes(active.row));
 
   const selection = active ? selectionBounds(active.anchor, active) : null;
   /** The selected columns of `row`: `selectedFrom` and `selectedTo`, if it's selected. */
@@ -408,8 +409,8 @@ export const ResultsTable = memo(function ResultsTable() {
   const onFocus = () => {
     if (!results || active || results.columns.length === 0) return;
     // Start on the first row in view, or on the header if there are no rows.
-    const first = items.find((item) => item.start - offset >= ROW_HEIGHT);
-    const start = { row: rowCount > 0 ? (first?.index ?? 0) : -1, column: 0 };
+    const first = rows.find((row) => row * ROW_HEIGHT >= offset);
+    const start = { row: rowCount > 0 ? (first ?? 0) : -1, column: 0 };
     setActive({ resultId: results.id, ...start, anchor: start });
   };
 
@@ -449,7 +450,6 @@ export const ResultsTable = memo(function ResultsTable() {
   /** Fits a column to its name and the values of the rows in the page. */
   const onFit = (column: number) => {
     const name = results?.columns[column]?.name ?? "";
-    const rows = items.map((item) => item.index);
     resize(column, fittedWidth(name, column, rows, MAX_FIT_CHARS));
   };
 
@@ -488,8 +488,8 @@ export const ResultsTable = memo(function ResultsTable() {
     activate(Number(cell.dataset.row), Number(cell.dataset.column), event.shiftKey);
   };
 
-  // The same element with or without a result, so the virtualizer knows the viewport's size by
-  // the time the first result arrives, and shows it in one render.
+  // The same element with or without a result, so the viewport's size is known by the time the
+  // first result arrives, and it shows in one render.
   return (
     <div
       ref={gridRef}
@@ -526,15 +526,15 @@ export const ResultsTable = memo(function ResultsTable() {
             onFit={onFit}
           />
           <div role="rowgroup" className="relative" style={{ height: bodyHeight }}>
-            {items.map((item) => (
+            {rows.map((row) => (
               <Row
-                key={item.index}
-                index={item.index}
-                top={Math.round(scrolled + item.start - offset - ROW_HEIGHT)}
+                key={row}
+                index={row}
+                top={Math.round(scrolled + row * ROW_HEIGHT - offset)}
                 columns={results.columns}
                 gridId={gridId}
-                activeColumn={active?.row === item.index ? active.column : undefined}
-                {...selectedIn(item.index)}
+                activeColumn={active?.row === row ? active.column : undefined}
+                {...selectedIn(row)}
               />
             ))}
           </div>
