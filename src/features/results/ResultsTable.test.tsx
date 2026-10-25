@@ -300,6 +300,130 @@ describe("ResultsTable", () => {
       expect(grid()).not.toHaveAttribute("aria-activedescendant");
     });
   });
+
+  describe("selecting and copying", () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>();
+    beforeEach(() => {
+      writeText.mockResolvedValue();
+      Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    });
+
+    const selected = () =>
+      within(grid())
+        .queryAllByRole("gridcell", { selected: true })
+        .map((cell) => cell.textContent);
+
+    it("copies the active cell with Ctrl+C or ⌘C", async () => {
+      render(<ResultsTable />);
+      await run(machines);
+
+      fireEvent.click(screen.getByRole("gridcell", { name: "lathe" }));
+      fireEvent.keyDown(grid(), { key: "c", ctrlKey: true });
+      expect(writeText).toHaveBeenLastCalledWith("lathe");
+      fireEvent.keyDown(grid(), { key: "ArrowUp" });
+      fireEvent.keyDown(grid(), { key: "c", metaKey: true });
+      // NULL copies as an empty cell.
+      expect(writeText).toHaveBeenLastCalledWith("");
+    });
+
+    it("selects a block with Shift and the arrow keys, and copies it as tab-separated text", async () => {
+      render(<ResultsTable />);
+      await run(machines);
+
+      fireEvent.click(screen.getByRole("gridcell", { name: "1" }));
+      fireEvent.keyDown(grid(), { key: "ArrowDown", shiftKey: true });
+      fireEvent.keyDown(grid(), { key: "ArrowDown", shiftKey: true });
+      fireEvent.keyDown(grid(), { key: "ArrowRight", shiftKey: true });
+      expect(grid()).toHaveAttribute("aria-multiselectable", "true");
+      expect(selected()).toEqual(["1", "press", "2", "NULL", "3", "lathe"]);
+      expect(activeCell()).toEqual({ row: 4, column: 2, text: "lathe" });
+
+      fireEvent.keyDown(grid(), { key: "c", ctrlKey: true });
+      expect(writeText).toHaveBeenCalledWith("1\tpress\n2\t\n3\tlathe");
+
+      // Moving without Shift leaves just the active cell selected.
+      fireEvent.keyDown(grid(), { key: "ArrowUp" });
+      expect(selected()).toEqual(["NULL"]);
+    });
+
+    it("selects a block with Shift+click, the header row included", async () => {
+      render(<ResultsTable />);
+      await run(machines);
+
+      fireEvent.click(screen.getByRole("columnheader", { name: "machine" }));
+      fireEvent.click(screen.getByRole("gridcell", { name: "2" }), { shiftKey: true });
+      fireEvent.keyDown(grid(), { key: "c", ctrlKey: true });
+      expect(writeText).toHaveBeenCalledWith("id\tmachine\n1\tpress\n2\t");
+    });
+  });
+
+  describe("resizing columns", () => {
+    /** The grid's column widths, which every row takes from its container. */
+    const widths = () =>
+      (grid().firstElementChild as HTMLElement).style.getPropertyValue("--columns");
+    /** The edge of a column's header, dragged by mouse; the keyboard resizes with Alt+arrows. */
+    const edge = (name: string) =>
+      within(screen.getByRole("columnheader", { name })).getByTitle(
+        "Drag to resize, double-click to fit",
+      );
+
+    it("widens and narrows the active cell's column with Alt and the arrow keys", async () => {
+      render(<ResultsTable />);
+      await run(machines);
+      // The id column is fitted to its name.
+      const id = "calc(2ch + 17px)";
+      expect(widths()).toBe(`${id} calc(7ch + 17px)`);
+      const header = screen.getByRole("columnheader", { name: "machine" });
+      expect(header).toHaveAttribute("aria-keyshortcuts", "Alt+ArrowLeft Alt+ArrowRight");
+      expect(header).toHaveAccessibleDescription("Alt+Left and Alt+Right resize the column");
+
+      fireEvent.click(screen.getByRole("columnheader", { name: "machine" }));
+      // Every header is 800 px wide in jsdom.
+      fireEvent.keyDown(grid(), { key: "ArrowRight", altKey: true });
+      expect(widths()).toBe(`${id} 816px`);
+      fireEvent.keyDown(grid(), { key: "ArrowLeft", altKey: true });
+      expect(widths()).toBe(`${id} 784px`);
+      // The active cell stays where it was.
+      expect(activeCell()).toMatchObject({ row: 1, column: 2 });
+    });
+
+    it("resizes a column by dragging the edge of its header", async () => {
+      render(<ResultsTable />);
+      await run(machines);
+      const id = "calc(2ch + 17px)";
+
+      fireEvent.pointerDown(edge("machine"), { clientX: 100, button: 0 });
+      fireEvent.pointerMove(window, { clientX: 150 });
+      expect(widths()).toBe(`${id} 850px`);
+      fireEvent.pointerUp(window, { clientX: 150 });
+      fireEvent.pointerMove(window, { clientX: 300 });
+      expect(widths()).toBe(`${id} 850px`);
+    });
+
+    it("fits a column to its content when the edge of its header is double-clicked", async () => {
+      const long = "x".repeat(80);
+      render(<ResultsTable />);
+      await run(new Table({ note: vectorFromArray(["short", long], new Utf8()) }));
+      // It starts at most 50 characters wide.
+      expect(widths()).toBe("calc(50ch + 17px)");
+
+      fireEvent.doubleClick(edge("note"));
+      expect(widths()).toBe("calc(80ch + 17px)");
+    });
+
+    it("resizes without rendering the rows again", async () => {
+      render(<ResultsTable />);
+      await run(counting(1_000));
+      fireEvent.focus(grid());
+      vi.mocked(readCell).mockClear();
+
+      fireEvent.keyDown(grid(), { key: "ArrowRight", altKey: true });
+      fireEvent.pointerDown(edge("label"), { clientX: 100, button: 0 });
+      fireEvent.pointerMove(window, { clientX: 120 });
+      fireEvent.pointerUp(window);
+      expect(readCell).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe("scrolling a result taller than the scrolling area can be", () => {

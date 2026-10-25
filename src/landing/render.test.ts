@@ -10,7 +10,7 @@ import {
   renderGrid,
   renderMilestones,
 } from "./render.ts";
-import { replayQuery, replayRows } from "./replay-data.ts";
+import { sampleQuery, sampleRows } from "./sample.ts";
 
 describe("milestones", () => {
   it("has exactly one current milestone, M0 to M7 in order", () => {
@@ -58,9 +58,9 @@ describe("SQL highlighting", () => {
 describe("results grid", () => {
   const html = renderGrid();
 
-  it("renders every replay row and says how many rows the query returned", () => {
-    expect(html.match(/<tr>/g)).toHaveLength(replayRows.length + 1);
-    expect(html).toContain(`The first ${replayRows.length} of ${replayQuery.rowCount} rows`);
+  it("renders every sample row and says how many rows the query returned", () => {
+    expect(html.match(/<tr>/g)).toHaveLength(sampleRows.length + 1);
+    expect(html).toContain(`The first ${sampleRows.length} of ${sampleQuery.rowCount} rows`);
   });
 
   it("shows NULL the way the grid will, distinct from an empty value", () => {
@@ -68,7 +68,7 @@ describe("results grid", () => {
   });
 
   it("shows an OEE that is availability × performance × quality, NULL when quality is", () => {
-    for (const [, , availability, performance, quality, oee] of replayRows) {
+    for (const [, , availability, performance, quality, oee] of sampleRows) {
       if (quality === null) expect(oee).toBeNull();
       else expect(oee).toBeCloseTo(availability * performance * quality, 3);
     }

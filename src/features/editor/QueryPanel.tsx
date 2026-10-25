@@ -1,10 +1,11 @@
-import { Play } from "lucide-react";
+import { Play, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { ErrorPanel } from "@/features/results/ErrorPanel";
 import { errorSpan, parseEngineError } from "@/features/results/engine-error";
 import { formatDuration, formatRows } from "@/features/results/format";
 import {
+  cancelQuery,
   getQueryRun,
   type QueryRun,
   runQuery,
@@ -37,6 +38,8 @@ function Summary({ run }: { run: QueryRun }) {
           {formatRows(run.rowCount)} in {formatDuration(run.durationMs)}
         </span>
       );
+    case "cancelled":
+      return <span>Cancelled after {formatDuration(run.durationMs)}</span>;
     case "failed":
       return <span>Failed after {formatDuration(run.durationMs)}</span>;
   }
@@ -72,11 +75,30 @@ export function QueryPanel({ onRestart }: Props) {
     if (!range) editor.current?.clearError();
   }, [failure]);
 
+  // Escape cancels from anywhere on the page, unless something else (e.g. autocomplete) used it.
+  useEffect(() => {
+    if (!running) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) cancelQuery();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [running]);
+
   const runSql = ({ sql, from }: { sql: string; from: number }) => void runQuery(sql, from);
 
   return (
     <section aria-label="Query" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-9 shrink-0 items-center justify-end border-b bg-chrome px-2">
+      <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-b bg-chrome px-2">
+        {running && (
+          <Button variant="outline" aria-keyshortcuts="Escape" onClick={cancelQuery}>
+            <Square data-icon="inline-start" aria-hidden />
+            Cancel
+            <kbd aria-hidden className="ml-1 rounded-sm border px-1 font-sans font-normal">
+              Esc
+            </kbd>
+          </Button>
+        )}
         <Button
           // Stays focusable while running, so keyboard focus isn't lost mid-query.
           focusableWhenDisabled
