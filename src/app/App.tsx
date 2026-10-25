@@ -8,6 +8,7 @@ import {
   subscribeToEngineStatus,
 } from "@/engine/engine";
 import { CatalogPanel } from "@/features/catalog/CatalogPanel";
+import { restoreDatasets } from "@/features/catalog/catalog";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
 import { ChartPanel } from "@/features/charts/ChartPanel";
 import { QueryPanel } from "@/features/editor/QueryPanel";
@@ -43,6 +44,7 @@ export function App() {
     markOnce(marks.appShell);
     // Start the engine while the user is still looking around, so the first query doesn't wait.
     startEngine();
+    void restoreDatasets();
     void startHistory();
   }, []);
 

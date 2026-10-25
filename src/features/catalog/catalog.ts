@@ -1,9 +1,11 @@
 // The catalog: tables imported from local files. Each file is registered with the engine by handle
-// and gets a view named after it, so SQL reads the file directly (see the Architecture page).
+// and gets a view named after it, so SQL reads the file directly (see the Architecture page). A copy
+// of each file is kept in the browser (stored-datasets.ts), so its table comes back after a reload.
 import { query, registerFile, unregisterFile } from "@/engine/engine";
 import { parseEngineError } from "@/features/results/engine-error";
 import { measureSince, measures } from "@/lib/user-timing";
 import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
+import { listDatasets, loadDataset, removeDataset, saveDataset } from "./stored-datasets";
 
 export type ImportedTable = {
   /** The view's name, used in SQL. */
@@ -32,9 +34,16 @@ export type Catalog = {
   importing: readonly string[];
   /** Files from the most recent import that couldn't be imported. */
   failures: readonly ImportFailure[];
+  /** True once a file couldn't be kept in the browser, so its table will be gone after a reload. */
+  storageUnavailable: boolean;
 };
 
-let catalog: Catalog = { tables: [], importing: [], failures: [] };
+/** A file to import and, for one imported before, the name and format its table had. */
+type Source = { file: File; name?: string; format?: FileFormat };
+
+const empty: Catalog = { tables: [], importing: [], failures: [], storageUnavailable: false };
+let catalog = empty;
+let restoring: Promise<void> | null = null;
 /** Table names in use or claimed by an import in progress, so concurrent imports can't clash. */
 const takenNames = new Set<string>();
 const listeners = new Set<() => void>();
@@ -55,11 +64,11 @@ export function subscribeToCatalog(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-async function importFile(file: File): Promise<ImportedTable> {
-  const format = detectFormat(file.name);
+async function importFile({ file, ...previous }: Source): Promise<ImportedTable> {
+  const format = previous.format ?? detectFormat(file.name);
   if (!format) throw new Error("Not a CSV, TSV, Parquet, JSON or JSON Lines file");
 
-  const name = tableNameFor(file.name, takenNames);
+  const name = tableNameFor(previous.name ?? file.name, takenNames);
   takenNames.add(name);
   // Registered under the table name, so two files called data.csv in different folders can't clash.
   const path = `${name}.${format}`;
@@ -91,19 +100,41 @@ export function rowsSql(table: string): string {
   return `SELECT * FROM ${quoteIdentifier(table)}`;
 }
 
-/** Imports each file as a table. Files are imported one at a time, in order. */
-export async function importFiles(files: readonly File[]): Promise<void> {
-  if (files.length === 0) return;
+/** Copies being saved, by table name, so forgetting a table can wait for its copy first. */
+const saving = new Map<string, Promise<void>>();
+
+/** Keeps a copy of `table`'s file in the browser, in the background. */
+function keep({ name, fileName, format, file }: ImportedTable): void {
+  const saved = saveDataset({ name, fileName, format, size: file.size, savedAt: Date.now() }, file)
+    .catch(() => update((current) => ({ ...current, storageUnavailable: true })))
+    .finally(() => saving.delete(name));
+  saving.set(name, saved);
+}
+
+/**
+ * Imports each file as a table, one at a time, in order, and keeps a copy of it in the background.
+ */
+export function importFiles(files: readonly File[]): Promise<void> {
+  return importSources(
+    files.map((file) => ({ file })),
+    true,
+  );
+}
+
+async function importSources(sources: readonly Source[], keepCopies: boolean): Promise<void> {
+  if (sources.length === 0) return;
   update((current) => ({
     ...current,
-    importing: [...current.importing, ...files.map((file) => file.name)],
+    importing: [...current.importing, ...sources.map(({ file }) => file.name)],
     failures: [],
   }));
 
-  for (const file of files) {
+  for (const source of sources) {
+    const { file } = source;
     try {
-      const table = await importFile(file);
+      const table = await importFile(source);
       update((current) => ({ ...current, tables: [...current.tables, table] }));
+      if (keepCopies) keep(table);
     } catch (error) {
       const message =
         error instanceof Error
@@ -127,14 +158,50 @@ export async function importFiles(files: readonly File[]): Promise<void> {
  * imported in the same order, so each table gets its old name back.
  */
 export async function reimportTables(): Promise<void> {
-  const files = catalog.tables.map((table) => table.file);
+  const sources = catalog.tables.map(({ file, name, format }) => ({ file, name, format }));
   takenNames.clear();
   update((current) => ({ ...current, tables: [], failures: [] }));
-  await importFiles(files);
+  await importSources(sources, false);
+}
+
+/**
+ * Imports the files kept from earlier visits, each under its old table name. Calling it again does
+ * nothing until resetCatalog().
+ */
+export function restoreDatasets(): Promise<void> {
+  restoring ??= (async () => {
+    const sources: Source[] = [];
+    for (const dataset of await listDatasets()) {
+      try {
+        const stored = await loadDataset(dataset.name);
+        // Named as the user's file was, so the table still shows where it came from.
+        const file = new File([stored], dataset.fileName, { lastModified: stored.lastModified });
+        sources.push({ file, name: dataset.name, format: dataset.format });
+      } catch {
+        // The browser lost the file, so forget the dataset too.
+        await removeDataset(dataset.name).catch(() => {});
+      }
+    }
+    await importSources(sources, false);
+  })();
+  return restoring;
+}
+
+/** Drops table `name` from the engine and the catalog, and deletes its kept copy. */
+export async function forgetTable(name: string): Promise<void> {
+  const table = catalog.tables.find((other) => other.name === name);
+  if (!table) return;
+  update((current) => ({ ...current, tables: current.tables.filter((other) => other !== table) }));
+  await query(`DROP VIEW IF EXISTS ${quoteIdentifier(name)}`).catch(() => {});
+  await unregisterFile(`${name}.${table.format}`).catch(() => {});
+  await saving.get(name);
+  await removeDataset(name).catch(() => {});
+  takenNames.delete(name);
 }
 
 /** Empties the catalog. For tests; it doesn't drop anything from the engine. */
 export function resetCatalog(): void {
   takenNames.clear();
-  update(() => ({ tables: [], importing: [], failures: [] }));
+  restoring = null;
+  update(() => empty);
 }
