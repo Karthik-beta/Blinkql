@@ -71,7 +71,7 @@ function measure(spec: ChartSpec, value: string): string {
 }
 
 /** The measure's name, as in "avg(temperature)". */
-function measureName(spec: ChartSpec): string {
+export function measureName(spec: ChartSpec): string {
   return counts(spec) || !spec.y ? "count(*)" : `${spec.aggregate}(${spec.y.name})`;
 }
 

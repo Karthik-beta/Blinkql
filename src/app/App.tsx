@@ -11,6 +11,8 @@ import { CatalogPanel } from "@/features/catalog/CatalogPanel";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
 import { ChartPanel } from "@/features/charts/ChartPanel";
 import { QueryPanel } from "@/features/editor/QueryPanel";
+import { HistoryPanel } from "@/features/history/HistoryPanel";
+import { startHistory } from "@/features/history/history";
 import { ResultsTable } from "@/features/results/ResultsTable";
 import { markOnce, marks, recordCommit } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
@@ -40,6 +42,7 @@ export function App() {
     markOnce(marks.appShell);
     // Start the engine while the user is still looking around, so the first query doesn't wait.
     startEngine();
+    void startHistory();
   }, []);
 
   return (
@@ -49,7 +52,10 @@ export function App() {
         <img src={wordmarkDark} alt="Blinkql" className="hidden h-5 w-auto dark:block" />
       </header>
       <div className="flex min-h-0 flex-1">
-        <CatalogPanel />
+        <div className="flex w-64 shrink-0 flex-col border-r bg-chrome">
+          <CatalogPanel />
+          <HistoryPanel />
+        </div>
         <main aria-label="Workspace" className="flex min-w-0 flex-1 flex-col">
           <QueryPanel onRestart={() => void restart()} />
           <fieldset aria-label="Results view" className="flex gap-1 border-t px-3 py-1">

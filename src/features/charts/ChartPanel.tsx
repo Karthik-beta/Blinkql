@@ -2,6 +2,7 @@
 // drawn by ECharts, which loads the first time a chart is drawn.
 import type { Table } from "apache-arrow";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Button } from "@/components/ui/button";
 import { query } from "@/engine/engine";
 import { getQueryRun, subscribeToQueryRun } from "@/features/results/query-run";
 import { getResult, subscribeToResult } from "@/features/results/result-store";
@@ -16,12 +17,15 @@ import {
   downsampling,
   LINE_POINTS,
   lineSeriesSql,
+  measureName,
 } from "./chart-sql";
+import { chartSummary, formatValue } from "./chart-summary";
 import { lttb } from "./lttb";
 
 /** A chart's points, as its query returned them (see chartSql). */
 export type ChartData = {
   spec: ChartSpec;
+  /** The chart's accessible name: what it shows, then a summary of its data. */
   label: string;
   rows: {
     x: (string | number | null)[];
@@ -130,6 +134,45 @@ function ChartCanvas({ data }: { data: ChartData }) {
   return <div ref={ref} className="min-h-0 flex-1" />;
 }
 
+/** The chart's points as a table, for those who can't see the canvas. */
+function ChartTable({ data: { spec, rows } }: { data: ChartData }) {
+  const headers = [spec.x.name, spec.type === "scatter" ? (spec.y?.name ?? "") : measureName(spec)];
+  if (spec.type === "pareto") headers.push("Cumulative %");
+  const x = (i: number) =>
+    spec.type === "histogram"
+      ? `${formatValue(rows.x[i] ?? null, "number")}–${formatValue(rows.xEnd[i] ?? null, "number")}`
+      : formatValue(rows.x[i] ?? null, spec.x.kind);
+  return (
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrolling region must take focus so the keyboard can scroll it.
+    <div tabIndex={0} className="min-h-0 flex-1 overflow-auto">
+      <table className="w-full text-xs tabular-nums">
+        <caption className="sr-only">{chartLabel(spec)}</caption>
+        <thead className="sticky top-0 bg-chrome">
+          <tr>
+            {headers.map((header) => (
+              <th key={header} scope="col" className="border-b px-3 py-1 text-left font-medium">
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.x.map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the rows never reorder.
+            <tr key={i} className="border-b">
+              <td className="px-3 py-0.5">{x(i)}</td>
+              <td className="px-3 py-0.5">{formatValue(rows.y[i] ?? null, "number")}</td>
+              {spec.type === "pareto" && (
+                <td className="px-3 py-0.5">{formatValue(rows.cumulative[i] ?? null, "number")}</td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function ChartPanel() {
   const result = useSyncExternalStore(subscribeToResult, getResult);
   const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
@@ -139,6 +182,7 @@ export function ChartPanel() {
   const [aggregate, setAggregate] = useState<Aggregate>("count");
   const [chart, setChart] = useState<ChartData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showTable, setShowTable] = useState(false);
 
   const resultColumns = result?.columns;
   const columns: ChartColumn[] = useMemo(
@@ -178,7 +222,12 @@ export function ChartPanel() {
       (rows) => {
         if (!current) return;
         setError(null);
-        setChart({ spec, label: chartLabel(spec), rows, startedAt });
+        setChart({
+          spec,
+          label: `${chartLabel(spec)}, ${chartSummary({ spec, rows })}`,
+          rows,
+          startedAt,
+        });
       },
       (failure: unknown) => {
         if (!current) return;
@@ -225,6 +274,14 @@ export function ChartPanel() {
             onChange={setYName}
           />
         )}
+        <Button
+          variant={showTable ? "secondary" : "ghost"}
+          size="sm"
+          aria-pressed={showTable}
+          onClick={() => setShowTable(!showTable)}
+        >
+          View as table
+        </Button>
       </div>
       {error ? (
         <p role="alert" className="p-3 text-xs text-destructive">
@@ -237,7 +294,7 @@ export function ChartPanel() {
           The result has no column this chart can use.
         </p>
       ) : (
-        chart && <ChartCanvas data={chart} />
+        chart && (showTable ? <ChartTable data={chart} /> : <ChartCanvas data={chart} />)
       )}
     </section>
   );
