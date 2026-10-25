@@ -4,6 +4,7 @@ import { query, registerFile, unregisterFile } from "@/engine/engine";
 import { parseEngineError } from "@/features/results/engine-error";
 import { measureSince, measures } from "@/lib/user-timing";
 import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
+import { deviceMemoryGiB, memoryWarning } from "./memory";
 
 export type ImportedTable = {
   /** The view's name, used in SQL. */
@@ -32,9 +33,11 @@ export type Catalog = {
   importing: readonly string[];
   /** Files from the most recent import that couldn't be imported. */
   failures: readonly ImportFailure[];
+  /** Files from the most recent import that were imported but may not fit in memory. */
+  warnings: readonly ImportFailure[];
 };
 
-let catalog: Catalog = { tables: [], importing: [], failures: [] };
+let catalog: Catalog = { tables: [], importing: [], failures: [], warnings: [] };
 /** Table names in use or claimed by an import in progress, so concurrent imports can't clash. */
 const takenNames = new Set<string>();
 const listeners = new Set<() => void>();
@@ -98,12 +101,20 @@ export async function importFiles(files: readonly File[]): Promise<void> {
     ...current,
     importing: [...current.importing, ...files.map((file) => file.name)],
     failures: [],
+    warnings: [],
   }));
 
   for (const file of files) {
     try {
       const table = await importFile(file);
-      update((current) => ({ ...current, tables: [...current.tables, table] }));
+      const warning = memoryWarning(file.size, { deviceMemoryGiB: deviceMemoryGiB() });
+      update((current) => ({
+        ...current,
+        tables: [...current.tables, table],
+        warnings: warning
+          ? [...current.warnings, { fileName: file.name, message: warning }]
+          : current.warnings,
+      }));
     } catch (error) {
       const message =
         error instanceof Error
@@ -136,5 +147,5 @@ export async function reimportTables(): Promise<void> {
 /** Empties the catalog. For tests; it doesn't drop anything from the engine. */
 export function resetCatalog(): void {
   takenNames.clear();
-  update(() => ({ tables: [], importing: [], failures: [] }));
+  update(() => ({ tables: [], importing: [], failures: [], warnings: [] }));
 }

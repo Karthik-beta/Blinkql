@@ -365,6 +365,16 @@ export function CatalogPanel() {
           ))}
         </ul>
       )}
+
+      {catalog.warnings.length > 0 && (
+        <ul role="status" className="flex flex-col gap-1 text-muted-foreground text-xs">
+          {catalog.warnings.map((warning) => (
+            <li key={warning.fileName}>
+              {warning.fileName}: {warning.message}
+            </li>
+          ))}
+        </ul>
+      )}
     </aside>
   );
 }
