@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  convertTable,
   forgetTable,
   getCatalog,
   importFiles,
@@ -12,7 +13,8 @@ import {
 import { NO_CORS_MESSAGE, NO_RANGE_WARNING } from "./remote";
 import type { StoredDataset } from "./stored-datasets";
 
-// The engine is replaced by a fake that "describes" every view as having three columns.
+// The engine is replaced by a fake that "describes" every view as having three columns and
+// "converts" every file to four bytes of Parquet.
 const engine = vi.hoisted(() => ({
   query: vi.fn(async (sql: string): Promise<unknown> => {
     if (sql.startsWith("DESCRIBE")) {
@@ -26,6 +28,7 @@ const engine = vi.hoisted(() => ({
   registerFile: vi.fn(async (_name: string, _file: File) => {}),
   registerUrl: vi.fn(async (_name: string, _url: string) => {}),
   unregisterFile: vi.fn(async (_name: string) => {}),
+  exportQuery: vi.fn(async (_sql: string, _format: string) => new Uint8Array(4)),
 }));
 vi.mock("@/engine/engine", () => engine);
 
@@ -392,6 +395,102 @@ describe("catalog", () => {
     await forgetting;
 
     expect(storage.datasets.has("orders")).toBe(false);
+  });
+
+  it("converts a CSV table to Parquet, read from then on and kept instead of the CSV", async () => {
+    await importFiles([csv("Orders.csv")]);
+    await vi.waitFor(() => expect(storage.saveDataset).toHaveBeenCalledOnce());
+
+    const converting = convertTable("orders");
+    expect(getCatalog().converting).toEqual(["orders"]);
+    await converting;
+
+    expect(engine.exportQuery).toHaveBeenCalledWith(
+      "SELECT * FROM read_csv('orders.csv')",
+      "parquet",
+    );
+    expect(engine.registerFile).toHaveBeenLastCalledWith("orders.parquet", expect.any(File));
+    expect(engine.query).toHaveBeenCalledWith(
+      `CREATE OR REPLACE VIEW "orders" AS SELECT * FROM read_parquet('orders.parquet')`,
+    );
+    expect(engine.unregisterFile).toHaveBeenCalledWith("orders.csv");
+    expect(getCatalog().converting).toEqual([]);
+    const [table] = getCatalog().tables;
+    expect(table).toMatchObject({ name: "orders", fileName: "Orders.csv", format: "parquet" });
+    expect(table?.columns).toHaveLength(3);
+    expect(table?.source).toBeInstanceOf(File);
+    expect(table?.source).toHaveProperty("size", 4);
+    await vi.waitFor(() => expect(storage.saveDataset).toHaveBeenCalledTimes(2));
+    expect(storage.saveDataset).toHaveBeenLastCalledWith(
+      {
+        name: "orders",
+        fileName: "Orders.csv",
+        format: "parquet",
+        size: 4,
+        savedAt: expect.any(Number),
+      },
+      table?.source,
+    );
+
+    // After a reload, the table comes back from the Parquet copy.
+    resetCatalog();
+    engine.registerFile.mockClear();
+    await restoreDatasets();
+    expect(engine.registerFile).toHaveBeenCalledWith("orders.parquet", expect.any(File));
+    expect(getCatalog().tables.map((other) => other.format)).toEqual(["parquet"]);
+  });
+
+  it("leaves the CSV table as it was when it can't be converted", async () => {
+    await importFiles([csv("Orders.csv")]);
+    await vi.waitFor(() => expect(storage.saveDataset).toHaveBeenCalledOnce());
+    const [table] = getCatalog().tables;
+    engine.exportQuery.mockRejectedValueOnce(new Error("Out of Memory Error: could not allocate"));
+
+    await convertTable("orders");
+
+    expect(getCatalog().tables).toEqual([table]);
+    expect(getCatalog().converting).toEqual([]);
+    expect(getCatalog().failures).toEqual([
+      {
+        fileName: "Orders.csv",
+        message: "Out of Memory Error: could not allocate",
+        during: "conversion",
+      },
+    ]);
+    expect(engine.registerFile).not.toHaveBeenCalledWith("orders.parquet", expect.anything());
+    expect(engine.unregisterFile).not.toHaveBeenCalled();
+    expect(storage.saveDataset).toHaveBeenCalledOnce();
+  });
+
+  it("keeps reading the CSV when the Parquet file can't be read", async () => {
+    await importFiles([csv("orders.csv")]);
+    const [table] = getCatalog().tables;
+    engine.query.mockImplementationOnce(async () => {
+      throw new Error("Invalid Input Error: not a Parquet file");
+    });
+
+    await convertTable("orders");
+
+    expect(engine.unregisterFile.mock.calls).toEqual([["orders.parquet"]]);
+    expect(getCatalog().tables).toEqual([table]);
+    expect(getCatalog().failures).toEqual([
+      {
+        fileName: "orders.csv",
+        message: "Invalid Input Error: not a Parquet file",
+        during: "conversion",
+      },
+    ]);
+  });
+
+  it("only converts local CSV tables", async () => {
+    await importFiles([new File(["x"], "orders.parquet")]);
+    await importUrl(new URL("https://example.com/events.csv"));
+
+    await convertTable("orders");
+    await convertTable("events");
+
+    expect(engine.exportQuery).not.toHaveBeenCalled();
+    expect(getCatalog().tables.map((table) => table.format)).toEqual(["parquet", "csv"]);
   });
 
   it("profiles a table with SUMMARIZE, quoting its name", () => {

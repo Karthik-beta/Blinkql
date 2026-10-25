@@ -38,6 +38,7 @@ const engine = vi.hoisted(() => {
     registerFile: vi.fn(async (_name: string, _file: File) => {}),
     registerUrl: vi.fn(async (_name: string, _url: string) => {}),
     unregisterFile: vi.fn(async (_name: string) => {}),
+    exportQuery: vi.fn(async (_sql: string, _format: string) => new Uint8Array(2048)),
     finish: (rows: object[]) => settle?.resolve({ toArray: () => rows }),
     fail: (error: Error) => settle?.reject(error),
   };
@@ -153,7 +154,7 @@ describe("CatalogPanel", () => {
   it("shows a table's rows with its button or R, without inserting its name", async () => {
     const tree = await renderWithTables();
     const [orders] = within(tree).getAllByRole("treeitem");
-    expect(orders).toHaveAttribute("aria-keyshortcuts", "P R Delete");
+    expect(orders).toHaveAttribute("aria-keyshortcuts", "C P R Delete");
 
     const button = within(tree).getByRole("button", { name: "Show rows of orders" });
     expect(button.tabIndex).toBe(-1);
@@ -164,6 +165,76 @@ describe("CatalogPanel", () => {
     await userEvent.keyboard("r");
     expect(queryRun.runQuery).toHaveBeenLastCalledWith('SELECT * FROM "machines"');
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("converts a CSV table to Parquet with its button or C, saying while it does", async () => {
+    await importFiles([
+      new File(["x"], "orders.csv"),
+      new File(["x"], "machines.csv"),
+      new File(["x"], "events.parquet"),
+      new URL("https://example.com/remote.csv"),
+    ]);
+    render(<CatalogPanel />);
+    const tree = screen.getByRole("tree", { name: "Tables" });
+    const [, , events, remote] = within(tree).getAllByRole("treeitem");
+    // Only local CSV files are converted.
+    expect(events).toHaveAttribute("aria-keyshortcuts", "P R Delete");
+    expect(remote).toHaveAttribute("aria-keyshortcuts", "P R Delete");
+    for (const name of ["events", "remote"]) {
+      expect(
+        within(tree).queryByRole("button", { name: `Convert ${name} to Parquet` }),
+      ).not.toBeInTheDocument();
+    }
+
+    let finish = (_bytes: Uint8Array<ArrayBuffer>) => {};
+    engine.exportQuery.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const button = within(tree).getByRole("button", { name: "Convert orders to Parquet" });
+    expect(button.tabIndex).toBe(-1);
+    await userEvent.click(button);
+    expect(
+      within(tree).getByRole("treeitem", {
+        name: "orders CSV · 2 columns · 1 B · Converting to Parquet…",
+      }),
+    ).toBeVisible();
+    expect(button).toBeDisabled();
+
+    await act(async () => finish(new Uint8Array(2048)));
+    expect(
+      within(tree).getByRole("treeitem", { name: "orders Parquet · 2 columns · 2 KB" }),
+    ).toBeVisible();
+    expect(
+      within(tree).queryByRole("button", { name: "Convert orders to Parquet" }),
+    ).not.toBeInTheDocument();
+
+    act(() => within(tree).getAllByRole("treeitem")[1]?.focus());
+    await userEvent.keyboard("c");
+    expect(engine.exportQuery).toHaveBeenLastCalledWith(
+      "SELECT * FROM read_csv('machines.csv')",
+      "parquet",
+    );
+    expect(
+      await within(tree).findByRole("treeitem", { name: "machines Parquet · 1 column · 2 KB" }),
+    ).toBeVisible();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("explains when a table can't be converted", async () => {
+    engine.exportQuery.mockRejectedValueOnce(new Error("Out of Memory Error: could not allocate"));
+    const tree = await renderWithTables();
+
+    await userEvent.click(within(tree).getByRole("button", { name: "Convert orders to Parquet" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn't convert orders.csv to Parquet: Out of Memory Error: could not allocate",
+    );
+    expect(
+      within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns · 1 B" }),
+    ).toBeVisible();
   });
 
   it("shows each table's size", async () => {

@@ -2,7 +2,7 @@
 // the engine, by handle or by URL, and gets a view named after it, so SQL reads the file directly
 // (see the Architecture page). A copy of each local file is kept in the browser
 // (stored-datasets.ts), so its table comes back after a reload.
-import { query, registerFile, registerUrl, unregisterFile } from "@/engine/engine";
+import { exportQuery, query, registerFile, registerUrl, unregisterFile } from "@/engine/engine";
 import { parseEngineError } from "@/features/results/engine-error";
 import { measureSince, measures } from "@/lib/user-timing";
 import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
@@ -30,13 +30,17 @@ export type TableColumn = {
 export type ImportFailure = {
   fileName: string;
   message: string;
+  /** Set when the file was imported but its table couldn't be converted to Parquet. */
+  during?: "conversion";
 };
 
 export type Catalog = {
   tables: readonly ImportedTable[];
   /** Names of files still being imported. */
   importing: readonly string[];
-  /** Files from the most recent import that couldn't be imported. */
+  /** Names of tables still being converted to Parquet. */
+  converting: readonly string[];
+  /** Files from the most recent import or conversion that couldn't be imported or converted. */
   failures: readonly ImportFailure[];
   /** Files from the most recent import that were imported but may not fit in memory or be slow. */
   warnings: readonly ImportFailure[];
@@ -50,6 +54,7 @@ type Source = { source: File | URL; name?: string; format?: FileFormat };
 const empty: Catalog = {
   tables: [],
   importing: [],
+  converting: [],
   failures: [],
   warnings: [],
   storageUnavailable: false,
@@ -102,9 +107,7 @@ async function importFile({ source, ...previous }: Source): Promise<ImportedTabl
     else await registerFile(path, source);
     // Creating the view reads the schema, so an unreadable file fails here rather than later.
     await query(`CREATE VIEW ${quoteIdentifier(name)} AS SELECT * FROM ${readerFor(format, path)}`);
-    const columns = (await query(`DESCRIBE ${quoteIdentifier(name)}`))
-      .toArray()
-      .map((row) => ({ name: String(row.column_name), type: String(row.column_type) }));
+    const columns = await describe(name);
     measureSince(measures.import, started);
     return { name, fileName: displayName(source), format, columns, source };
   } catch (error) {
@@ -113,6 +116,12 @@ async function importFile({ source, ...previous }: Source): Promise<ImportedTabl
     takenNames.delete(name);
     throw error;
   }
+}
+
+async function describe(table: string): Promise<TableColumn[]> {
+  return (await query(`DESCRIBE ${quoteIdentifier(table)}`))
+    .toArray()
+    .map((row) => ({ name: String(row.column_name), type: String(row.column_type) }));
 }
 
 /** One row per column of `table`: its type, min and max, distinct count, quartiles and null %. */
@@ -149,6 +158,12 @@ export function importFiles(files: readonly (File | URL)[]): Promise<void> {
   );
 }
 
+function messageFor(error: unknown): string {
+  return error instanceof Error
+    ? remoteReadMessage(parseEngineError(error, "", { preservePlainText: true }).message)
+    : String(error);
+}
+
 async function importSources(sources: readonly Source[], keepCopies: boolean): Promise<void> {
   if (sources.length === 0) return;
   update((current) => ({
@@ -176,13 +191,9 @@ async function importSources(sources: readonly Source[], keepCopies: boolean): P
       }));
       if (keepCopies) keep(table);
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? remoteReadMessage(parseEngineError(error, "", { preservePlainText: true }).message)
-          : String(error);
       update((current) => ({
         ...current,
-        failures: [...current.failures, { fileName, message }],
+        failures: [...current.failures, { fileName, message: messageFor(error) }],
       }));
     } finally {
       update((current) => {
@@ -230,6 +241,71 @@ export function restoreDatasets(): Promise<void> {
     await importSources(sources, false);
   })();
   return restoring;
+}
+
+/** Whether `table` can be converted to Parquet: it reads a local CSV or TSV file. */
+export function isConvertible(table: ImportedTable): boolean {
+  return table.format === "csv" && table.source instanceof File;
+}
+
+/**
+ * Converts table `name`, a local CSV file, to Parquet: the engine writes the Parquet file in its
+ * worker, the view is pointed at it and it replaces the kept copy, so later queries, and the table
+ * after a reload, read Parquet instead of parsing the CSV again (P-09). If it fails, the table
+ * keeps reading the CSV and the failure is reported with the import failures.
+ */
+export async function convertTable(name: string): Promise<void> {
+  const table = catalog.tables.find((other) => other.name === name);
+  if (!table || !isConvertible(table) || catalog.converting.includes(name)) return;
+  update((current) => ({ ...current, converting: [...current.converting, name], failures: [] }));
+  const csvPath = `${name}.csv`;
+  const path = `${name}.parquet`;
+  const pointViewAt = (format: FileFormat, at: string) =>
+    query(
+      `CREATE OR REPLACE VIEW ${quoteIdentifier(name)} AS SELECT * FROM ${readerFor(format, at)}`,
+    );
+  let registered = false;
+  try {
+    const bytes = await exportQuery(`SELECT * FROM ${readerFor("csv", csvPath)}`, "parquet");
+    // Forgotten, or the engine restarted, while it was being converted.
+    if (!catalog.tables.includes(table)) return;
+    // Named as the user's file was, like a restored table's, so it still shows where it came from.
+    const file = new File([bytes], table.fileName);
+    await registerFile(path, file);
+    registered = true;
+    await pointViewAt("parquet", path);
+    const converted: ImportedTable = {
+      ...table,
+      format: "parquet",
+      columns: await describe(name),
+      source: file,
+    };
+    await unregisterFile(csvPath).catch(() => {});
+    update((current) => ({
+      ...current,
+      tables: current.tables.map((other) => (other === table ? converted : other)),
+    }));
+    // The CSV's copy may still be being written; the Parquet one replaces it once it has been.
+    await saving.get(name);
+    keep(converted);
+  } catch (error) {
+    if (registered) {
+      await pointViewAt("csv", csvPath).catch(() => {});
+      await unregisterFile(path).catch(() => {});
+    }
+    update((current) => ({
+      ...current,
+      failures: [
+        ...current.failures,
+        { fileName: table.fileName, message: messageFor(error), during: "conversion" },
+      ],
+    }));
+  } finally {
+    update((current) => ({
+      ...current,
+      converting: current.converting.filter((other) => other !== name),
+    }));
+  }
 }
 
 /** Drops table `name` from the engine and the catalog, and deletes its kept copy. */
