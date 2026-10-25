@@ -34,6 +34,20 @@ test.describe("Results table", () => {
     await expect(results(page).getByRole("row").last()).toHaveAttribute("aria-rowindex", "501");
   });
 
+  // Fails about one run in three: as the last rows arrive, the refresh and the final update each
+  // rebuild the view over every row and the virtualizer recomputes every row's position, often in
+  // the same frame, which then takes 55-80 ms (#119).
+  test.fixme("streams in a million rows without blocking the main thread", async ({
+    page,
+    longWorkDuringQueries,
+  }) => {
+    await runSql(page, "SELECT range AS n FROM range(1000000)");
+    await expect(results(page)).toHaveAttribute("aria-rowcount", "1000001", {
+      timeout: MILLION_ROWS_TIMEOUT,
+    });
+    expect(await longWorkDuringQueries()).toEqual([]);
+  });
+
   test("scrolls through a million rows to the last", async ({ page }) => {
     // Taller than browsers can lay out (Firefox stops near 17.9 million px), so it's scaled.
     await runSql(page, "SELECT range AS n FROM range(1000000)");
