@@ -29,13 +29,13 @@ export const milestones: readonly Milestone[] = [
     code: "M2",
     name: "Performance pass\u00a0I", // no-break space: the numeral never wraps alone
     summary: "Queries never block the page, even on a million rows.",
-    status: "current",
+    status: "done",
   },
   {
     code: "M3",
     name: "Explore and visualize",
     summary: "Column profiles, autocomplete, charts and export.",
-    status: "planned",
+    status: "current",
   },
   {
     code: "M4",
