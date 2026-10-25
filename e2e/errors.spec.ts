@@ -26,7 +26,7 @@ async function importMachines(page: Page) {
     mimeType: "text/csv",
     buffer: Buffer.from("id,machine_name\n1,press\n2,lathe\n"),
   });
-  await expect(page.getByRole("list", { name: "Tables" })).toContainText("machines");
+  await expect(page.getByRole("tree", { name: "Tables" })).toContainText("machines");
 }
 
 test.describe("Engine errors", () => {
@@ -93,7 +93,7 @@ test.describe("Engine errors", () => {
 
     await page.getByRole("alert").getByRole("button", { name: "Restart engine" }).click();
     await expect(engineStatus(page)).toHaveText(/^Engine ready/, { timeout: ENGINE_TIMEOUT });
-    await expect(page.getByRole("list", { name: "Tables" })).toContainText("machines");
+    await expect(page.getByRole("tree", { name: "Tables" })).toContainText("machines");
 
     await run(page, "SELECT count(*) AS n FROM machines");
     await expect(page.getByRole("region", { name: "Query" }).getByText(/ in \d/)).toHaveText(

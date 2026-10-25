@@ -54,7 +54,7 @@ async function openWorkbench(page: Page) {
 }
 
 function tableList(page: Page) {
-  return page.getByRole("list", { name: "Tables" });
+  return page.getByRole("tree", { name: "Tables" });
 }
 
 test.describe("file import", () => {
@@ -63,7 +63,7 @@ test.describe("file import", () => {
 
     await page.getByLabel("Import files").setInputFiles([csv, parquet, json, jsonLines]);
 
-    const tables = tableList(page).getByRole("listitem");
+    const tables = tableList(page).getByRole("treeitem");
     await expect(tables).toHaveCount(4);
     // The sniffer found the semicolon delimiter and the header row.
     await expect(tables.nth(0)).toHaveText("machine_eventsCSV · 3 columns");
@@ -89,7 +89,7 @@ test.describe("file import", () => {
     await page.dispatchEvent("main", "drop", { dataTransfer });
 
     await expect(page.getByText("Drop files to import them as tables")).toBeHidden();
-    await expect(tableList(page).getByRole("listitem")).toHaveText([
+    await expect(tableList(page).getByRole("treeitem")).toHaveText([
       "machine_eventsCSV · 3 columns",
     ]);
   });
@@ -98,14 +98,40 @@ test.describe("file import", () => {
     await openWorkbench(page);
 
     await page.getByLabel("Import files").setInputFiles([csv]);
-    await expect(tableList(page).getByRole("listitem")).toHaveCount(1);
+    await expect(tableList(page).getByRole("treeitem")).toHaveCount(1);
     await page.getByLabel("Import files").setInputFiles([csv]);
 
     await expect(
       tableList(page)
-        .getByRole("listitem")
+        .getByRole("treeitem")
         .getByText(/^machine_events/),
     ).toHaveText(["machine_events", "machine_events_2"]);
+  });
+
+  test("browses a table's columns and inserts names with the keyboard", async ({ page }) => {
+    await openWorkbench(page);
+    await page.getByLabel("Import files").setInputFiles([csv]);
+
+    const table = tableList(page).getByRole("treeitem", { name: "machine_events CSV · 3 columns" });
+    await table.focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowRight");
+
+    const columns = table.getByRole("group").getByRole("treeitem");
+    await expect(columns).toHaveText([
+      "machine_idVARCHAR0% null · ~2 distinct",
+      "eventVARCHAR0% null · ~2 distinct",
+      "minutesBIGINT0% null · ~2 distinct",
+    ]);
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("End");
+    await expect(columns.nth(2)).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    // "minutes" is a DuckDB keyword, so it's quoted.
+    await expect(page.getByRole("textbox", { name: "SQL editor" })).toHaveText(
+      'machine_events"minutes"',
+    );
   });
 
   test("explains which files couldn't be imported", async ({ page }) => {
