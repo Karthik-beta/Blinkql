@@ -5,6 +5,7 @@ import { query, registerFile, registerUrl, unregisterFile } from "@/engine/engin
 import { parseEngineError } from "@/features/results/engine-error";
 import { measureSince, measures } from "@/lib/user-timing";
 import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
+import { deviceMemoryGiB, memoryWarning } from "./memory";
 import { probeRemoteFile, remoteFileName, remoteReadMessage } from "./remote";
 
 export type ImportedTable = {
@@ -35,7 +36,7 @@ export type Catalog = {
   importing: readonly string[];
   /** Files from the most recent import that couldn't be imported. */
   failures: readonly ImportFailure[];
-  /** Files from the most recent import that were imported but may be slow to read. */
+  /** Files from the most recent import that were imported but may not fit in memory or be slow. */
   warnings: readonly ImportFailure[];
 };
 
@@ -123,7 +124,17 @@ export async function importFiles(files: readonly (File | URL)[]): Promise<void>
     const fileName = displayName(file);
     try {
       const table = await importFile(file);
-      update((current) => ({ ...current, tables: [...current.tables, table] }));
+      const warning =
+        file instanceof URL
+          ? null
+          : memoryWarning(file.size, { deviceMemoryGiB: deviceMemoryGiB() });
+      update((current) => ({
+        ...current,
+        tables: [...current.tables, table],
+        warnings: warning
+          ? [...current.warnings, { fileName, message: warning }]
+          : current.warnings,
+      }));
     } catch (error) {
       const message =
         error instanceof Error
