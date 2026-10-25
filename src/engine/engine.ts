@@ -300,6 +300,36 @@ export async function unregisterFile(name: string): Promise<void> {
   await db.dropFile(name);
 }
 
+let exportCount = 0;
+
+/**
+ * Writes the result of `sql`, a single SELECT without a final semicolon, as a CSV or Parquet file
+ * and resolves with the file's bytes. DuckDB writes the file in the engine's worker, so the main
+ * thread only receives the finished buffer. Rejects with an EngineCrashedError like query().
+ */
+export async function exportQuery(
+  sql: string,
+  format: "csv" | "parquet",
+): Promise<Uint8Array<ArrayBuffer>> {
+  if (status.state === "crashed") throw status.error;
+  const { db, connection, crashed, takeConnection } = await getEngine();
+  const unlessCrashed = <T>(step: Promise<T>) => Promise.race([step, crashed]);
+  const name = `blinkql-export-${++exportCount}.${format}`;
+  const giveBack = await takeConnection();
+  try {
+    // On lines of its own, so a comment on the query's last line doesn't swallow the parenthesis.
+    await unlessCrashed(connection.query(`COPY (\n${sql}\n) TO '${name}' (FORMAT ${format})`));
+    // A copy posted from the worker, so never backed by a SharedArrayBuffer.
+    return (await unlessCrashed(db.copyFileToBuffer(name))) as Uint8Array<ArrayBuffer>;
+  } catch (error) {
+    throw isCrash(error) ? crash(error) : error;
+  } finally {
+    giveBack();
+    // Not waited for: a crashed worker would never answer.
+    db.dropFile(name).catch(() => {});
+  }
+}
+
 /** Closes the connection and terminates the worker. The next query starts a fresh engine. */
 export async function stopEngine(): Promise<void> {
   const running = engine;

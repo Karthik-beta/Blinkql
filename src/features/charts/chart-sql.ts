@@ -78,6 +78,11 @@ export function chartLabel(spec: ChartSpec): string {
   }
 }
 
+/** `sql` without its final semicolon and any comments after it, so it can be a subquery. */
+export function withoutFinalSemicolon(sql: string): string {
+  return sql.trim().replace(/;(\s|--[^\n]*)*$/, "");
+}
+
 /**
  * The query that computes `spec`'s chart from the result of `source`. Its columns are x and y,
  * plus x_end (where each histogram bin ends) and cumulative_pct (Pareto). x is text for bar and
@@ -86,7 +91,7 @@ export function chartLabel(spec: ChartSpec): string {
 export function chartSql(source: string, spec: ChartSpec): string {
   // The source becomes a subquery: without its final semicolon, and on lines of its own, so a
   // comment on its last line doesn't swallow the closing parenthesis.
-  const from = `FROM (\n${source.trim().replace(/;(\s|--[^\n]*)*$/, "")}\n) AS source`;
+  const from = `FROM (\n${withoutFinalSemicolon(source)}\n) AS source`;
   const y = spec.y ? quote(spec.y.name) : "NULL";
   switch (spec.type) {
     case "bar":

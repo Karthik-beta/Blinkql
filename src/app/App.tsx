@@ -11,6 +11,7 @@ import { CatalogPanel } from "@/features/catalog/CatalogPanel";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
 import { ChartPanel } from "@/features/charts/ChartPanel";
 import { QueryPanel } from "@/features/editor/QueryPanel";
+import { ExportButtons } from "@/features/results/ExportButtons";
 import { ResultsTable } from "@/features/results/ResultsTable";
 import { markOnce, marks, recordCommit } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
@@ -52,24 +53,27 @@ export function App() {
         <CatalogPanel />
         <main aria-label="Workspace" className="flex min-w-0 flex-1 flex-col">
           <QueryPanel onRestart={() => void restart()} />
-          <fieldset aria-label="Results view" className="flex gap-1 border-t px-3 py-1">
-            <Button
-              variant={showChart ? "ghost" : "secondary"}
-              size="sm"
-              aria-pressed={!showChart}
-              onClick={() => setShowChart(false)}
-            >
-              Table
-            </Button>
-            <Button
-              variant={showChart ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={showChart}
-              onClick={() => setShowChart(true)}
-            >
-              Chart
-            </Button>
-          </fieldset>
+          <div className="flex items-center gap-3 border-t px-3 py-1">
+            <fieldset aria-label="Results view" className="flex gap-1">
+              <Button
+                variant={showChart ? "ghost" : "secondary"}
+                size="sm"
+                aria-pressed={!showChart}
+                onClick={() => setShowChart(false)}
+              >
+                Table
+              </Button>
+              <Button
+                variant={showChart ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={showChart}
+                onClick={() => setShowChart(true)}
+              >
+                Chart
+              </Button>
+            </fieldset>
+            <ExportButtons />
+          </div>
           {/* The table stays mounted under the chart, so it keeps its scroll and selection. */}
           <div hidden={showChart} className="flex min-h-0 flex-1 flex-col">
             {/* Reports each render of the results to the benchmark in profiling builds. */}
