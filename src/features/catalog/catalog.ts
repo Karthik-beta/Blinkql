@@ -10,9 +10,15 @@ export type ImportedTable = {
   name: string;
   fileName: string;
   format: FileFormat;
-  columnCount: number;
+  columns: readonly TableColumn[];
   /** The file itself, kept so it can be imported again into a restarted engine. */
   file: File;
+};
+
+export type TableColumn = {
+  name: string;
+  /** DuckDB's name for the column's type, such as VARCHAR. */
+  type: string;
 };
 
 export type ImportFailure = {
@@ -62,15 +68,22 @@ async function importFile(file: File): Promise<ImportedTable> {
     await registerFile(path, file);
     // Creating the view reads the schema, so an unreadable file fails here rather than later.
     await query(`CREATE VIEW ${quoteIdentifier(name)} AS SELECT * FROM ${readerFor(format, path)}`);
-    const columns = await query(`DESCRIBE ${quoteIdentifier(name)}`);
+    const columns = (await query(`DESCRIBE ${quoteIdentifier(name)}`))
+      .toArray()
+      .map((row) => ({ name: String(row.column_name), type: String(row.column_type) }));
     measureSince(measures.import, started);
-    return { name, fileName: file.name, format, columnCount: columns.numRows, file };
+    return { name, fileName: file.name, format, columns, file };
   } catch (error) {
     await query(`DROP VIEW IF EXISTS ${quoteIdentifier(name)}`).catch(() => {});
     await unregisterFile(path).catch(() => {});
     takenNames.delete(name);
     throw error;
   }
+}
+
+/** One row per column of `table`: its type, min and max, distinct count, quartiles and null %. */
+export function profileSql(table: string): string {
+  return `SUMMARIZE ${quoteIdentifier(table)}`;
 }
 
 /** Imports each file as a table. Files are imported one at a time, in order. */

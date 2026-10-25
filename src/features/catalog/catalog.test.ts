@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getCatalog, importFiles, reimportTables, resetCatalog } from "./catalog";
+import { getCatalog, importFiles, profileSql, reimportTables, resetCatalog } from "./catalog";
 
 // The engine is replaced by a fake that "describes" every view as having three columns.
 const engine = vi.hoisted(() => ({
   query: vi.fn(async (sql: string): Promise<unknown> => {
-    if (sql.startsWith("DESCRIBE")) return { numRows: 3 };
+    if (sql.startsWith("DESCRIBE")) {
+      return {
+        toArray: () =>
+          ["a", "b", "c"].map((column_name) => ({ column_name, column_type: "BIGINT" })),
+      };
+    }
     return {};
   }),
   registerFile: vi.fn(async (_name: string, _file: File) => {}),
@@ -29,7 +34,17 @@ describe("catalog", () => {
       `CREATE VIEW "orders" AS SELECT * FROM read_csv('orders.csv')`,
     );
     expect(getCatalog().tables).toEqual([
-      { name: "orders", fileName: "Orders.csv", format: "csv", columnCount: 3, file },
+      {
+        name: "orders",
+        fileName: "Orders.csv",
+        format: "csv",
+        columns: [
+          { name: "a", type: "BIGINT" },
+          { name: "b", type: "BIGINT" },
+          { name: "c", type: "BIGINT" },
+        ],
+        file,
+      },
     ]);
     expect(getCatalog().importing).toEqual([]);
   });
@@ -126,5 +141,10 @@ describe("catalog", () => {
       ["data_2.csv", second],
     ]);
     expect(getCatalog().tables.map((table) => table.name)).toEqual(["data", "data_2"]);
+  });
+
+  it("profiles a table with SUMMARIZE, quoting its name", () => {
+    expect(profileSql("orders")).toBe('SUMMARIZE "orders"');
+    expect(profileSql('odd "name"')).toBe('SUMMARIZE "odd ""name"""');
   });
 });

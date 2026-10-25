@@ -90,7 +90,7 @@ for (const format of ["parquet", "csv"] as const) {
 
     // Passing a path, not a buffer: Playwright streams large files to the page.
     await page.getByLabel("Import files").setInputFiles(path);
-    await expect(page.getByRole("list", { name: "Tables" }).getByRole("listitem")).toHaveText(
+    await expect(page.getByRole("tree", { name: "Tables" }).getByRole("treeitem")).toHaveText(
       [`telemetry_m_narrow${format === "csv" ? "CSV" : "Parquet"} · 8 columns`],
       { timeout: QUERY_TIMEOUT },
     );

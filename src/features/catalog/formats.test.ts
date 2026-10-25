@@ -4,6 +4,7 @@ import {
   detectFormat,
   quoteIdentifier,
   readerFor,
+  sqlName,
   tableNameFor,
 } from "./formats";
 
@@ -51,6 +52,15 @@ describe("tableNameFor", () => {
 describe("SQL", () => {
   it("quotes identifiers", () => {
     expect(quoteIdentifier('say "hi"')).toBe('"say ""hi"""');
+  });
+
+  it("quotes names only when SQL needs it", () => {
+    expect(sqlName("machine_id")).toBe("machine_id");
+    expect(sqlName("_t2")).toBe("_t2");
+    expect(sqlName("Machine ID")).toBe('"Machine ID"');
+    expect(sqlName("Amount")).toBe('"Amount"');
+    expect(sqlName("2024")).toBe('"2024"');
+    expect(sqlName("order")).toBe('"order"');
   });
 
   it("reads each format with the matching table function", () => {
