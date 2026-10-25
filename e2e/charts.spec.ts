@@ -45,4 +45,30 @@ test.describe("Charts", () => {
     }
     expect(await longWorkDuringQueries()).toEqual([]);
   });
+
+  test("describes a chart and shows its data as a table", async ({ page, makeAxeBuilder }) => {
+    await page.goto("/app/");
+    await expect(page.getByRole("status")).toHaveText(/^Engine ready/, { timeout: ENGINE_TIMEOUT });
+    await page.getByRole("textbox", { name: "SQL editor" }).click();
+    await page.keyboard.type("SELECT range % 3 AS weekday FROM range(10)");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await page.getByRole("button", { name: "Chart" }).click();
+    await expect(
+      page.getByRole("img", {
+        name: "Bar chart of count(*) by weekday, 3 bars, highest 4 (0), lowest 3 (1)",
+        exact: true,
+      }),
+    ).toBeVisible();
+
+    const toggle = page.getByRole("button", { name: "View as table" });
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    const table = page.getByRole("table", { name: "Bar chart of count(*) by weekday" });
+    await expect(table.getByRole("columnheader")).toHaveText(["weekday", "count(*)"]);
+    await expect(table.getByRole("row").nth(1).getByRole("cell")).toHaveText(["0", "4"]);
+
+    const scan = await makeAxeBuilder().include('section[aria-label="Chart"]').analyze();
+    expect(scan.violations).toEqual([]);
+  });
 });
