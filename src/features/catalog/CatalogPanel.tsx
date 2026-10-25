@@ -112,6 +112,7 @@ function TableItem({
           type="button"
           tabIndex={-1}
           aria-hidden
+          title={expanded ? "Hide columns" : "Show columns and their statistics"}
           className="text-muted-foreground"
           onClick={(event) => {
             event.stopPropagation();

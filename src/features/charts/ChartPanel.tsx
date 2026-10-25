@@ -207,7 +207,12 @@ export function ChartPanel() {
         : true,
   );
   const yOptions = columns.filter(({ kind }) => kind === "number");
-  const x = xOptions.find(({ name }) => name === xName) ?? xOptions[0];
+  // Bar and Pareto charts count categories, so they start on a text column if there is one.
+  const categorical = type === "bar" || type === "pareto";
+  const x =
+    xOptions.find(({ name }) => name === xName) ??
+    (categorical ? xOptions.find(({ kind }) => kind === "other") : undefined) ??
+    xOptions[0];
   const y = yOptions.find(({ name }) => name === yName) ?? yOptions[0];
   const usesAggregate = type === "bar" || type === "line";
   const usesY = type === "scatter" || (usesAggregate && aggregate !== "count");

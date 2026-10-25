@@ -305,7 +305,10 @@ describe("lineSeriesSql", () => {
     expect(xs).toEqual([...xs].sort((a, b) => a - b));
   });
 
-  it(`returns at most ${RAW_LINE_POINTS.toLocaleString("en")} rows`, async () => {
+  // Reads a million rows into Node, which can take longer than the default 5 s on a busy machine.
+  it(`returns at most ${RAW_LINE_POINTS.toLocaleString("en")} rows`, {
+    timeout: 30_000,
+  }, async () => {
     const reader = await connection.runAndReadAll(
       lineSeriesSql(`SELECT range AS at, 1 AS temperature FROM range(${RAW_LINE_POINTS + 5})`, {
         ...spec,

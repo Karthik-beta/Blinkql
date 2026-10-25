@@ -18,7 +18,8 @@ const ENGINE_TIMEOUT = 60_000;
 // Each query scans the whole file: a million rows, read through the browser's File API.
 const QUERY_TIMEOUT = 60_000;
 
-// The same seed `pnpm bench:data` uses, so this is the benchmarks' M narrow dataset.
+// Not the seed `pnpm bench:data` uses, so this file isn't byte for byte the benchmarks' M narrow
+// dataset, but it has the same shape and size.
 const SEED = 42;
 const ROWS = rowsBySize.m;
 
