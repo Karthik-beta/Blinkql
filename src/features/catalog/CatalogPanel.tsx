@@ -1,4 +1,4 @@
-import { ChevronRight, FileUp } from "lucide-react";
+import { ChevronRight, FileUp, ScanSearch } from "lucide-react";
 import {
   type FocusEvent,
   type KeyboardEvent,
@@ -11,10 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { insertIntoEditor } from "@/features/editor/insert";
 import { parseEngineError } from "@/features/results/engine-error";
+import { runQuery } from "@/features/results/query-run";
 import {
   getCatalog,
   type ImportedTable,
   importFiles,
+  profileSql,
   subscribeToCatalog,
   type TableColumn,
 } from "./catalog";
@@ -72,6 +74,10 @@ type ItemProps = (node: TreeNode) => {
   onKeyDown: (event: KeyboardEvent) => void;
 };
 
+function profile(table: ImportedTable): void {
+  void runQuery(profileSql(table.name));
+}
+
 function TableItem({
   table,
   expanded,
@@ -91,6 +97,7 @@ function TableItem({
       role="treeitem"
       aria-expanded={expanded}
       aria-labelledby={labelId}
+      aria-keyshortcuts="P"
       className={itemClass}
       tabIndex={tabIndex}
       {...handlers}
@@ -108,7 +115,7 @@ function TableItem({
         >
           <ChevronRight className={`size-4 transition-transform ${expanded ? "rotate-90" : ""}`} />
         </button>
-        <div id={labelId} className="flex min-w-0 flex-col">
+        <div id={labelId} className="flex min-w-0 flex-1 flex-col">
           <div className="truncate font-mono text-xs" title={table.fileName}>
             {table.name}
           </div>
@@ -116,6 +123,21 @@ function TableItem({
             {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
           </div>
         </div>
+        {/* Out of the Tab order, like the chevron: from the keyboard, P profiles the table. The
+            profile shows in the results grid, like any query, so it needs no SQL. */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          tabIndex={-1}
+          aria-label={`Profile ${table.name}`}
+          title="Profile (P): types, ranges, distinct values and nulls per column"
+          onClick={(event) => {
+            event.stopPropagation();
+            profile(table);
+          }}
+        >
+          <ScanSearch aria-hidden />
+        </Button>
       </div>
       {expanded && <ColumnGroup table={table} itemProps={itemProps} />}
     </div>
@@ -229,6 +251,11 @@ export function CatalogPanel() {
         break;
       case "Enter":
         insert(node);
+        break;
+      case "p":
+      case "P":
+        if (node.column) return;
+        profile(node.table);
         break;
       default:
         return;

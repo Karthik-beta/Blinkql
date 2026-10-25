@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getCatalog, importFiles, reimportTables, resetCatalog } from "./catalog";
+import { getCatalog, importFiles, profileSql, reimportTables, resetCatalog } from "./catalog";
 
 // The engine is replaced by a fake that "describes" every view as having three columns.
 const engine = vi.hoisted(() => ({
@@ -141,5 +141,10 @@ describe("catalog", () => {
       ["data_2.csv", second],
     ]);
     expect(getCatalog().tables.map((table) => table.name)).toEqual(["data", "data_2"]);
+  });
+
+  it("profiles a table with SUMMARIZE, quoting its name", () => {
+    expect(profileSql("orders")).toBe('SUMMARIZE "orders"');
+    expect(profileSql('odd "name"')).toBe('SUMMARIZE "odd ""name"""');
   });
 });

@@ -81,6 +81,11 @@ async function importFile(file: File): Promise<ImportedTable> {
   }
 }
 
+/** One row per column of `table`: its type, min and max, distinct count, quartiles and null %. */
+export function profileSql(table: string): string {
+  return `SUMMARIZE ${quoteIdentifier(table)}`;
+}
+
 /** Imports each file as a table. Files are imported one at a time, in order. */
 export async function importFiles(files: readonly File[]): Promise<void> {
   if (files.length === 0) return;

@@ -153,4 +153,26 @@ test.describe("file import", () => {
     await expect(alert).not.toContainText("exception_message");
     await expect(tableList(page)).toHaveCount(0);
   });
+
+  test("profiles a table without any SQL", async ({ page }) => {
+    await openWorkbench(page);
+    await page.getByLabel("Import files").setInputFiles([parquet]);
+
+    await page.getByRole("button", { name: "Profile orders" }).click();
+
+    const grid = page.getByRole("grid", { name: "Results" });
+    await expect(grid).toHaveAttribute("aria-rowcount", "3");
+    for (const header of [
+      "column_name",
+      "column_type",
+      "min",
+      "max",
+      "approx_unique",
+      "q25",
+      "null_percentage",
+    ]) {
+      await expect(grid.getByRole("columnheader", { name: header, exact: true })).toBeVisible();
+    }
+    await expect(grid.getByRole("row").nth(1)).toContainText("id");
+  });
 });

@@ -39,6 +39,8 @@ const engine = vi.hoisted(() => {
   };
 });
 vi.mock("@/engine/engine", () => engine);
+const queryRun = vi.hoisted(() => ({ runQuery: vi.fn(async (_sql: string) => {}) }));
+vi.mock("@/features/results/query-run", () => queryRun);
 
 const summarized = (sql: string) => sql.includes("SUMMARIZE");
 
@@ -116,6 +118,18 @@ describe("CatalogPanel", () => {
     await userEvent.click(within(tree).getByText("machines"));
     expect(insert).toHaveBeenLastCalledWith("machines");
     expect(insert).toHaveBeenCalledTimes(4);
+  });
+
+  it("profiles a table with its button or P, without inserting its name", async () => {
+    const tree = await renderWithTables();
+
+    await userEvent.click(within(tree).getByRole("button", { name: "Profile orders" }));
+    expect(queryRun.runQuery).toHaveBeenLastCalledWith('SUMMARIZE "orders"');
+
+    act(() => within(tree).getAllByRole("treeitem")[1]?.focus());
+    await userEvent.keyboard("p");
+    expect(queryRun.runQuery).toHaveBeenLastCalledWith('SUMMARIZE "machines"');
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("loads column statistics when a table is first expanded", async () => {
