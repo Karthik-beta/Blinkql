@@ -2,6 +2,7 @@ import { Dictionary, Uint8, Utf8 } from "apache-arrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { marks } from "@/lib/user-timing";
 import {
+  exportQuery,
   getEngineStatus,
   query,
   registerFile,
@@ -42,7 +43,8 @@ const duckdb = vi.hoisted(() => {
     getVersion: vi.fn(async () => "v1.4.3"),
     terminate: vi.fn(async () => {}),
     registerFileHandle: vi.fn(async () => {}),
-    dropFile: vi.fn(async () => null),
+    dropFile: vi.fn(async (_name: string) => null),
+    copyFileToBuffer: vi.fn(async (_name: string) => new Uint8Array()),
   };
   return {
     answer,
@@ -265,6 +267,28 @@ describe("engine", () => {
     expect(getEngineStatus()).toMatchObject({ state: "ready" });
     expect(workers).toHaveLength(2);
     await expect(query("SELECT 3")).resolves.toBeDefined();
+  });
+
+  it("exports a result by writing it to a file in the engine and reading the file back", async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    duckdb.db.copyFileToBuffer.mockResolvedValueOnce(bytes);
+
+    await expect(exportQuery("SELECT 1 AS a", "parquet")).resolves.toBe(bytes);
+    const copy = duckdb.connection.query.mock.lastCall?.[0] ?? "";
+    const file = /TO '([^']+)' \(FORMAT parquet\)$/.exec(copy)?.[1];
+    expect(copy).toMatch(/^COPY \(\nSELECT 1 AS a\n\) TO '/);
+    expect(duckdb.db.copyFileToBuffer).toHaveBeenCalledWith(file);
+    expect(duckdb.db.dropFile).toHaveBeenCalledWith(file);
+  });
+
+  it("drops the export file even when the export fails", async () => {
+    await query("SELECT 1");
+    duckdb.connection.query.mockRejectedValueOnce(new Error("Binder Error: no such table"));
+
+    await expect(exportQuery("SELECT * FROM nope", "csv")).rejects.toThrow("no such table");
+    expect(duckdb.db.copyFileToBuffer).not.toHaveBeenCalled();
+    expect(duckdb.db.dropFile).toHaveBeenCalled();
+    expect(getEngineStatus()).toMatchObject({ state: "ready" });
   });
 
   it("doesn't wait for a crashed worker to close the connection", async () => {
