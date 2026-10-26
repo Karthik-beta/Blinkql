@@ -97,17 +97,30 @@ jobs:
         if: steps.browser-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install ${{ matrix.browser }}
 
-      # The cache holds the browser only; its OS libraries still need installing.
-      # This usually takes under a minute, but apt sometimes stalls for 10 minutes
-      # or more and uses up the job's timeout, so each attempt gets 3 minutes and a
-      # stalled one is retried. sudo runs apt in its own session, out of the
-      # timeout's reach, so a stalled apt-get is killed before the next attempt,
-      # which resumes its partial downloads. `dpkg --configure -a` finishes what a
-      # killed attempt left half-installed.
+      # The packages apt downloaded for the browser's OS libraries on an earlier
+      # run, so a run only downloads what has changed since. The mirror sometimes
+      # serves them at a few dozen KB a second.
+      - name: Restore system dependency packages
+        id: apt-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/apt-archives
+          key: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}
+
+      # The browser cache holds the browser only; its OS libraries still need
+      # installing. This usually takes under a minute, but apt sometimes stalls for
+      # 10 minutes or more and uses up the job's timeout, so each attempt gets 3
+      # minutes and a stalled one is retried. sudo runs apt in its own session, out
+      # of the timeout's reach, so a stalled apt-get is killed before the next
+      # attempt, which resumes its partial downloads. `dpkg --configure -a` finishes
+      # what a killed attempt left half-installed.
       - name: Install system dependencies
         run: |
+          sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
           for attempt in 1 2 3; do
             if timeout --kill-after=10s 3m pnpm exec playwright install-deps ${{ matrix.browser }}; then
+              mkdir -p ~/apt-archives
+              cp /var/cache/apt/archives/*.deb ~/apt-archives/ 2>/dev/null || true
               exit 0
             fi
             echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
@@ -116,6 +129,14 @@ jobs:
             sudo dpkg --configure -a || true
           done
           exit 1
+
+      # Saved straight away, so a run whose tests fail still keeps the packages.
+      - name: Save system dependency packages
+        if: steps.apt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/apt-archives
+          key: ${{ steps.apt-cache.outputs.cache-primary-key }}
 
       - name: Run Playwright
         run: pnpm exec playwright test --project=${{ matrix.browser }}
