@@ -93,14 +93,25 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}
 
-      - name: Install browser and system dependencies
+      - name: Install browser
         if: steps.browser-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+        run: pnpm exec playwright install ${{ matrix.browser }}
 
       # The cache holds the browser only; its OS libraries still need installing.
+      # This usually takes under a minute, but apt sometimes stalls for 10 minutes
+      # or more and uses up the job's timeout, so each attempt gets 3 minutes and a
+      # stalled one is retried. `dpkg --configure -a` finishes what a killed
+      # attempt left half-installed.
       - name: Install system dependencies
-        if: steps.browser-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps ${{ matrix.browser }}
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --kill-after=10s 3m pnpm exec playwright install-deps ${{ matrix.browser }}; then
+              exit 0
+            fi
+            echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
+            sudo dpkg --configure -a
+          done
+          exit 1
 
       - name: Run Playwright
         run: pnpm exec playwright test --project=${{ matrix.browser }}
