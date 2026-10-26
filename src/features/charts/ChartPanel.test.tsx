@@ -95,6 +95,29 @@ describe("ChartPanel", () => {
     ]);
   });
 
+  it("lets a Pareto chart sum a column instead of counting rows", async () => {
+    engine.query.mockResolvedValue(chartRows);
+    const user = userEvent.setup();
+    render(<ChartPanel />);
+    await user.selectOptions(screen.getByLabelText("Aggregate"), "avg");
+    await user.selectOptions(screen.getByLabelText("Chart type"), "pareto");
+    const aggregate = screen.getByLabelText("Aggregate");
+    expect(aggregate).toHaveValue("count");
+    expect([...aggregate.querySelectorAll("option")].map((option) => option.value)).toEqual([
+      "count",
+      "sum",
+    ]);
+    expect(screen.queryByLabelText("Y")).toBeNull();
+
+    await user.selectOptions(aggregate, "sum");
+    expect(screen.getByLabelText("Y")).toHaveValue("v");
+    await user.click(screen.getByRole("button", { name: "View as table" }));
+    expect(
+      await screen.findByRole("table", { name: "Pareto chart of sum(v) by weekday" }),
+    ).toBeInTheDocument();
+    expect(engine.query).toHaveBeenLastCalledWith(expect.stringContaining('sum("v")'));
+  });
+
   it("opens in the chart preset for the last query, and ignores one for another query", async () => {
     engine.query.mockResolvedValue(chartRows);
     setChartPreset({ sql: "SELECT 1", type: "pareto", x: "weekday" });
