@@ -97,15 +97,16 @@ jobs:
         if: steps.browser-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install ${{ matrix.browser }}
 
-      # The packages apt downloaded for the browser's OS libraries on an earlier
-      # run, so a run only downloads what has changed since. The mirror sometimes
-      # serves them at a few dozen KB a second.
+      # The packages apt downloaded for the browser's OS libraries on earlier runs,
+      # partial downloads included, so a run only downloads what's still missing.
+      # The mirror sometimes serves them at a few dozen KB a second, too slowly
+      # for one run to finish; each run then carries on from the last one's.
       - name: Restore system dependency packages
-        id: apt-cache
         uses: actions/cache/restore@v6
         with:
           path: ~/apt-archives
-          key: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}
+          key: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-
 
       # The browser cache holds the browser only; its OS libraries still need
       # installing. This usually takes under a minute, but apt sometimes stalls for
@@ -115,28 +116,41 @@ jobs:
       # attempt, which resumes its partial downloads. `dpkg --configure -a` finishes
       # what a killed attempt left half-installed.
       - name: Install system dependencies
+        id: system-deps
         run: |
-          sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          archives=/var/cache/apt/archives
+          mkdir -p ~/apt-archives
+          before=$(du -sb ~/apt-archives | cut -f1)
+          sudo cp -r ~/apt-archives/. "$archives/"
+          # apt resumes partial downloads as its own user.
+          sudo chown -R _apt:root "$archives/partial" || true
+          status=1
           for attempt in 1 2 3; do
             if timeout --kill-after=10s 3m pnpm exec playwright install-deps ${{ matrix.browser }}; then
-              mkdir -p ~/apt-archives
-              cp /var/cache/apt/archives/*.deb ~/apt-archives/ 2>/dev/null || true
-              exit 0
+              status=0
+              break
             fi
             echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
             sudo pkill -KILL -x apt-get || true
             sudo pkill -KILL -x dpkg || true
             sudo dpkg --configure -a || true
           done
-          exit 1
+          sudo cp -r "$archives/." ~/apt-archives/
+          sudo chown -R "$USER" ~/apt-archives
+          rm -f ~/apt-archives/lock ~/apt-archives/partial/.lock
+          if [ "$(du -sb ~/apt-archives | cut -f1)" != "$before" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          exit $status
 
-      # Saved straight away, so a run whose tests fail still keeps the packages.
+      # Saved even when the install or the tests fail, but only when this run
+      # downloaded something, so a slow mirror's progress isn't lost.
       - name: Save system dependency packages
-        if: steps.apt-cache.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && steps.system-deps.outputs.changed == 'true' }}
         uses: actions/cache/save@v6
         with:
           path: ~/apt-archives
-          key: ${{ steps.apt-cache.outputs.cache-primary-key }}
+          key: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Run Playwright
         run: pnpm exec playwright test --project=${{ matrix.browser }}
