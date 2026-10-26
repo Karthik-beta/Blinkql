@@ -14,6 +14,10 @@ const engine = vi.hoisted(() => {
       ["Order Date", "DATE"],
     ],
     machines: [["machine_id", "VARCHAR"]],
+    plants: [
+      ["plant_code", "VARCHAR"],
+      ["plant_name", "VARCHAR"],
+    ],
   };
   let settle: { resolve: (value: unknown) => void; reject: (error: Error) => void } | null = null;
   return {
@@ -365,6 +369,40 @@ describe("CatalogPanel", () => {
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("loads a sample from a labelled dialog, by keyboard", async () => {
+    render(<CatalogPanel />);
+
+    screen.getByRole("button", { name: "Load sample data" }).focus();
+    await userEvent.keyboard("{Enter}");
+    const dialog = screen.getByRole("dialog", { name: "Load sample data" });
+    within(dialog)
+      .getByRole("button", { name: /^Plants/ })
+      .focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(engine.exportQuery).toHaveBeenCalledWith(expect.stringContaining("P100"), "parquet");
+    expect(
+      await screen.findByRole("treeitem", { name: "plants Parquet · 2 columns · 2 KB" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Load sample data" }));
+    expect(screen.getByRole("button", { name: /^Plants \(loaded\)/ })).toBeDisabled();
+  });
+
+  it("explains a sample it can't load and keeps the dialog open", async () => {
+    engine.exportQuery.mockRejectedValueOnce(new Error("Out of memory"));
+    render(<CatalogPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Load sample data" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Plants/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn't load the sample: Out of memory",
+    );
+    expect(screen.getByRole("dialog", { name: "Load sample data" })).toBeInTheDocument();
   });
 
   it("warns, without blocking the import, when a file is large for the device", async () => {
