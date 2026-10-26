@@ -28,6 +28,7 @@ vi.mock("@/engine/engine", () => engine);
 describe("App shell", () => {
   beforeEach(() => {
     engine.setStatus({ state: "idle" });
+    engine.startEngine.mockClear();
   });
 
   afterEach(() => {
@@ -58,11 +59,15 @@ describe("App shell", () => {
     expect(performance.getEntriesByName(marks.appShell, "mark")).toHaveLength(1);
   });
 
-  it("starts the engine on load", () => {
+  it("starts the engine once the shell has been painted", async () => {
     render(<App />);
 
-    expect(engine.startEngine).toHaveBeenCalled();
+    expect(engine.startEngine).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toHaveTextContent("Starting engine…");
+
+    // Queued after the app's own frame callback, so it runs after the engine has been started.
+    await act(() => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve))));
+    expect(engine.startEngine).toHaveBeenCalledOnce();
   });
 
   it("shows the DuckDB version once the engine is ready", () => {

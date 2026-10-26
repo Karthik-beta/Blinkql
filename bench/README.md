@@ -16,7 +16,7 @@ BLINKQL_ANALYZE=1 pnpm build   # also write a treemap of every chunk, with gzipp
 | Option | Default | |
 |---|---|---|
 | `--scenario <name>` | all | Repeatable |
-| `--mode <cold\|warm>` | the scenario's modes | Repeatable. **cold**: a fresh browser context (empty cache) per iteration. **warm**: one context for all iterations, primed by the warm-ups |
+| `--mode <cold\|warm>` | the scenario's modes | Repeatable. **cold**: a fresh browser context (empty cache) per iteration. **warm**: one context for all iterations, primed by the warm-ups, with a profile on disk like a returning visitor's (an in-memory cache can't hold the engine's 34 MB WebAssembly) |
 | `--browser <name>` | `chromium` | `chromium`, `firefox` or `webkit` |
 | `--warmup <n>` | `3` | Discarded iterations |
 | `--iterations <n>` | `10` | Measured iterations |
