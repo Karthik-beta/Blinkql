@@ -8,6 +8,7 @@ The method, budgets and optimization log live on the [Performance & Benchmarks](
 pnpm bench         # build, then run every scenario; writes bench/results/<timestamp>-<sha>.json
 pnpm bench:micro   # tinybench micro-benchmarks, printed to the terminal
 pnpm bench:data    # generate the datasets into bench/datasets/data/ (git-ignored)
+BLINKQL_ANALYZE=1 pnpm build   # also write a treemap of every chunk, with gzipped sizes, to bench/bundle/stats.html (git-ignored)
 ```
 
 `pnpm bench` serves the production build with `vite preview` (same headers as Vercel) and drives it with Playwright's pinned browsers. Options:

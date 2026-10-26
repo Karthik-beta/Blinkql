@@ -1,5 +1,5 @@
 import { RotateCcw } from "lucide-react";
-import { Profiler, useEffect, useState, useSyncExternalStore } from "react";
+import { lazy, Profiler, Suspense, useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import {
   type EngineStatus,
@@ -10,7 +10,6 @@ import {
 import { CatalogPanel } from "@/features/catalog/CatalogPanel";
 import { restoreDatasets } from "@/features/catalog/catalog";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
-import { ChartPanel } from "@/features/charts/ChartPanel";
 import { getChartPreset, subscribeToChartPreset } from "@/features/charts/chart-preset";
 import { QueryPanel } from "@/features/editor/QueryPanel";
 import { HistoryPanel } from "@/features/history/HistoryPanel";
@@ -22,6 +21,11 @@ import { markOnce, marks, recordCommit } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
 import { restart } from "./restart";
+
+// The chart panel loads when it's first shown; many sessions only use the table.
+const ChartPanel = lazy(() =>
+  import("@/features/charts/ChartPanel").then(({ ChartPanel }) => ({ default: ChartPanel })),
+);
 
 function describeEngine(status: EngineStatus): string {
   switch (status.state) {
@@ -99,7 +103,12 @@ export function App() {
               <ResultsTable />
             </Profiler>
           </div>
-          {showChart && <ChartPanel />}
+          {showChart && (
+            // Fills the chart's space while it loads, so the bars around it don't move.
+            <Suspense fallback={<div className="min-h-0 flex-1 border-t" />}>
+              <ChartPanel />
+            </Suspense>
+          )}
         </main>
       </div>
       <footer className="flex h-7 shrink-0 items-center gap-2 border-t bg-chrome px-4">
