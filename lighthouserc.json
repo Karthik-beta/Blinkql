@@ -1,0 +1,31 @@
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "pnpm preview --port 4306",
+      "startServerReadyTimeout": 60000,
+      "startServerReadyPattern": "Local",
+      "url": ["http://localhost:4306/", "http://localhost:4306/app/"],
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "blankPage": "http://localhost:4306/robots.txt"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "largest-contentful-paint": [
+          "error",
+          { "maxNumericValue": 2500, "aggregationMethod": "median-run" }
+        ],
+        "cumulative-layout-shift": [
+          "error",
+          { "maxNumericValue": 0.1, "aggregationMethod": "median-run" }
+        ]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci/reports"
+    }
+  }
+}

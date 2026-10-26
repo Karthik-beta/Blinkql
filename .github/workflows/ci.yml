@@ -2,6 +2,10 @@
 #
 #   checks          typecheck, Biome, unit tests, production build
 #   e2e (browser)   Playwright on Chromium, Firefox and WebKit, in parallel
+#   size            initial JavaScript of each page against its budget (.size-limit.ts)
+#   lighthouse      LCP and CLS of / and /app/ (lighthouserc.json)
+#   bench-smoke     a short benchmark run against generous ceilings
+#                   (bench/smoke-thresholds.json)
 #
 # The job names are the required status checks in the `main` ruleset, so
 # renaming a job means updating the ruleset too. Production deploys wait for
@@ -113,4 +117,124 @@ jobs:
           path: |
             playwright-report/
             test-results/
+          retention-days: 14
+
+  size:
+    name: size
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Check bundle budgets
+        run: pnpm size
+
+  lighthouse:
+    name: lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      # Uses the runner's preinstalled Google Chrome, with the desktop preset: the
+      # workbench is a desktop tool. Lighthouse loses the page load's trace
+      # (NO_NAVSTART) when the page's Cross-Origin-Opener-Policy moves it to a new
+      # process, so lighthouserc.json starts each run from a same-origin blank page.
+      - name: Run Lighthouse CI
+        run: pnpm lhci
+
+      - name: Upload reports
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 14
+
+  bench-smoke:
+    name: bench-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      # The same cache entry as the e2e (chromium) job.
+      - name: Cache Playwright browser
+        id: browser-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}
+
+      - name: Install browser
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install chromium
+
+      # As in the e2e job: apt sometimes stalls, so each attempt gets 3 minutes.
+      - name: Install system dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --kill-after=10s 3m pnpm exec playwright install-deps chromium; then
+              exit 0
+            fi
+            echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
+            sudo dpkg --configure -a
+          done
+          exit 1
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run benchmark smoke test
+        run: pnpm bench:smoke
+
+      - name: Upload results
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-smoke-results
+          path: bench/smoke-results/
           retention-days: 14

@@ -24,6 +24,7 @@
   },
   "include": [
     "vite.config.ts",
+    ".size-limit.ts",
     "scripts",
     "src/landing/vite-plugin.ts",
     "src/engine/vite-plugin.ts"

@@ -138,6 +138,12 @@ builds the app with React's profiling build (`react-dom/profiling`), in which th
 
 To add a scenario, create `bench/scenarios/<name>.ts` exporting a `Scenario` (`bench/harness/types.ts`) and add it to `scenarios/index.ts`; `harness/page.ts` has helpers that drive the workbench. The app records marks and measures through `src/lib/user-timing.ts`. Their names and scenario names are compared across commits, so don't rename them.
 
+## Smoke test
+
+`pnpm bench:smoke` (after `pnpm build`) runs the scenarios that need no dataset (`time-to-app-shell`, `time-to-engine-ready`, `rerun-while-running` and `chart-line-1m-sql`) with 1 warm-up and 3 measured iterations, writes the result to `bench/smoke-results/` (git-ignored), and fails if a median is above its ceiling in `smoke-thresholds.json`. CI runs it on every pull request.
+
+CI runners are slow and noisy, so each ceiling is about five times a local median: it catches a scenario that breaks or gets several times slower, not a 10% drift. Measure those with a full `pnpm bench` before and after. A threshold whose scenario, mode or metric is missing from the result also fails, so a renamed metric can't pass unmeasured. `node bench/check-thresholds.ts <file or directory>` checks an existing result file.
+
 ## Result file
 
 ```jsonc

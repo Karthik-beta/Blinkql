@@ -23,6 +23,7 @@ playwright-report/
 blob-report/
 playwright/.cache/
 .lighthouseci/
+bench/smoke-results/
 
 # Logs
 logs/
