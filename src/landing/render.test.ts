@@ -15,7 +15,7 @@ import { sampleQuery, sampleRows } from "./sample.ts";
 describe("milestones", () => {
   it("has exactly one current milestone, M0 to M7 in order", () => {
     expect(milestones.map((m) => m.code)).toEqual(["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]);
-    expect(currentMilestone(milestones).code).toBe("M5");
+    expect(currentMilestone(milestones).code).toBe("M6");
   });
 
   it("refuses a roadmap with no current milestone", () => {

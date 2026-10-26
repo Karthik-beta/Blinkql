@@ -47,13 +47,13 @@ export const milestones: readonly Milestone[] = [
     code: "M5",
     name: "Operations pack",
     summary: "Factory sample data and templates such as OEE and downtime Pareto.",
-    status: "current",
+    status: "done",
   },
   {
     code: "M6",
     name: "Performance pass\u00a0II",
     summary: "A faster first load, offline use and a canvas results grid.",
-    status: "planned",
+    status: "current",
   },
   {
     code: "M7",
