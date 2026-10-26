@@ -35,19 +35,19 @@ export const milestones: readonly Milestone[] = [
     code: "M3",
     name: "Explore and visualize",
     summary: "Column profiles, autocomplete, charts and export.",
-    status: "current",
+    status: "done",
   },
   {
     code: "M4",
     name: "Big files and persistence",
     summary: "Files you keep reopen instantly; remote files by URL.",
-    status: "planned",
+    status: "done",
   },
   {
     code: "M5",
     name: "Operations pack",
     summary: "Factory sample data and templates such as OEE and downtime Pareto.",
-    status: "planned",
+    status: "current",
   },
   {
     code: "M6",

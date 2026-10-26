@@ -1,6 +1,15 @@
-import { ChevronRight, FileUp, ScanSearch, Table2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  ChevronRight,
+  FileUp,
+  Link,
+  ScanSearch,
+  Table2,
+  Trash2,
+} from "lucide-react";
 import {
   type FocusEvent,
+  type FormEvent,
   type KeyboardEvent,
   useEffect,
   useId,
@@ -9,13 +18,24 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { insertIntoEditor } from "@/features/editor/insert";
 import { parseEngineError } from "@/features/results/engine-error";
 import { runQuery } from "@/features/results/query-run";
 import {
+  convertTable,
+  forgetTable,
   getCatalog,
   type ImportedTable,
   importFiles,
+  importUrl,
+  isConvertible,
   profileSql,
   rowsSql,
   subscribeToCatalog,
@@ -23,6 +43,7 @@ import {
 } from "./catalog";
 import { type ColumnStats, loadColumnStats } from "./column-stats";
 import { acceptedExtensions, type FileFormat, sqlName } from "./formats";
+import { parseRemoteUrl } from "./remote";
 
 const formatLabels: Readonly<Record<FileFormat, string>> = {
   csv: "CSV",
@@ -32,6 +53,19 @@ const formatLabels: Readonly<Record<FileFormat, string>> = {
 };
 
 const count = new Intl.NumberFormat();
+const size = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+
+/** A size in bytes for people: 512 B, 1.5 KB, 12.4 MB. */
+function formatSize(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${size.format(value)} ${units[unit]}`;
+}
 
 /** A row of the schema tree: a table, or one of its columns. */
 type TreeNode = { key: string; table: ImportedTable; column?: TableColumn };
@@ -83,26 +117,37 @@ function showRows(table: ImportedTable): void {
   void runQuery(rowsSql(table.name));
 }
 
+function forget(table: ImportedTable): void {
+  void forgetTable(table.name);
+}
+
+function convert(table: ImportedTable): void {
+  void convertTable(table.name);
+}
+
 function TableItem({
   table,
   expanded,
+  converting,
   onToggle,
   itemProps,
 }: {
   table: ImportedTable;
   expanded: boolean;
+  converting: boolean;
   onToggle: () => void;
   itemProps: ItemProps;
 }) {
   const labelId = useId();
   const columns = table.columns.length;
+  const convertible = isConvertible(table);
   const { tabIndex, ...handlers } = itemProps({ key: table.name, table });
   return (
     <div
       role="treeitem"
       aria-expanded={expanded}
       aria-labelledby={labelId}
-      aria-keyshortcuts="P R"
+      aria-keyshortcuts={convertible ? "C P R Delete" : "P R Delete"}
       className={itemClass}
       tabIndex={tabIndex}
       {...handlers}
@@ -127,11 +172,30 @@ function TableItem({
           </div>
           <div className="text-muted-foreground text-xs">
             {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
+            {table.source instanceof File && ` · ${formatSize(table.source.size)}`}
+            {converting && " · Converting to Parquet…"}
           </div>
         </div>
-        {/* Out of the Tab order, like the chevron: from the keyboard, R shows the rows and P
-            profiles the table. Both show in the results grid, like any query, so they need no
-            SQL; the rows can then be charted. */}
+        {/* Out of the Tab order, like the chevron: from the keyboard, C converts a CSV table to
+            Parquet, R shows the rows, P profiles the table and Delete forgets it. Rows and
+            profiles show in the results grid, like any query, so they need no SQL; the rows can
+            then be charted. */}
+        {convertible && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            tabIndex={-1}
+            disabled={converting}
+            aria-label={`Convert ${table.name} to Parquet`}
+            title="Convert to Parquet (C): faster queries, and a smaller copy kept in this browser"
+            onClick={(event) => {
+              event.stopPropagation();
+              convert(table);
+            }}
+          >
+            <ArrowRightLeft aria-hidden />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -157,6 +221,19 @@ function TableItem({
           }}
         >
           <ScanSearch aria-hidden />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          tabIndex={-1}
+          aria-label={`Forget ${table.name}`}
+          title="Forget (Delete): remove the table and the copy kept in this browser"
+          onClick={(event) => {
+            event.stopPropagation();
+            forget(table);
+          }}
+        >
+          <Trash2 aria-hidden />
         </Button>
       </div>
       {expanded && <ColumnGroup table={table} itemProps={itemProps} />}
@@ -213,10 +290,80 @@ function ColumnGroup({ table, itemProps }: { table: ImportedTable; itemProps: It
   );
 }
 
+/** A button that opens a dialog asking for the URL of a file on the web to read as a table. */
+function AddUrlButton() {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const errorId = useId();
+
+  const add = (event: FormEvent) => {
+    event.preventDefault();
+    try {
+      const url = parseRemoteUrl(text);
+      setOpen(false);
+      setText("");
+      void importUrl(url);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : String(problem));
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setError(null);
+      }}
+    >
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Link data-icon="inline-start" aria-hidden />
+        Add from URL
+      </Button>
+      <DialogContent>
+        <DialogTitle>Add a file from a URL</DialogTitle>
+        <DialogDescription>
+          A CSV, Parquet or JSON file on a server that allows cross-origin requests. Only the parts
+          a query needs are downloaded.
+        </DialogDescription>
+        <form noValidate className="flex flex-col gap-3" onSubmit={add}>
+          <label className="flex flex-col gap-1">
+            URL
+            <input
+              type="url"
+              placeholder="https://example.com/data.parquet"
+              className="h-7 rounded-md border bg-background px-2 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
+              value={text}
+              aria-invalid={error !== null}
+              aria-describedby={error === null ? undefined : errorId}
+              onChange={(event) => {
+                setText(event.currentTarget.value);
+                setError(null);
+              }}
+            />
+          </label>
+          {error !== null && (
+            <p id={errorId} className="text-destructive">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <DialogClose render={<Button variant="outline" size="sm" />}>Cancel</DialogClose>
+            <Button type="submit" size="sm">
+              Add
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /**
  * The schema browser: a tree of tables and their columns (the ARIA tree pattern, one Tab stop),
- * with a button that opens the file picker. Clicking a name, or pressing Enter on it, inserts it
- * into the editor.
+ * with buttons that open the file picker and ask for a file's URL. Clicking a name, or pressing
+ * Enter on it, inserts it into the editor.
  */
 export function CatalogPanel() {
   const catalog = useSyncExternalStore(subscribeToCatalog, getCatalog);
@@ -282,6 +429,15 @@ export function CatalogPanel() {
         if (node.column) return;
         showRows(node.table);
         break;
+      case "Delete":
+        if (node.column) return;
+        forget(node.table);
+        break;
+      case "c":
+      case "C":
+        if (node.column || !isConvertible(node.table)) return;
+        convert(node.table);
+        break;
       default:
         return;
     }
@@ -310,10 +466,13 @@ export function CatalogPanel() {
         <h2 id="catalog-heading" className="font-medium text-xs">
           Tables
         </h2>
-        <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
-          <FileUp data-icon="inline-start" aria-hidden />
-          Import files
-        </Button>
+        <div className="flex gap-1">
+          <AddUrlButton />
+          <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
+            <FileUp data-icon="inline-start" aria-hidden />
+            Import files
+          </Button>
+        </div>
         <input
           ref={input}
           type="file"
@@ -346,6 +505,7 @@ export function CatalogPanel() {
               key={table.name}
               table={table}
               expanded={expanded.has(table.name)}
+              converting={catalog.converting.includes(table.name)}
               onToggle={() => toggle(table.name)}
               itemProps={itemProps}
             />
@@ -355,13 +515,29 @@ export function CatalogPanel() {
 
       <div aria-live="polite" className="text-muted-foreground text-xs">
         {catalog.importing.length > 0 && <p>Importing {catalog.importing.join(", ")}…</p>}
+        {catalog.storageUnavailable && (
+          <p>This browser can't keep these files, so their tables will be gone after a reload.</p>
+        )}
       </div>
 
       {catalog.failures.length > 0 && (
         <ul role="alert" className="flex flex-col gap-1 text-destructive text-xs">
           {catalog.failures.map((failure) => (
             <li key={failure.fileName}>
-              Couldn't import {failure.fileName}: {failure.message}
+              {failure.during === "conversion"
+                ? `Couldn't convert ${failure.fileName} to Parquet: `
+                : `Couldn't import ${failure.fileName}: `}
+              {failure.message}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {catalog.warnings.length > 0 && (
+        <ul role="status" className="flex flex-col gap-1 text-muted-foreground text-xs">
+          {catalog.warnings.map((warning) => (
+            <li key={warning.fileName}>
+              {warning.fileName}: {warning.message}
             </li>
           ))}
         </ul>

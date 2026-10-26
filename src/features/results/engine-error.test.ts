@@ -144,6 +144,12 @@ describe("describeError", () => {
     });
   });
 
+  it("recognises the plain-text out-of-memory error too", () => {
+    expect(describe_("Out of Memory Error: failed to allocate data of size 256.0 MiB")).toEqual(
+      describe_(errors.outOfMemory),
+    );
+  });
+
   it("says to import a file before querying it", () => {
     expect(describe_(errors.missingFile).hint).toBe(
       "Import the file first, then query it by its name under Tables.",
