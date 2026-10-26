@@ -100,8 +100,10 @@ jobs:
       # The cache holds the browser only; its OS libraries still need installing.
       # This usually takes under a minute, but apt sometimes stalls for 10 minutes
       # or more and uses up the job's timeout, so each attempt gets 3 minutes and a
-      # stalled one is retried. `dpkg --configure -a` finishes what a killed
-      # attempt left half-installed.
+      # stalled one is retried. sudo runs apt in its own session, out of the
+      # timeout's reach, so a stalled apt-get is killed before the next attempt,
+      # which resumes its partial downloads. `dpkg --configure -a` finishes what a
+      # killed attempt left half-installed.
       - name: Install system dependencies
         run: |
           for attempt in 1 2 3; do
@@ -109,7 +111,9 @@ jobs:
               exit 0
             fi
             echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
-            sudo dpkg --configure -a
+            sudo pkill -KILL -x apt-get || true
+            sudo pkill -KILL -x dpkg || true
+            sudo dpkg --configure -a || true
           done
           exit 1
 
