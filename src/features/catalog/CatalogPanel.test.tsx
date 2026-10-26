@@ -36,7 +36,9 @@ const engine = vi.hoisted(() => {
       return {};
     }),
     registerFile: vi.fn(async (_name: string, _file: File) => {}),
+    registerUrl: vi.fn(async (_name: string, _url: string) => {}),
     unregisterFile: vi.fn(async (_name: string) => {}),
+    exportQuery: vi.fn(async (_sql: string, _format: string) => new Uint8Array(2048)),
     finish: (rows: object[]) => settle?.resolve({ toArray: () => rows }),
     fail: (error: Error) => settle?.reject(error),
   };
@@ -44,6 +46,16 @@ const engine = vi.hoisted(() => {
 vi.mock("@/engine/engine", () => engine);
 const queryRun = vi.hoisted(() => ({ runQuery: vi.fn(async (_sql: string) => {}) }));
 vi.mock("@/features/results/query-run", () => queryRun);
+// Remote servers answer the first-byte check with a range unless a test says otherwise.
+const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response("P", { status: 206 }));
+vi.stubGlobal("fetch", fetch);
+const storage = vi.hoisted(() => ({
+  saveDataset: vi.fn(async () => {}),
+  listDatasets: vi.fn(async () => []),
+  loadDataset: vi.fn(),
+  removeDataset: vi.fn(async (_name: string) => {}),
+}));
+vi.mock("./stored-datasets", () => storage);
 
 const summarized = (sql: string) => sql.includes("SUMMARIZE");
 
@@ -67,8 +79,12 @@ describe("CatalogPanel", () => {
 
     const tables = within(tree).getAllByRole("treeitem");
     expect(tables).toHaveLength(2);
-    expect(within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns" })).toBe(tables[0]);
-    expect(within(tree).getByRole("treeitem", { name: "machines CSV · 1 column" })).toBe(tables[1]);
+    expect(within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns · 1 B" })).toBe(
+      tables[0],
+    );
+    expect(within(tree).getByRole("treeitem", { name: "machines CSV · 1 column · 1 B" })).toBe(
+      tables[1],
+    );
     expect(tables[0]).toHaveAttribute("aria-expanded", "false");
     expect(tables.map((table) => table.tabIndex)).toEqual([0, -1]);
     expect(engine.query.mock.calls.map(([sql]) => sql).some(summarized)).toBe(false);
@@ -138,7 +154,7 @@ describe("CatalogPanel", () => {
   it("shows a table's rows with its button or R, without inserting its name", async () => {
     const tree = await renderWithTables();
     const [orders] = within(tree).getAllByRole("treeitem");
-    expect(orders).toHaveAttribute("aria-keyshortcuts", "P R");
+    expect(orders).toHaveAttribute("aria-keyshortcuts", "C P R Delete");
 
     const button = within(tree).getByRole("button", { name: "Show rows of orders" });
     expect(button.tabIndex).toBe(-1);
@@ -149,6 +165,114 @@ describe("CatalogPanel", () => {
     await userEvent.keyboard("r");
     expect(queryRun.runQuery).toHaveBeenLastCalledWith('SELECT * FROM "machines"');
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("converts a CSV table to Parquet with its button or C, saying while it does", async () => {
+    await importFiles([
+      new File(["x"], "orders.csv"),
+      new File(["x"], "machines.csv"),
+      new File(["x"], "events.parquet"),
+      new URL("https://example.com/remote.csv"),
+    ]);
+    render(<CatalogPanel />);
+    const tree = screen.getByRole("tree", { name: "Tables" });
+    const [, , events, remote] = within(tree).getAllByRole("treeitem");
+    // Only local CSV files are converted.
+    expect(events).toHaveAttribute("aria-keyshortcuts", "P R Delete");
+    expect(remote).toHaveAttribute("aria-keyshortcuts", "P R Delete");
+    for (const name of ["events", "remote"]) {
+      expect(
+        within(tree).queryByRole("button", { name: `Convert ${name} to Parquet` }),
+      ).not.toBeInTheDocument();
+    }
+
+    let finish = (_bytes: Uint8Array<ArrayBuffer>) => {};
+    engine.exportQuery.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const button = within(tree).getByRole("button", { name: "Convert orders to Parquet" });
+    expect(button.tabIndex).toBe(-1);
+    await userEvent.click(button);
+    expect(
+      within(tree).getByRole("treeitem", {
+        name: "orders CSV · 2 columns · 1 B · Converting to Parquet…",
+      }),
+    ).toBeVisible();
+    expect(button).toBeDisabled();
+
+    await act(async () => finish(new Uint8Array(2048)));
+    expect(
+      within(tree).getByRole("treeitem", { name: "orders Parquet · 2 columns · 2 KB" }),
+    ).toBeVisible();
+    expect(
+      within(tree).queryByRole("button", { name: "Convert orders to Parquet" }),
+    ).not.toBeInTheDocument();
+
+    act(() => within(tree).getAllByRole("treeitem")[1]?.focus());
+    await userEvent.keyboard("c");
+    expect(engine.exportQuery).toHaveBeenLastCalledWith(
+      "SELECT * FROM read_csv('machines.csv')",
+      "parquet",
+    );
+    expect(
+      await within(tree).findByRole("treeitem", { name: "machines Parquet · 1 column · 2 KB" }),
+    ).toBeVisible();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("explains when a table can't be converted", async () => {
+    engine.exportQuery.mockRejectedValueOnce(new Error("Out of Memory Error: could not allocate"));
+    const tree = await renderWithTables();
+
+    await userEvent.click(within(tree).getByRole("button", { name: "Convert orders to Parquet" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn't convert orders.csv to Parquet: Out of Memory Error: could not allocate",
+    );
+    expect(
+      within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns · 1 B" }),
+    ).toBeVisible();
+  });
+
+  it("shows each table's size", async () => {
+    await importFiles([new File([new Uint8Array(1536)], "orders.csv")]);
+    render(<CatalogPanel />);
+
+    expect(screen.getByRole("treeitem", { name: "orders CSV · 2 columns · 1.5 KB" })).toBeVisible();
+  });
+
+  it("forgets a table with its button or Delete, without inserting its name", async () => {
+    const tree = await renderWithTables();
+
+    const button = within(tree).getByRole("button", { name: "Forget orders" });
+    expect(button.tabIndex).toBe(-1);
+    await userEvent.click(button);
+    expect(storage.removeDataset).toHaveBeenLastCalledWith("orders");
+    expect(
+      within(tree)
+        .getAllByRole("treeitem")
+        .map((item) => item.textContent),
+    ).toEqual([expect.stringContaining("machines")]);
+
+    act(() => within(tree).getAllByRole("treeitem")[0]?.focus());
+    await userEvent.keyboard("{Delete}");
+    expect(storage.removeDataset).toHaveBeenLastCalledWith("machines");
+    expect(screen.queryByRole("tree")).not.toBeInTheDocument();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("says when files can't be kept after a reload", async () => {
+    storage.saveDataset.mockRejectedValueOnce(new Error("QuotaExceededError"));
+    await renderWithTables();
+
+    expect(
+      await screen.findByText(
+        "This browser can't keep these files, so their tables will be gone after a reload.",
+      ),
+    ).toBeVisible();
   });
 
   it("loads column statistics when a table is first expanded", async () => {
@@ -191,5 +315,68 @@ describe("CatalogPanel", () => {
       "could not allocate",
     );
     expect(within(within(tree).getByRole("group")).getAllByRole("treeitem")).toHaveLength(2);
+  });
+
+  it("adds a remote file from a labelled dialog, submitted with Enter", async () => {
+    render(<CatalogPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add from URL" }));
+    const dialog = screen.getByRole("dialog", { name: "Add a file from a URL" });
+    const url = within(dialog).getByRole("textbox", { name: "URL" });
+    expect(url).toHaveFocus();
+    await userEvent.type(url, "https://example.com/data/orders.parquet{Enter}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(engine.registerUrl).toHaveBeenCalledWith(
+      "orders.parquet",
+      "https://example.com/data/orders.parquet",
+    );
+    expect(
+      await screen.findByRole("treeitem", { name: "orders Parquet · 2 columns" }),
+    ).toBeInTheDocument();
+  });
+
+  it("warns about a remote file that will be downloaded whole", async () => {
+    fetch.mockResolvedValueOnce(new Response("the whole file", { status: 200 }));
+    render(<CatalogPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add from URL" }));
+    await userEvent.keyboard("https://example.com/orders.parquet{Enter}");
+
+    expect(
+      await screen.findByText(
+        "https://example.com/orders.parquet: The server doesn't support range requests, so the whole file is downloaded every time it's read.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("explains an address it can't read and keeps the dialog open", async () => {
+    render(<CatalogPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add from URL" }));
+    const dialog = screen.getByRole("dialog", { name: "Add a file from a URL" });
+    const url = within(dialog).getByRole("textbox", { name: "URL" });
+    await userEvent.type(url, "http://example.com/orders.parquet");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    expect(url).toHaveAttribute("aria-invalid", "true");
+    expect(url).toHaveAccessibleDescription("Only https:// addresses can be read.");
+    expect(engine.registerUrl).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("warns, without blocking the import, when a file is large for the device", async () => {
+    const file = new File(["x"], "orders.csv");
+    Object.defineProperty(file, "size", { value: 3 * 2 ** 30 });
+    await importFiles([file]);
+    render(<CatalogPanel />);
+
+    expect(
+      screen.getByRole("treeitem", { name: "orders CSV · 2 columns · 3 GB" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/orders\.csv.*large for this device/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
