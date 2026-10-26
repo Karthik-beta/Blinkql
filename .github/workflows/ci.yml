@@ -221,7 +221,9 @@ jobs:
               exit 0
             fi
             echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
-            sudo dpkg --configure -a
+            sudo pkill -KILL -x apt-get || true
+            sudo pkill -KILL -x dpkg || true
+            sudo dpkg --configure -a || true
           done
           exit 1
 
