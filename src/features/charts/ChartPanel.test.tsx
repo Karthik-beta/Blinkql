@@ -4,8 +4,8 @@ import { Float64, Table, Utf8, vectorFromArray } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChartPanel } from "./ChartPanel";
 
-// The last query's result has a weekday and a measurement; the engine answers every chart query
-// with `chartRows`.
+// The last query's result has a time, a weekday and a measurement, like a table shown with Show
+// rows; the engine answers every chart query with `chartRows`.
 const engine = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/engine/engine", () => engine);
 vi.mock("@/features/results/query-run", () => {
@@ -13,9 +13,10 @@ vi.mock("@/features/results/query-run", () => {
   return { getQueryRun: () => run, subscribeToQueryRun: () => () => {} };
 });
 vi.mock("@/features/results/result-store", async () => {
-  const { Float64, Utf8 } = await import("apache-arrow");
+  const { Float64, TimestampMillisecond, Utf8 } = await import("apache-arrow");
   const result = {
     columns: [
+      { name: "ts", type: new TimestampMillisecond() },
       { name: "weekday", type: new Utf8() },
       { name: "v", type: new Float64() },
     ],
