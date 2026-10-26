@@ -73,6 +73,12 @@ describe("chartLabel", () => {
     expect(chartLabel({ type: "pareto", x, y: null, aggregate: "sum" })).toBe(
       "Pareto chart of count(*) by machine",
     );
+    expect(chartLabel({ type: "pareto", x, y, aggregate: "sum" })).toBe(
+      "Pareto chart of sum(temperature) by machine",
+    );
+    expect(chartLabel({ type: "pareto", x, y, aggregate: "avg" })).toBe(
+      "Pareto chart of count(*) by machine",
+    );
   });
 });
 
@@ -262,6 +268,23 @@ describe("chartSql", () => {
       [3, 5, 6, 7].forEach((count, i) => {
         expect(percentages[i]).toBeCloseTo((count / 7) * 100);
       });
+    });
+
+    it("sums y per category, with the running percentage of the total sum", async () => {
+      const result = await rows(
+        {
+          type: "pareto",
+          x: { name: "cause", kind: "other" },
+          y: { name: "minutes", kind: "number" },
+          aggregate: "sum",
+        },
+        `SELECT * FROM (VALUES ('jam', 5), ('heat', 30), ('jam', 10), ('stop', 5)) t(cause, minutes)`,
+      );
+      expect(result.rows).toEqual([
+        { x: "heat", y: 30, cumulative_pct: 60 },
+        { x: "jam", y: 15, cumulative_pct: 90 },
+        { x: "stop", y: 5, cumulative_pct: 100 },
+      ]);
     });
 
     it(`keeps the ${BAR_LIMIT} largest categories, as a share of every row`, async () => {

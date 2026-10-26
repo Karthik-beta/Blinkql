@@ -88,6 +88,8 @@ const CHART_TYPES: { value: ChartType; label: string }[] = [
   { value: "pareto", label: "Pareto" },
 ];
 const AGGREGATES: Aggregate[] = ["count", "sum", "avg", "min", "max"];
+/** A running percentage only adds up for counts and sums. */
+const PARETO_AGGREGATES: Aggregate[] = ["count", "sum"];
 
 const selectClass = "h-7 rounded-md border border-input bg-background px-1.5 text-xs";
 
@@ -226,12 +228,14 @@ export function ChartPanel() {
     (categorical ? xOptions.find(({ kind }) => kind === "other") : undefined) ??
     xOptions[0];
   const y = yOptions.find(({ name }) => name === yName) ?? yOptions[0];
-  const usesAggregate = type === "bar" || type === "line";
-  const usesY = type === "scatter" || (usesAggregate && aggregate !== "count");
+  const aggregates = type === "pareto" ? PARETO_AGGREGATES : AGGREGATES;
+  const usesAggregate = type === "bar" || type === "line" || type === "pareto";
+  const shownAggregate = usesAggregate && aggregates.includes(aggregate) ? aggregate : "count";
+  const usesY = type === "scatter" || shownAggregate !== "count";
 
   const spec: ChartSpec | null =
     x && (!usesY || y)
-      ? { type, x, y: usesY ? (y ?? null) : null, aggregate: usesAggregate ? aggregate : "count" }
+      ? { type, x, y: usesY ? (y ?? null) : null, aggregate: shownAggregate }
       : null;
   const source = run.state === "done" ? run.sql : null;
   const specKey = JSON.stringify(spec);
@@ -287,8 +291,8 @@ export function ChartPanel() {
         {usesAggregate && (
           <Select
             label="Aggregate"
-            value={aggregate}
-            options={AGGREGATES.map((value) => ({ value, label: value }))}
+            value={shownAggregate}
+            options={aggregates.map((value) => ({ value, label: value }))}
             onChange={(value) => setAggregate(value as Aggregate)}
           />
         )}

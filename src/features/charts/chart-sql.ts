@@ -11,9 +11,12 @@ export type ChartColumn = { name: string; kind: ColumnKind };
 export type ChartSpec = {
   type: ChartType;
   x: ChartColumn;
-  /** What's aggregated (bar, line) or plotted against x (scatter); unused by the others. */
+  /** What's aggregated (bar, line, Pareto) or plotted against x (scatter); unused by the others. */
   y: ChartColumn | null;
-  /** How y is aggregated per category or bucket; count counts rows and needs no y. */
+  /**
+   * How y is aggregated per category or bucket; count counts rows and needs no y. A Pareto chart
+   * sums y or counts rows.
+   */
   aggregate: Aggregate;
 };
 
@@ -70,6 +73,11 @@ function measure(spec: ChartSpec, value: string): string {
   return counts(spec) ? "CAST(count(*) AS DOUBLE)" : `CAST(${spec.aggregate}(${value}) AS DOUBLE)`;
 }
 
+/** A Pareto chart's spec as it's drawn: summing y, or else counting rows. */
+function pareto(spec: ChartSpec): ChartSpec {
+  return spec.aggregate === "sum" ? spec : { ...spec, aggregate: "count" };
+}
+
 /** The measure's name, as in "avg(temperature)". */
 export function measureName(spec: ChartSpec): string {
   return counts(spec) || !spec.y ? "count(*)" : `${spec.aggregate}(${spec.y.name})`;
@@ -88,7 +96,7 @@ export function chartLabel(spec: ChartSpec): string {
     case "histogram":
       return `Histogram of ${x}`;
     case "pareto":
-      return `Pareto chart of count(*) by ${x}`;
+      return `Pareto chart of ${measureName(pareto(spec))} by ${x}`;
   }
 }
 
@@ -170,9 +178,9 @@ FROM bins
 GROUP BY bin
 ORDER BY bin`;
     case "pareto":
-      // The running percentage is of every row, not only of the categories shown.
+      // The running percentage is of the whole total, not only of the categories shown.
       return `WITH counts AS (
-  SELECT ${category(spec.x)} AS x, CAST(count(*) AS DOUBLE) AS y ${from} GROUP BY 1
+  SELECT ${category(spec.x)} AS x, ${measure(pareto(spec), y)} AS y ${from} GROUP BY 1
 )
 SELECT x, y, 100 * sum(y) OVER (ORDER BY y DESC, x ROWS UNBOUNDED PRECEDING) / sum(y) OVER () AS cumulative_pct
 FROM counts
