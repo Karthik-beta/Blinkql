@@ -1,8 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Float64, Table, Utf8, vectorFromArray } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChartPanel } from "./ChartPanel";
+import { setChartPreset } from "./chart-preset";
 
 // The last query's result has a time, a weekday and a measurement, like a table shown with Show
 // rows; the engine answers every chart query with `chartRows`.
@@ -92,5 +93,21 @@ describe("ChartPanel", () => {
       ["3", "3", "75"],
       ["5", "1", "100"],
     ]);
+  });
+
+  it("opens in the chart preset for the last query, and ignores one for another query", async () => {
+    engine.query.mockResolvedValue(chartRows);
+    setChartPreset({ sql: "SELECT 1", type: "pareto", x: "weekday" });
+    const { unmount } = render(<ChartPanel />);
+    expect(screen.getByLabelText("Chart type")).toHaveValue("bar");
+    unmount();
+
+    setChartPreset({ sql: "SELECT * FROM readings", type: "bar", x: "ts", y: "v" });
+    render(<ChartPanel />);
+    expect(screen.getByLabelText("Chart type")).toHaveValue("bar");
+    expect(screen.getByLabelText("X")).toHaveValue("ts");
+    expect(screen.getByLabelText("Aggregate")).toHaveValue("sum");
+    expect(screen.getByLabelText("Y")).toHaveValue("v");
+    act(() => setChartPreset(null));
   });
 });

@@ -15,6 +15,7 @@ import { query } from "@/engine/engine";
 import { download, exportFileName } from "@/features/results/export";
 import { getQueryRun, subscribeToQueryRun } from "@/features/results/query-run";
 import { getResult, subscribeToResult } from "@/features/results/result-store";
+import { getChartPreset, subscribeToChartPreset } from "./chart-preset";
 import {
   type Aggregate,
   type ChartColumn,
@@ -192,6 +193,17 @@ export function ChartPanel() {
   const [error, setError] = useState<string | null>(null);
   const canvas = useRef<HTMLDivElement>(null);
   const [showTable, setShowTable] = useState(false);
+  const preset = useSyncExternalStore(subscribeToChartPreset, getChartPreset);
+  const runSql = run.state === "idle" ? null : run.sql;
+
+  // A preset applies only to the result of its own query.
+  useEffect(() => {
+    if (!preset || preset.sql !== runSql) return;
+    setType(preset.type);
+    setXName(preset.x);
+    setYName(preset.y ?? "");
+    setAggregate(preset.aggregate ?? (preset.y ? "sum" : "count"));
+  }, [preset, runSql]);
 
   const resultColumns = result?.columns;
   const columns: ChartColumn[] = useMemo(

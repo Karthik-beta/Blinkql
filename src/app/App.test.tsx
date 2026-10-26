@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineStatus } from "@/engine/engine";
+import { setChartPreset } from "@/features/charts/chart-preset";
 import { withinSqlEditor } from "@/features/editor/test-utils";
 import { marks } from "@/lib/user-timing";
 import { App } from "./App";
@@ -87,5 +88,16 @@ describe("App shell", () => {
     act(() => engine.setStatus({ state: "crashed", error: new Error("worker died") }));
     expect(screen.getByRole("status")).toHaveTextContent("Engine stopped: worker died");
     expect(screen.getByRole("button", { name: "Restart engine" })).toBeInTheDocument();
+  });
+
+  it("switches the results to the chart when a template's chart preset arrives", () => {
+    render(<App />);
+    const chart = screen.getByRole("button", { name: "Chart" });
+    expect(chart).toHaveAttribute("aria-pressed", "false");
+
+    act(() => setChartPreset({ sql: "SELECT 1 AS x", type: "bar", x: "x" }));
+    expect(chart).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "Chart" })).toBeInTheDocument();
+    act(() => setChartPreset(null));
   });
 });
