@@ -1,6 +1,7 @@
 import {
   ArrowRightLeft,
   ChevronRight,
+  Database,
   FileUp,
   Link,
   ScanSearch,
@@ -28,6 +29,7 @@ import {
 import { insertIntoEditor } from "@/features/editor/insert";
 import { parseEngineError } from "@/features/results/engine-error";
 import { runQuery } from "@/features/results/query-run";
+import { loadSample, samples } from "@/features/samples/samples";
 import {
   convertTable,
   forgetTable,
@@ -360,10 +362,86 @@ function AddUrlButton() {
   );
 }
 
+/** A button that opens the list of sample datasets; picking one loads it as a table. */
+function LoadSampleButton({ tables }: { tables: readonly ImportedTable[] }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // The dialog stays open while the sample is built, so a failure shows next to its cause.
+  const load = async (name: string) => {
+    setLoading(name);
+    setError(null);
+    try {
+      await loadSample(name);
+      setOpen(false);
+    } catch (problem) {
+      setError(
+        problem instanceof Error
+          ? parseEngineError(problem, "", { preservePlainText: true }).message
+          : String(problem),
+      );
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setError(null);
+      }}
+    >
+      <Button variant="outline" size="sm" className="self-start" onClick={() => setOpen(true)}>
+        <Database data-icon="inline-start" aria-hidden />
+        Load sample data
+      </Button>
+      <DialogContent>
+        <DialogTitle>Load sample data</DialogTitle>
+        <DialogDescription>
+          A made-up week in a factory, generated in this browser. Each sample becomes a table.
+        </DialogDescription>
+        <ul className="-mx-2 flex flex-col">
+          {samples.map((sample) => {
+            const loaded = tables.some((table) => table.name === sample.name);
+            return (
+              <li key={sample.name}>
+                <button
+                  type="button"
+                  disabled={loaded || loading !== null}
+                  className="flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left outline-ring hover:bg-muted focus-visible:outline-2 disabled:pointer-events-none disabled:opacity-50"
+                  onClick={() => void load(sample.name)}
+                >
+                  <span className="font-medium">
+                    {sample.title}
+                    {loaded && " (loaded)"}
+                    {loading === sample.name && " (loading…)"}
+                  </span>
+                  <span className="text-muted-foreground">{sample.description}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {error !== null && (
+          <p role="alert" className="text-destructive">
+            Couldn't load the sample: {error}
+          </p>
+        )}
+        <div className="flex justify-end">
+          <DialogClose render={<Button variant="outline" size="sm" />}>Close</DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /**
  * The schema browser: a tree of tables and their columns (the ARIA tree pattern, one Tab stop),
- * with buttons that open the file picker and ask for a file's URL. Clicking a name, or pressing
- * Enter on it, inserts it into the editor.
+ * with buttons that open the file picker, ask for a file's URL and load sample data. Clicking a
+ * name, or pressing Enter on it, inserts it into the editor.
  */
 export function CatalogPanel() {
   const catalog = useSyncExternalStore(subscribeToCatalog, getCatalog);
@@ -491,7 +569,8 @@ export function CatalogPanel() {
 
       {catalog.tables.length === 0 && catalog.importing.length === 0 && (
         <p className="text-muted-foreground text-xs">
-          No tables yet. Drop a CSV, Parquet or JSON file anywhere, or use Import files.
+          No tables yet. Drop a CSV, Parquet or JSON file anywhere, use Import files, or load sample
+          data to try things out.
         </p>
       )}
       {catalog.tables.length > 0 && (
@@ -512,6 +591,7 @@ export function CatalogPanel() {
           ))}
         </div>
       )}
+      <LoadSampleButton tables={catalog.tables} />
 
       <div aria-live="polite" className="text-muted-foreground text-xs">
         {catalog.importing.length > 0 && <p>Importing {catalog.importing.join(", ")}…</p>}
