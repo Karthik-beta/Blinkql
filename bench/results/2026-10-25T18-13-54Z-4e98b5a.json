@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "timestamp": "2026-10-25T18:13:54.823Z",
+  "commit": {
+    "sha": "4e98b5a893acbfb6bf0ed551f209cd3106ace2b2",
+    "dirty": false
+  },
+  "environment": {
+    "os": {
+      "platform": "win32",
+      "release": "10.0.26300",
+      "arch": "x64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz",
+      "cores": 8
+    },
+    "memoryBytes": 25659326464,
+    "node": "v26.12.0",
+    "browser": {
+      "name": "chromium",
+      "version": "156.0.8078.4"
+    },
+    "ci": false
+  },
+  "config": {
+    "warmup": 3,
+    "measured": 10,
+    "target": "local-preview",
+    "url": null,
+    "reactProfiling": false
+  },
+  "results": [
+    {
+      "scenario": "repeat-query-csv",
+      "description": "telemetry-m-narrow.csv: the same filter and GROUP BY run 5 times, then the table converted to Parquet and the query run again, through the UI.",
+      "mode": "warm",
+      "metrics": {
+        "firstQueryMs": {
+          "unit": "ms",
+          "median": 1577.11,
+          "p95": 2418.336,
+          "min": 1036.31,
+          "max": 2995.09,
+          "mean": 1616.567,
+          "samples": [
+            1190.18,
+            1202.705,
+            1036.31,
+            2995.09,
+            1583.465,
+            1570.755,
+            1713.315,
+            1473.12,
+            1713.415,
+            1687.32
+          ]
+        },
+        "repeatQueryMs": {
+          "unit": "ms",
+          "median": 1581.098,
+          "p95": 2325.661,
+          "min": 968.335,
+          "max": 2707.928,
+          "mean": 1585.776,
+          "samples": [
+            1108.12,
+            1364.715,
+            968.335,
+            2707.928,
+            1578.903,
+            1488.2,
+            1602.513,
+            1597.307,
+            1858.445,
+            1583.293
+          ]
+        },
+        "convertMs": {
+          "unit": "ms",
+          "median": 6558.758,
+          "p95": 7050.106,
+          "min": 4488.115,
+          "max": 7103.105,
+          "mean": 6297.327,
+          "samples": [
+            4488.115,
+            4876.94,
+            6985.33,
+            7103.105,
+            6672.025,
+            6787,
+            6500.55,
+            6442.69,
+            6589.275,
+            6528.24
+          ]
+        },
+        "convertedBytes": {
+          "unit": "bytes",
+          "median": 5226498,
+          "p95": 5226498,
+          "min": 5226498,
+          "max": 5226498,
+          "mean": 5226498,
+          "samples": [
+            5226498,
+            5226498,
+            5226498,
+            5226498,
+            5226498,
+            5226498,
+            5226498,
+            5226498,
+            5226498,
+            5226498
+          ]
+        },
+        "convertedFirstQueryMs": {
+          "unit": "ms",
+          "median": 1458.095,
+          "p95": 1593.595,
+          "min": 1034.395,
+          "max": 1672.03,
+          "mean": 1408.657,
+          "samples": [
+            1155.5,
+            1034.395,
+            1405.945,
+            1489.895,
+            1477.66,
+            1457.695,
+            1672.03,
+            1497.73,
+            1458.495,
+            1437.225
+          ]
+        },
+        "convertedRepeatQueryMs": {
+          "unit": "ms",
+          "median": 1382.786,
+          "p95": 1767.271,
+          "min": 919.34,
+          "max": 2027.12,
+          "mean": 1366.102,
+          "samples": [
+            1052.302,
+            919.34,
+            2027.12,
+            1390.802,
+            1449.678,
+            1392.737,
+            1300.43,
+            1391.622,
+            1374.77,
+            1362.217
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "repeat-query-parquet",
+      "description": "telemetry-m-narrow.parquet: the same filter and GROUP BY run 5 times, through the UI.",
+      "mode": "warm",
+      "metrics": {
+        "firstQueryMs": {
+          "unit": "ms",
+          "median": 2567.08,
+          "p95": 3160.524,
+          "min": 2136.47,
+          "max": 3169.065,
+          "mean": 2625.107,
+          "samples": [
+            3169.065,
+            3150.085,
+            2562.515,
+            2612.6,
+            2136.47,
+            2817.515,
+            2312.35,
+            2535.135,
+            2383.69,
+            2571.645
+          ]
+        },
+        "repeatQueryMs": {
+          "unit": "ms",
+          "median": 2400.07,
+          "p95": 2987.544,
+          "min": 2093.408,
+          "max": 3001.745,
+          "mean": 2475.576,
+          "samples": [
+            3001.745,
+            2970.188,
+            2396.445,
+            2403.695,
+            2093.408,
+            2343.508,
+            2603.177,
+            2307.047,
+            2215.307,
+            2421.24
+          ]
+        }
+      }
+    }
+  ]
+}

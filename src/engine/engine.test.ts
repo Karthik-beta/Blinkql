@@ -6,6 +6,7 @@ import {
   getEngineStatus,
   query,
   registerFile,
+  registerUrl,
   restartEngine,
   startEngine,
   stopEngine,
@@ -39,10 +40,12 @@ const duckdb = vi.hoisted(() => {
   };
   const db = {
     instantiate: vi.fn(async (_url: string) => null),
+    open: vi.fn(async (_config: object) => {}),
     connect: vi.fn(async () => connection),
     getVersion: vi.fn(async () => "v1.4.3"),
     terminate: vi.fn(async () => {}),
     registerFileHandle: vi.fn(async () => {}),
+    registerFileURL: vi.fn(async () => {}),
     dropFile: vi.fn(async (_name: string) => null),
     copyFileToBuffer: vi.fn(async (_name: string) => new Uint8Array()),
   };
@@ -61,7 +64,7 @@ const duckdb = vi.hoisted(() => {
         return db;
       }),
       VoidLogger: vi.fn(),
-      DuckDBDataProtocol: { BROWSER_FILEREADER: 2 },
+      DuckDBDataProtocol: { BROWSER_FILEREADER: 2, HTTP: 4 },
     },
   };
 });
@@ -154,6 +157,24 @@ describe("engine", () => {
 
     expect(duckdb.db.registerFileHandle).toHaveBeenCalledWith("data.csv", file, 2, true);
     expect(duckdb.db.dropFile).toHaveBeenCalledWith("data.csv");
+  });
+
+  it("registers files on the web by URL, read with range requests", async () => {
+    await registerUrl("orders.parquet", "https://example.com/orders.parquet");
+
+    expect(duckdb.db.registerFileURL).toHaveBeenCalledWith(
+      "orders.parquet",
+      "https://example.com/orders.parquet",
+      4,
+      false,
+    );
+    // DuckDB-wasm downloads files on the web whole unless told not to.
+    expect(duckdb.db.open).toHaveBeenCalledWith({
+      filesystem: { allowFullHTTPReads: true, forceFullHTTPReads: false },
+    });
+    expect(duckdb.db.open.mock.invocationCallOrder[0]).toBeLessThan(
+      duckdb.db.connect.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 
   it("starts only one engine however often it's asked", async () => {
@@ -259,6 +280,9 @@ describe("engine", () => {
 
     await expect(query("SELECT 2")).rejects.toThrow(EngineCrashedError);
     await expect(registerFile("a.csv", new File([""], "a.csv"))).rejects.toThrow(
+      EngineCrashedError,
+    );
+    await expect(registerUrl("a.csv", "https://example.com/a.csv")).rejects.toThrow(
       EngineCrashedError,
     );
     expect(duckdb.connection.query).not.toHaveBeenCalled();
