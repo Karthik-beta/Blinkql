@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { Int32, Table, Utf8, vectorFromArray } from "apache-arrow";
 import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type Drawn, mockCanvasContext, recordingContext } from "@/test/canvas";
 import { resetQueryRun, runQuery } from "./query-run";
 import {
   MAX_SCROLL_HEIGHT,
@@ -73,11 +74,17 @@ function activeCell(): { row: number; column: number; text: string | null } | nu
   };
 }
 
-describe("ResultsTable", () => {
+// Each renderer keeps the same DOM grid for the keyboard, the pointer and screen readers, so the
+// canvas one passes the same tests; it's tested for what it draws below.
+describe.each(["dom", "canvas"] as const)("ResultsTable (%s renderer)", (renderer) => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(VIEWPORT.width);
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(VIEWPORT.height);
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(VIEWPORT.height);
+    if (renderer === "canvas") {
+      vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(VIEWPORT.width);
+      mockCanvasContext(recordingContext().context);
+    }
   });
 
   afterEach(() => {
@@ -87,12 +94,12 @@ describe("ResultsTable", () => {
   });
 
   it("shows nothing before a query has run", () => {
-    render(<ResultsTable />);
+    render(<ResultsTable renderer={renderer} />);
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
   });
 
   it("shows the rows of the result under their column headers", async () => {
-    render(<ResultsTable />);
+    render(<ResultsTable renderer={renderer} />);
     await run(machines);
 
     expect(cellTexts()).toEqual([
@@ -106,7 +113,7 @@ describe("ResultsTable", () => {
   });
 
   it("right-aligns numbers", async () => {
-    render(<ResultsTable />);
+    render(<ResultsTable renderer={renderer} />);
     await run(machines);
 
     const [id, machine] = within(grid()).getAllByRole("gridcell");
@@ -115,7 +122,7 @@ describe("ResultsTable", () => {
   });
 
   it("shows the headers of an empty result", async () => {
-    render(<ResultsTable />);
+    render(<ResultsTable renderer={renderer} />);
     await run(new Table({ id: vectorFromArray([], new Int32()) }));
 
     expect(screen.getByRole("columnheader", { name: "id" })).toBeInTheDocument();
@@ -123,7 +130,7 @@ describe("ResultsTable", () => {
   });
 
   it("renders only the rows in view and a few either side, numbered within the whole result", async () => {
-    render(<ResultsTable />);
+    render(<ResultsTable renderer={renderer} />);
     await run(counting(100_000));
 
     const rows = within(grid()).getAllByRole("row");
@@ -140,7 +147,7 @@ describe("ResultsTable", () => {
     const onRender = vi.fn();
     render(
       <Profiler id="results" onRender={onRender}>
-        <ResultsTable />
+        <ResultsTable renderer={renderer} />
       </Profiler>,
     );
     await run(machines);
@@ -170,7 +177,7 @@ describe("ResultsTable", () => {
     const onRender = vi.fn();
     render(
       <Profiler id="results" onRender={onRender}>
-        <ResultsTable />
+        <ResultsTable renderer={renderer} />
       </Profiler>,
     );
     onRender.mockClear();
@@ -180,7 +187,7 @@ describe("ResultsTable", () => {
   });
 
   it("shows the first rows before the rest arrive, and keeps the place as they do", async () => {
-    render(<ResultsTable />);
+    render(<ResultsTable renderer={renderer} />);
     // Two batches of 2,000 rows, the second held back until the test lets it through.
     const rows = counting(4_000);
     const [first] = rows.slice(0, 2_000).batches;
@@ -214,16 +221,16 @@ describe("ResultsTable", () => {
   });
 
   it("doesn't read the cells again when its parent renders", async () => {
-    const { rerender } = render(<ResultsTable />);
+    const { rerender } = render(<ResultsTable renderer={renderer} />);
     await run(machines);
     vi.mocked(readCell).mockClear();
 
-    rerender(<ResultsTable />);
+    rerender(<ResultsTable renderer={renderer} />);
     expect(readCell).not.toHaveBeenCalled();
   });
 
   it("clears the previous result when a query fails", async () => {
-    render(<ResultsTable />);
+    render(<ResultsTable renderer={renderer} />);
     await run(machines);
     await run(new Error("Catalog Error: Table with name machines does not exist!"));
 
@@ -232,7 +239,7 @@ describe("ResultsTable", () => {
 
   describe("keyboard", () => {
     it("starts on the first cell and moves with the arrow keys, Home and End", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(counting(1_000));
       act(() => grid().focus());
       expect(activeCell()).toEqual({ row: 2, column: 1, text: "0" });
@@ -266,7 +273,7 @@ describe("ResultsTable", () => {
     });
 
     it("moves a screenful with Page Up and Page Down, and to the ends with Ctrl+Home and Ctrl+End", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(counting(1_000));
       act(() => grid().focus());
 
@@ -284,7 +291,7 @@ describe("ResultsTable", () => {
     });
 
     it("makes a clicked cell the active one", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(machines);
 
       fireEvent.click(screen.getByRole("gridcell", { name: "lathe" }));
@@ -292,7 +299,7 @@ describe("ResultsTable", () => {
     });
 
     it("starts a new result without an active cell", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(machines);
       fireEvent.click(screen.getByRole("gridcell", { name: "lathe" }));
       await run(counting(5));
@@ -314,7 +321,7 @@ describe("ResultsTable", () => {
         .map((cell) => cell.textContent);
 
     it("copies the active cell with Ctrl+C or ⌘C", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(machines);
 
       fireEvent.click(screen.getByRole("gridcell", { name: "lathe" }));
@@ -327,7 +334,7 @@ describe("ResultsTable", () => {
     });
 
     it("selects a block with Shift and the arrow keys, and copies it as tab-separated text", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(machines);
 
       fireEvent.click(screen.getByRole("gridcell", { name: "1" }));
@@ -347,7 +354,7 @@ describe("ResultsTable", () => {
     });
 
     it("selects a block with Shift+click, the header row included", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(machines);
 
       fireEvent.click(screen.getByRole("columnheader", { name: "machine" }));
@@ -368,7 +375,7 @@ describe("ResultsTable", () => {
       );
 
     it("widens and narrows the active cell's column with Alt and the arrow keys", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(machines);
       // The id column is fitted to its name.
       const id = "calc(2ch + 17px)";
@@ -388,7 +395,7 @@ describe("ResultsTable", () => {
     });
 
     it("resizes a column by dragging the edge of its header", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(machines);
       const id = "calc(2ch + 17px)";
 
@@ -402,7 +409,7 @@ describe("ResultsTable", () => {
 
     it("fits a column to its content when the edge of its header is double-clicked", async () => {
       const long = "x".repeat(80);
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(new Table({ note: vectorFromArray(["short", long], new Utf8()) }));
       // It starts at most 50 characters wide.
       expect(widths()).toBe("calc(50ch + 17px)");
@@ -412,7 +419,7 @@ describe("ResultsTable", () => {
     });
 
     it("resizes without rendering the rows again", async () => {
-      render(<ResultsTable />);
+      render(<ResultsTable renderer={renderer} />);
       await run(counting(1_000));
       fireEvent.focus(grid());
       vi.mocked(readCell).mockClear();
@@ -423,6 +430,72 @@ describe("ResultsTable", () => {
       fireEvent.pointerUp(window);
       expect(readCell).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("ResultsTable drawn on a canvas", () => {
+  let drawn: Drawn;
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(VIEWPORT.width);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(VIEWPORT.width);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(VIEWPORT.height);
+    const recording = recordingContext();
+    drawn = recording.drawn;
+    mockCanvasContext(recording.context);
+  });
+
+  afterEach(() => {
+    act(() => resetQueryRun());
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  const texts = () => drawn.texts.map(({ text }) => text);
+  const outlines = () => drawn.rects.filter(({ kind }) => kind === "stroke");
+  const nextFrame = () => act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+
+  it("draws the cells in view on a canvas screen readers skip, under the same cells made transparent", async () => {
+    render(<ResultsTable renderer="canvas" />);
+    await run(machines);
+
+    const canvas = grid().querySelector("canvas");
+    expect(canvas).toHaveAttribute("aria-hidden", "true");
+    // As tall as the rows, which are shorter than the viewport.
+    expect(canvas).toHaveStyle({ height: `${3 * ROW_HEIGHT}px`, width: `${VIEWPORT.width}px` });
+    expect(texts()).toEqual(["1", "2", "3", "press", "NULL", "lathe"]);
+    const [, body] = within(grid()).getAllByRole("rowgroup");
+    // Transparent, but still in the accessibility tree.
+    expect(body).toHaveClass("opacity-0");
+    expect(
+      within(body as HTMLElement).getByRole("gridcell", { name: "lathe" }),
+    ).toBeInTheDocument();
+  });
+
+  it("draws the rows scrolled into view", async () => {
+    render(<ResultsTable renderer="canvas" />);
+    await run(counting(1_000));
+
+    Object.defineProperty(grid(), "scrollTop", { value: 10 * ROW_HEIGHT, configurable: true });
+    fireEvent.scroll(grid());
+    await nextFrame();
+    // 9 rows fit under the header.
+    expect(texts().slice(0, 9)).toEqual(["10", "11", "12", "13", "14", "15", "16", "17", "18"]);
+  });
+
+  it("outlines the active cell while the grid has focus, and shades the selection", async () => {
+    render(<ResultsTable renderer="canvas" />);
+    await run(machines);
+
+    act(() => grid().focus());
+    expect(outlines()).toEqual([
+      { x: 1, y: 1, width: VIEWPORT.width - 2, height: ROW_HEIGHT - 3, style: "", kind: "stroke" },
+    ]);
+    fireEvent.keyDown(grid(), { key: "ArrowDown", shiftKey: true });
+    expect(drawn.rects.filter(({ height }) => height === ROW_HEIGHT - 1)).toHaveLength(2);
+
+    act(() => grid().blur());
+    await nextFrame();
+    expect(outlines()).toEqual([]);
   });
 });
 

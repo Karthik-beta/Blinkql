@@ -1,6 +1,7 @@
 // Showing and scrolling large results: one scenario per result size, so a build that can't show
 // the largest ones in reasonable time (every row rendered, before P-04) can skip them with
 // --scenario. Each iteration shows the result, then scrolls it two ways while sampling frames.
+// The `-canvas` scenarios do the same with the rows drawn on a canvas (`?grid=canvas`, P-11).
 // Generate the files first with `pnpm bench:data`.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -28,7 +29,7 @@ const SLOW_FRAME_MS = 25;
 
 const label = (rows: number) => (rows >= 1_000_000 ? `${rows / 1_000_000}m` : `${rows / 1_000}k`);
 
-function scrollScenario(dataset: Dataset, rows: number): Scenario {
+function scrollScenario(dataset: Dataset, rows: number, grid: "dom" | "canvas" = "dom"): Scenario {
   const file = fileName(dataset);
   const t = tableName(dataset);
   const scrollMetrics = (kind: ScrollKind) => ({
@@ -38,8 +39,8 @@ function scrollScenario(dataset: Dataset, rows: number): Scenario {
     [`${kind}LongestFrameMs`]: "ms",
   });
   return {
-    name: `scroll-${label(rows)}-${dataset.shape}`,
-    description: `${rows.toLocaleString("en")} rows of ${file}: showing them, then scrolling them for ${SCROLL_MS / 1000} s at a steady speed and ${SCROLL_MS / 1000} s from top to bottom, sampling every frame.`,
+    name: `scroll-${label(rows)}-${dataset.shape}${grid === "canvas" ? "-canvas" : ""}`,
+    description: `${rows.toLocaleString("en")} rows of ${file}${grid === "canvas" ? " drawn on a canvas (?grid=canvas)" : ""}: showing them, then scrolling them for ${SCROLL_MS / 1000} s at a steady speed and ${SCROLL_MS / 1000} s from top to bottom, sampling every frame.`,
     modes: ["warm"],
     metrics: {
       renderMs: "ms",
@@ -55,7 +56,7 @@ function scrollScenario(dataset: Dataset, rows: number): Scenario {
       if (!existsSync(path))
         throw new Error(`${path} is missing; generate it with pnpm bench:data`);
 
-      await openWorkbench(page, baseURL);
+      await openWorkbench(page, baseURL, grid === "canvas" ? "?grid=canvas" : "");
       await importFile(page, path);
       const result = await runQuery(page, `SELECT * FROM ${t} LIMIT ${rows}`);
       const values: Record<string, number | undefined> = {
@@ -87,4 +88,6 @@ export const scrollScenarios: readonly Scenario[] = [
   scrollScenario(narrow, 1_000_000),
   scrollScenario(wide, 10_000),
   scrollScenario(wide, 100_000),
+  scrollScenario(wide, 10_000, "canvas"),
+  scrollScenario(wide, 100_000, "canvas"),
 ];

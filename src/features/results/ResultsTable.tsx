@@ -1,6 +1,6 @@
 // biome-ignore-all lint/a11y/useSemanticElements: a virtualized grid can't be a <table>; it positions its rows itself, so it uses ARIA grid roles
 // biome-ignore-all lint/a11y/useFocusableInteractive: the grid keeps the focus and points at the active cell with aria-activedescendant, so rows and cells take none
-import { DataType } from "apache-arrow";
+import type { DataType } from "apache-arrow";
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -16,19 +16,28 @@ import {
   useSyncExternalStore,
 } from "react";
 import { afterNextPaint, measureSince, measures } from "@/lib/user-timing";
+import { CanvasBody, type GridRenderer, gridRenderer } from "./CanvasBody";
+import {
+  CELL_CHROME_PX,
+  isNumeric,
+  MAX_SCROLL_HEIGHT,
+  ROW_HEIGHT,
+  scrollScale,
+} from "./grid-layout";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 import { getResult, type Result, readCell, subscribeToResult } from "./result-store";
 import { type Cell, selectionBounds, selectionText } from "./selection";
 
-/** The height of the header row and of every row, its bottom border included, in px. */
-export const ROW_HEIGHT = 24;
+export { MAX_SCROLL_HEIGHT, ROW_HEIGHT, scrollScale } from "./grid-layout";
 
 /**
- * The tallest the rows may make the scrolling area, in px. Firefox can't lay out anything taller
- * than about 17.9 million px, so a taller result (over 625,000 rows) scrolls through an area this
- * tall instead, and each pixel scrolled moves the rows a little more than a pixel.
+ * How the grid draws its rows: as DOM cells (the default), or on a canvas under a transparent
+ * layer of the same cells (`?grid=canvas`, P-11). Read once: switching means reloading the page.
  */
-export const MAX_SCROLL_HEIGHT = 15_000_000;
+const GRID_RENDERER = gridRenderer(
+  location.search,
+  window.matchMedia?.("(forced-colors: active)").matches ?? false,
+);
 
 /** Rows rendered beyond each edge of the viewport, so a short scroll shows rows already there. */
 const OVERSCAN = 10;
@@ -36,9 +45,6 @@ const OVERSCAN = 10;
 /** The rows read to size the columns, and the widest a column starts, in characters. */
 const SIZING_ROWS = 100;
 const MAX_COLUMN_CHARS = 50;
-
-/** A cell's horizontal padding and right border, in px: `px-2` and `border-r`. */
-const CELL_CHROME_PX = 17;
 
 /** The widest a column is fitted to its content, in characters, and the narrowest it's resized to. */
 const MAX_FIT_CHARS = 200;
@@ -50,11 +56,8 @@ const RESIZE_STEP_PX = 16;
 /** Whether the last query failed: the one thing about the query run the table depends on. */
 const lastRunFailed = () => getQueryRun().state === "failed";
 
-/** Numbers line up on the right, so their digits do too. */
 function alignment(type: DataType): string {
-  return DataType.isInt(type) || DataType.isFloat(type) || DataType.isDecimal(type)
-    ? "text-right"
-    : "text-left";
+  return isNumeric(type) ? "text-right" : "text-left";
 }
 
 /**
@@ -74,17 +77,6 @@ function fittedWidth(name: string, column: number, rows: number[], maxChars: num
   let chars = name.length;
   for (const row of rows) chars = Math.max(chars, (readCell(row, column) ?? "NULL").length);
   return `calc(${Math.min(chars, maxChars)}ch + ${CELL_CHROME_PX}px)`;
-}
-
-/**
- * How far the rows move per pixel scrolled: 1, unless the result is taller than
- * MAX_SCROLL_HEIGHT. The ratio makes the bottom of the scrolling area show the last row.
- */
-export function scrollScale(element: Element | null, rowCount: number): number {
-  const rowsHeight = rowCount * ROW_HEIGHT;
-  if (!element || rowsHeight <= MAX_SCROLL_HEIGHT) return 1;
-  const viewport = element.clientHeight;
-  return (ROW_HEIGHT + rowsHeight - viewport) / (ROW_HEIGHT + MAX_SCROLL_HEIGHT - viewport);
 }
 
 /** The active cell, and the cell the selection runs from to it: itself unless Shift extended it. */
@@ -309,8 +301,15 @@ function move(
  * result, so screen readers announce it even though most rows aren't in the page. Shift extends
  * the selection from the active cell to a block, which Ctrl+C (⌘C) copies as tab-separated text.
  * Columns resize by dragging or double-clicking a header's edge, or with Alt+Left and Alt+Right.
+ *
+ * With the canvas renderer the rows are drawn on a canvas instead, and the same rows and cells
+ * stay in the page, transparent, over it: they're what clicks land on and screen readers read.
  */
-export const ResultsTable = memo(function ResultsTable() {
+export const ResultsTable = memo(function ResultsTable({
+  renderer = GRID_RENDERER,
+}: {
+  renderer?: GridRenderer;
+}) {
   const results = useSyncExternalStore(subscribeToResult, getResult);
   const failed = useSyncExternalStore(subscribeToQueryRun, lastRunFailed);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -512,7 +511,22 @@ export const ResultsTable = memo(function ResultsTable() {
             onResizeStart={onResizeStart}
             onFit={onFit}
           />
-          <div role="rowgroup" className="relative" style={{ height: bodyHeight }}>
+          {renderer === "canvas" && (
+            <CanvasBody
+              gridRef={gridRef}
+              result={results}
+              template={template}
+              bodyHeight={bodyHeight}
+              active={active}
+            />
+          )}
+          <div
+            role="rowgroup"
+            // Transparent over the canvas, which shows the same cells, but still in the
+            // accessibility tree and under the pointer.
+            className={renderer === "canvas" ? "relative opacity-0" : "relative"}
+            style={{ height: bodyHeight }}
+          >
             {rows.map((row) => (
               <Row
                 key={row}

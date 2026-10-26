@@ -59,7 +59,7 @@ Use `--size`, `--shape` and `--format` (each repeatable) to generate a subset, e
 | `time-to-engine-ready` | cold, warm | `timeToEngineReady` (ms): navigation start until the `blinkql:engine-ready` mark. `bytesTransferred`: response headers and bodies downloaded until then, the engine's worker included; cached responses count 0 |
 | `dataset-<size>-<shape>-<format>` | warm | One per S and M dataset, e.g. `dataset-m-wide-csv`. Each iteration opens the workbench, imports the file with the file picker and runs SQL through the editor, like a user. See below |
 | `first-rows-<dataset>` | warm | How soon a large result's first rows show, with no LIMIT: every row of `m-narrow-parquet`, `m-narrow-csv` and `s-wide-parquet`, and `m-narrow-parquet-filter` (`WHERE status = 'DOWN'`, about 5% of the rows). See [First rows](#first-rows) |
-| `scroll-<rows>-<shape>` | warm | Showing and scrolling a large result: `scroll-10k-narrow`, `scroll-100k-narrow` and `scroll-1m-narrow` (from `telemetry-m-narrow.parquet`), `scroll-10k-wide` and `scroll-100k-wide` (from `telemetry-s-wide.parquet`). See [Scrolling](#scrolling) |
+| `scroll-<rows>-<shape>` | warm | Showing and scrolling a large result: `scroll-10k-narrow`, `scroll-100k-narrow` and `scroll-1m-narrow` (from `telemetry-m-narrow.parquet`), `scroll-10k-wide` and `scroll-100k-wide` (from `telemetry-s-wide.parquet`), and the wide ones again drawn on a canvas, with `-canvas`. See [Scrolling](#scrolling) |
 | `rerun-while-running` | warm | `rerunMs`: pressing Run on `SELECT 42` while a slow query (a few seconds) is still running, until its row shows. `attempts`: how many times Run had to be pressed; until P-06 a run during another was ignored, so it took two. No dataset needed |
 | `repeat-query-<csv\|parquet>` | warm | The same filter and GROUP BY (40 rows back) run 5 times over `telemetry-m-narrow.<csv\|parquet>` (P-09). `firstQueryMs`: the first run; `repeatQueryMs`: the median of runs 2–5. The CSV scenario then converts the table with Convert to Parquet and records `convertMs` (the click until the row says Parquet), `convertedBytes` (the Parquet copy kept in the browser), and `convertedFirstQueryMs` and `convertedRepeatQueryMs` (the query again, on the converted table) |
 | `chart-line-1m-<sql\|client>` | warm | A line chart of `avg(y)` over a million-row computed series, downsampled to 1,000 points in the engine (`sql`, the default) or with LTTB on the main thread (`client`, `?downsample=client`). See [Line charts](#line-charts). No dataset needed |
@@ -102,6 +102,8 @@ Each `scroll-*` iteration imports its file, shows `SELECT * … LIMIT <rows>` an
 | `<kind>FrameMedianMs`, `<kind>FrameP95Ms` | The median and 95th percentile of the time between frames while scrolling. Headless Chromium draws at 75 Hz, so a smooth scroll is about 13.3 ms |
 | `<kind>SlowFrames` | Frames that took more than 25 ms, so the display showed the previous frame again |
 | `<kind>LongestFrameMs` | The longest animation frame while scrolling, as above. It only counts the main thread: a frame that is slow because the compositor is still rasterizing a large table shows in the frame times, not here |
+
+`scroll-10k-wide-canvas` and `scroll-100k-wide-canvas` run the same as the wide scenarios with the rows drawn on a canvas (`?grid=canvas`, P-11), for comparison with the DOM grid's.
 
 Before P-04 every row is rendered, which makes the 100,000- and 1,000,000-row scenarios slow or impossible to run; pick the ones a build can run with `--scenario`.
 
