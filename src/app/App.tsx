@@ -11,11 +11,13 @@ import { CatalogPanel } from "@/features/catalog/CatalogPanel";
 import { restoreDatasets } from "@/features/catalog/catalog";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
 import { ChartPanel } from "@/features/charts/ChartPanel";
+import { getChartPreset, subscribeToChartPreset } from "@/features/charts/chart-preset";
 import { QueryPanel } from "@/features/editor/QueryPanel";
 import { HistoryPanel } from "@/features/history/HistoryPanel";
 import { startHistory } from "@/features/history/history";
 import { ExportButtons } from "@/features/results/ExportButtons";
 import { ResultsTable } from "@/features/results/ResultsTable";
+import { TemplatesDialog } from "@/features/templates/TemplatesDialog";
 import { markOnce, marks, recordCommit } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
@@ -38,6 +40,11 @@ function describeEngine(status: EngineStatus): string {
 export function App() {
   const engine = useSyncExternalStore(subscribeToEngineStatus, getEngineStatus);
   const [showChart, setShowChart] = useState(false);
+  const chartPreset = useSyncExternalStore(subscribeToChartPreset, getChartPreset);
+
+  useEffect(() => {
+    if (chartPreset) setShowChart(true);
+  }, [chartPreset]);
 
   useEffect(() => {
     // Benchmarked as "time to app shell" (bench/scenarios/time-to-app-shell.ts).
@@ -53,6 +60,9 @@ export function App() {
       <header className="flex h-11 shrink-0 items-center border-b bg-chrome px-4">
         <img src={wordmarkLight} alt="Blinkql" className="h-5 w-auto dark:hidden" />
         <img src={wordmarkDark} alt="Blinkql" className="hidden h-5 w-auto dark:block" />
+        <div className="ml-auto">
+          <TemplatesDialog />
+        </div>
       </header>
       <div className="flex min-h-0 flex-1">
         <div className="flex w-64 shrink-0 flex-col border-r bg-chrome">
