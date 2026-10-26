@@ -345,7 +345,12 @@ describe("CatalogPanel", () => {
     render(<CatalogPanel />);
 
     await userEvent.click(screen.getByRole("button", { name: "Add from URL" }));
-    await userEvent.keyboard("https://example.com/orders.parquet{Enter}");
+    // Typed into the field itself: the dialog may not have moved focus into it yet.
+    const dialog = screen.getByRole("dialog", { name: "Add a file from a URL" });
+    await userEvent.type(
+      within(dialog).getByRole("textbox", { name: "URL" }),
+      "https://example.com/orders.parquet{Enter}",
+    );
 
     expect(
       await screen.findByText(
