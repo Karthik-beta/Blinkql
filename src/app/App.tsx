@@ -21,7 +21,9 @@ import { TemplatesDialog } from "@/features/templates/TemplatesDialog";
 import { markOnce, marks, recordCommit } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
+import { OfflineIndicator } from "./OfflineIndicator";
 import { restart } from "./restart";
+import { UpdatePrompt } from "./UpdatePrompt";
 
 function describeEngine(status: EngineStatus): string {
   switch (status.state) {
@@ -119,6 +121,10 @@ export function App() {
             Restart engine
           </Button>
         )}
+        <div className="ml-auto flex items-center gap-4">
+          <UpdatePrompt />
+          <OfflineIndicator />
+        </div>
       </footer>
       <FileDropOverlay />
     </div>

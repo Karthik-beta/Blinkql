@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { headersOnEveryResponse } from "./scripts/headers.ts";
+import { offlineWorkbench } from "./src/app/vite-plugin.ts";
 import { duckdbExtensions } from "./src/engine/vite-plugin.ts";
 import { landingPage } from "./src/landing/vite-plugin.ts";
 
@@ -13,7 +14,14 @@ const reactProfiling = process.env.BLINKQL_REACT_PROFILING === "1";
 
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), landingPage(), duckdbExtensions(), headersOnEveryResponse()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    landingPage(),
+    duckdbExtensions(),
+    headersOnEveryResponse(),
+    offlineWorkbench(),
+  ],
   // Two pages: the landing page at / and the workbench at /app/. The landing page loads no React.
   build: {
     rolldownOptions: {
