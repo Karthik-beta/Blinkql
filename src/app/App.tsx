@@ -16,6 +16,7 @@ import { HistoryPanel } from "@/features/history/HistoryPanel";
 import { startHistory } from "@/features/history/history";
 import { ExportButtons } from "@/features/results/ExportButtons";
 import { ResultsTable } from "@/features/results/ResultsTable";
+import { ShareDialog } from "@/features/share/ShareDialog";
 import { TemplatesDialog } from "@/features/templates/TemplatesDialog";
 import { afterNextPaint, markOnce, marks, recordCommit } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
@@ -99,6 +100,7 @@ export function App() {
               </Button>
             </fieldset>
             <ExportButtons />
+            <ShareDialog />
           </div>
           {/* The table stays mounted under the chart, so it keeps its scroll and selection. */}
           <div hidden={showChart} className="flex min-h-0 flex-1 flex-col">
