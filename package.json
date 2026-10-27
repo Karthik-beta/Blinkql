@@ -9,6 +9,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "size": "size-limit",
+    "lhci": "lhci autorun",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -21,7 +23,8 @@
     "prepare": "lefthook install",
     "bench": "pnpm build && node bench/run.ts",
     "bench:micro": "node bench/micro/run.ts",
-    "bench:data": "node bench/datasets/run.ts"
+    "bench:data": "node bench/datasets/run.ts",
+    "bench:smoke": "node bench/run.ts --scenario time-to-app-shell --scenario time-to-engine-ready --scenario rerun-while-running --scenario chart-line-1m-sql --warmup 1 --iterations 3 --out bench/smoke-results && node bench/check-thresholds.ts bench/smoke-results"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -51,7 +54,9 @@
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@duckdb/node-api": "1.5.6-r.1",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.64.1",
+    "@size-limit/file": "^14.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
@@ -66,6 +71,7 @@
     "jsdom": "^30.1.3",
     "lefthook": "^2.2.2",
     "rollup-plugin-visualizer": "^7.1.1",
+    "size-limit": "^14.3.0",
     "tailwindcss": "^4.3.3",
     "tinybench": "^6.2.2",
     "typescript": "^7.0.2",

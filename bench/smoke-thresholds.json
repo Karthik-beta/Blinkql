@@ -1,0 +1,16 @@
+{
+  "time-to-app-shell": {
+    "cold": { "timeToAppShell": 3000 },
+    "warm": { "timeToAppShell": 3000 }
+  },
+  "time-to-engine-ready": {
+    "cold": { "timeToEngineReady": 10000, "bytesTransferred": 40000000 },
+    "warm": { "timeToEngineReady": 10000 }
+  },
+  "rerun-while-running": {
+    "warm": { "rerunMs": 1000, "attempts": 1 }
+  },
+  "chart-line-1m-sql": {
+    "warm": { "chartRenderMs": 4000 }
+  }
+}
