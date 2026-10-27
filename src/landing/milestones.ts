@@ -52,14 +52,14 @@ export const milestones: readonly Milestone[] = [
   {
     code: "M6",
     name: "Performance pass\u00a0II",
-    summary: "A faster first load, offline use and a canvas results grid.",
-    status: "current",
+    summary: "A faster first load, offline use and performance budgets checked in CI.",
+    status: "done",
   },
   {
     code: "M7",
     name: "Version 1.0",
     summary: "Accessibility, shortcuts, shareable query links and full docs.",
-    status: "planned",
+    status: "current",
   },
 ];
 
