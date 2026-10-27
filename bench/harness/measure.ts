@@ -1,4 +1,7 @@
-import type { Browser } from "@playwright/test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Browser, LaunchOptions } from "@playwright/test";
 import { type Summary, summarize } from "./stats.ts";
 import type { Mode, Scenario } from "./types.ts";
 
@@ -14,9 +17,13 @@ export type ScenarioResult = {
   metrics: Record<string, Summary & { unit: string }>;
 };
 
-/** Runs `scenario` for the warm-up iterations, then the measured ones, and summarizes them. */
+/**
+ * Runs `scenario` for the warm-up iterations, then the measured ones, and summarizes them.
+ * `launchOptions` are those `browser` was launched with, for the warm mode's own browser.
+ */
 export async function measure(
   browser: Browser,
+  launchOptions: LaunchOptions,
   scenario: Scenario,
   mode: Mode,
   baseURL: string,
@@ -24,7 +31,13 @@ export async function measure(
 ): Promise<ScenarioResult> {
   const samples = new Map<string, number[]>(Object.keys(scenario.metrics).map((m) => [m, []]));
   const unsupported = new Set<string>();
-  const sharedContext = mode === "warm" ? await browser.newContext() : undefined;
+  // Warm iterations share a profile on disk, as a returning visitor's browser does. A context from
+  // browser.newContext() keeps its HTTP cache in memory, which won't hold a response as large as
+  // the engine's WebAssembly (34 MB), so every "warm" start downloaded the engine again.
+  const profile = mode === "warm" ? mkdtempSync(join(tmpdir(), "blinkql-bench-")) : undefined;
+  const sharedContext = profile
+    ? await browser.browserType().launchPersistentContext(profile, launchOptions)
+    : undefined;
 
   try {
     for (let i = 0; i < iterations.warmup + iterations.measured; i++) {
@@ -50,6 +63,7 @@ export async function measure(
     }
   } finally {
     await sharedContext?.close();
+    if (profile) rmSync(profile, { recursive: true, force: true });
   }
 
   return {

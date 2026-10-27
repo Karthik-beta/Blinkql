@@ -1,4 +1,4 @@
-import { responseHeaders } from "../scripts/headers.ts";
+import { headersFor, responseHeaders } from "../scripts/headers.ts";
 import { expect, test } from "./fixtures";
 
 declare global {
@@ -6,6 +6,25 @@ declare global {
     cspViolations?: string[];
   }
 }
+
+test("caches the engine's hashed files as immutable, as vercel.json does", async ({ page }) => {
+  const engineFiles = new Map<string, Promise<string | null>>();
+  page.on("response", (response) => {
+    const url = new URL(response.url());
+    if (url.pathname.startsWith("/assets/duckdb-")) {
+      engineFiles.set(url.pathname, response.headerValue("cache-control"));
+    }
+  });
+
+  await page.goto("/app/");
+  // The engine's worker and its WebAssembly module.
+  await expect.poll(() => engineFiles.size, { timeout: 60_000 }).toBeGreaterThanOrEqual(2);
+
+  for (const [path, cacheControl] of engineFiles) {
+    expect(await cacheControl, path).toBe(headersFor(path)["Cache-Control"]);
+  }
+  expect(headersFor("/assets/duckdb-eh.wasm")["Cache-Control"]).toContain("immutable");
+});
 
 // Both pages: the landing page at / and the workbench at /app/.
 for (const path of ["/", "/app/"]) {

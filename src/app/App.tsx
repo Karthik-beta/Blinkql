@@ -17,7 +17,7 @@ import { startHistory } from "@/features/history/history";
 import { ExportButtons } from "@/features/results/ExportButtons";
 import { ResultsTable } from "@/features/results/ResultsTable";
 import { TemplatesDialog } from "@/features/templates/TemplatesDialog";
-import { markOnce, marks, recordCommit } from "@/lib/user-timing";
+import { afterNextPaint, markOnce, marks, recordCommit } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
 import { OfflineIndicator } from "./OfflineIndicator";
@@ -55,10 +55,12 @@ export function App() {
   useEffect(() => {
     // Benchmarked as "time to app shell" (bench/scenarios/time-to-app-shell.ts).
     markOnce(marks.appShell);
-    // Start the engine while the user is still looking around, so the first query doesn't wait.
-    startEngine();
     void restoreDatasets();
     void startHistory();
+    // Start the engine while the user is still looking around, so the first query doesn't wait,
+    // but only once the shell is on screen, so creating the worker doesn't delay the first paint.
+    // A query sent before then starts it straight away.
+    return afterNextPaint(startEngine);
   }, []);
 
   return (
