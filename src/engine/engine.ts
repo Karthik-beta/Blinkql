@@ -64,10 +64,12 @@ export function subscribeToEngineStatus(listener: () => void): () => void {
 }
 
 async function boot(): Promise<Engine> {
+  markOnce(marks.engineBootStart);
   const bundle = await selectBundle(bundles);
   if (!bundle.mainWorker) throw new Error("No DuckDB-wasm worker for this browser");
 
   const worker = new Worker(bundle.mainWorker);
+  markOnce(marks.engineWorkerCreated);
   // DuckDB-wasm drops its pending requests when the worker dies without settling them, so a
   // query in flight would wait forever. This fails it instead.
   const crashed = new Promise<never>((_, reject) => {
@@ -84,11 +86,13 @@ async function boot(): Promise<Engine> {
   const db = new AsyncDuckDB(new VoidLogger(), worker);
   try {
     await unlessCrashed(db.instantiate(bundle.mainModule));
+    markOnce(marks.engineInstantiated);
     // Files on the web are read with range requests, so a query fetches only the parts it needs;
     // by default the engine downloads them whole. A server that can't send ranges still works.
     await unlessCrashed(
       db.open({ filesystem: { allowFullHTTPReads: true, forceFullHTTPReads: false } }),
     );
+    markOnce(marks.engineOpened);
     const version = await unlessCrashed(db.getVersion());
     if (version !== extensionsVersion) {
       throw new Error(
@@ -96,6 +100,7 @@ async function boot(): Promise<Engine> {
       );
     }
     const connection = await unlessCrashed(db.connect());
+    markOnce(marks.engineConnected);
     // Load extensions (Parquet, JSON) from our own origin instead of extensions.duckdb.org.
     const repository = new URL(EXTENSIONS_PATH, location.href).href;
     await unlessCrashed(connection.query(`SET custom_extension_repository = '${repository}'`));

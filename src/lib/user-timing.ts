@@ -5,6 +5,17 @@ import type { ProfilerOnRenderCallback } from "react";
 export const marks = {
   /** The app shell (top bar and empty workspace) has been committed to the DOM. */
   appShell: "blinkql:app-shell",
+  // The engine's start-up steps (P-13), in order, ending with engineReady.
+  /** Starting the engine has begun. */
+  engineBootStart: "blinkql:engine-boot-start",
+  /** The engine's bundle is chosen and its worker created. */
+  engineWorkerCreated: "blinkql:engine-worker-created",
+  /** The worker has run its script, then fetched, compiled and instantiated the WebAssembly module. */
+  engineInstantiated: "blinkql:engine-instantiated",
+  /** DuckDB has opened its in-memory database. */
+  engineOpened: "blinkql:engine-opened",
+  /** The version is checked and a connection is open. */
+  engineConnected: "blinkql:engine-connected",
   /** DuckDB-wasm is running in its worker, connected, and has answered a first query. */
   engineReady: "blinkql:engine-ready",
 } as const;

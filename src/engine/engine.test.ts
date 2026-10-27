@@ -135,6 +135,19 @@ describe("engine", () => {
     expect(performance.getEntriesByName(marks.engineReady, "mark")).toHaveLength(1);
   });
 
+  it("marks each step of starting, in order", async () => {
+    await query("SELECT 1");
+
+    expect(performance.getEntriesByType("mark").map((mark) => mark.name)).toEqual([
+      marks.engineBootStart,
+      marks.engineWorkerCreated,
+      marks.engineInstantiated,
+      marks.engineOpened,
+      marks.engineConnected,
+      marks.engineReady,
+    ]);
+  });
+
   it("loads extensions from our own origin", async () => {
     await query("SELECT 1");
 
