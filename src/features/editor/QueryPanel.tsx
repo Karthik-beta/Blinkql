@@ -1,5 +1,5 @@
 import { Play, Square } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { ErrorPanel } from "@/features/results/ErrorPanel";
 import { errorSpan, parseEngineError } from "@/features/results/engine-error";
@@ -11,8 +11,14 @@ import {
   runQuery,
   subscribeToQueryRun,
 } from "@/features/results/query-run";
-import { SqlEditor, type SqlEditorHandle, type SqlRange } from "./SqlEditor";
+import type { SqlEditorHandle, SqlRange } from "./SqlEditor";
 import { runShortcut } from "./shortcut";
+
+// CodeMirror is almost half of the workbench's script, so it loads after the first paint instead of
+// holding it up. Until it arrives, the editor's space stays empty and nothing around it moves.
+const SqlEditor = lazy(() =>
+  import("./SqlEditor").then(({ SqlEditor }) => ({ default: SqlEditor })),
+);
 
 /** Milliseconds since `startedAt`, updated ten times a second while `active`. */
 function useElapsed(startedAt: number | null): number {
@@ -125,7 +131,9 @@ export function QueryPanel({ onRestart }: Props) {
         </Button>
       </div>
 
-      <SqlEditor ref={editor} onRun={runSql} />
+      <Suspense fallback={<div className="min-h-0 flex-1" />}>
+        <SqlEditor ref={editor} onRun={runSql} />
+      </Suspense>
 
       <div className="flex h-10 shrink-0 items-center gap-2 border-t bg-chrome px-3 text-xs">
         <p aria-live="polite" className="text-muted-foreground tabular-nums">

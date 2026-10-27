@@ -1,6 +1,7 @@
 import { fileURLToPath, URL } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vitest/config";
 import { headersOnEveryResponse } from "./scripts/headers.ts";
 import { offlineWorkbench } from "./src/app/vite-plugin.ts";
@@ -12,6 +13,9 @@ import { landingPage } from "./src/landing/vite-plugin.ts";
 // those of a normal build.
 const reactProfiling = process.env.BLINKQL_REACT_PROFILING === "1";
 
+// `BLINKQL_ANALYZE=1 pnpm build` also writes a treemap of what's in each chunk to bench/bundle/.
+const analyze = process.env.BLINKQL_ANALYZE === "1";
+
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
   plugins: [
@@ -21,6 +25,7 @@ export default defineConfig({
     duckdbExtensions(),
     headersOnEveryResponse(),
     offlineWorkbench(),
+    analyze && visualizer({ filename: "bench/bundle/stats.html", gzipSize: true }),
   ],
   // Two pages: the landing page at / and the workbench at /app/. The landing page loads no React.
   build: {
