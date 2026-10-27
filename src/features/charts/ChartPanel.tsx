@@ -16,6 +16,7 @@ import { download, exportFileName } from "@/features/results/export";
 import { getQueryRun, subscribeToQueryRun } from "@/features/results/query-run";
 import { getResult, subscribeToResult } from "@/features/results/result-store";
 import { getChartPreset, subscribeToChartPreset } from "./chart-preset";
+import { setShownChart } from "./chart-settings";
 import {
   type Aggregate,
   type ChartColumn,
@@ -269,6 +270,14 @@ export function ChartPanel() {
       current = false;
     };
   }, [source, specKey]);
+
+  // Kept for share links, which carry the settings of the chart on screen.
+  useEffect(() => {
+    if (!chart) return;
+    const { type, x, y, aggregate } = chart.spec;
+    setShownChart({ type, x: x.name, ...(y && { y: y.name }), aggregate });
+    return () => setShownChart(null);
+  }, [chart]);
 
   const columnOptions = (options: ChartColumn[]) =>
     options.map(({ name }) => ({ value: name, label: name }));

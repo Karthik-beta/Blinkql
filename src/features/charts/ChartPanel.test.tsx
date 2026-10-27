@@ -4,6 +4,7 @@ import { Float64, Table, Utf8, vectorFromArray } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChartPanel } from "./ChartPanel";
 import { setChartPreset } from "./chart-preset";
+import { getShownChart } from "./chart-settings";
 
 // The last query's result has a time, a weekday and a measurement, like a table shown with Show
 // rows; the engine answers every chart query with `chartRows`.
@@ -132,5 +133,22 @@ describe("ChartPanel", () => {
     expect(screen.getByLabelText("Aggregate")).toHaveValue("sum");
     expect(screen.getByLabelText("Y")).toHaveValue("v");
     act(() => setChartPreset(null));
+  });
+
+  it("publishes the drawn chart's settings while it's on screen", async () => {
+    engine.query.mockResolvedValue(chartRows);
+    const user = userEvent.setup();
+    const { unmount } = render(<ChartPanel />);
+    await vi.waitFor(() =>
+      expect(getShownChart()).toEqual({ type: "bar", x: "weekday", aggregate: "count" }),
+    );
+
+    await user.selectOptions(screen.getByLabelText("Aggregate"), "avg");
+    await vi.waitFor(() =>
+      expect(getShownChart()).toEqual({ type: "bar", x: "weekday", y: "v", aggregate: "avg" }),
+    );
+
+    unmount();
+    expect(getShownChart()).toBeNull();
   });
 });
