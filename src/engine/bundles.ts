@@ -2,6 +2,8 @@
 // Vite copies each file into /assets/ under a content hash, so the exact package version pinned in
 // package.json decides what ships, and vercel.json caches /assets/ as immutable.
 // Only the single-threaded bundles are listed; the multithreaded one is experiment P-08 (ADR-007).
+// The production build rewrites both workers to compile the module from fetch()'s own response,
+// so Chromium can cache the compiled module (duckdbWorkers() in vite-plugin.ts, P-13).
 import type { DuckDBBundles } from "@duckdb/duckdb-wasm";
 import ehWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url";
 import mvpWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url";

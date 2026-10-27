@@ -5,7 +5,7 @@ import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vitest/config";
 import { headersOnEveryResponse } from "./scripts/headers.ts";
 import { offlineWorkbench } from "./src/app/vite-plugin.ts";
-import { duckdbExtensions } from "./src/engine/vite-plugin.ts";
+import { duckdbExtensions, duckdbWorkers } from "./src/engine/vite-plugin.ts";
 import { landingPage } from "./src/landing/vite-plugin.ts";
 
 // `BLINKQL_REACT_PROFILING=1 pnpm bench` builds with React's profiling build, so <Profiler>s report
@@ -23,6 +23,7 @@ export default defineConfig({
     tailwindcss(),
     landingPage(),
     duckdbExtensions(),
+    duckdbWorkers(),
     headersOnEveryResponse(),
     offlineWorkbench(),
     analyze && visualizer({ filename: "bench/bundle/stats.html", gzipSize: true }),
