@@ -2,7 +2,8 @@ import type { Page } from "@playwright/test";
 
 /**
  * cold: every iteration gets a fresh browser context (empty cache and storage).
- * warm: all iterations share one context, so the warm-up iterations fill its cache.
+ * warm: all iterations share one context with a profile on disk, so the warm-up iterations fill
+ * its cache, as for a returning visitor.
  */
 export type Mode = "cold" | "warm";
 

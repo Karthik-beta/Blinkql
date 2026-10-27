@@ -80,17 +80,17 @@ if (!baseURL) throw new Error("vite preview didn't report a local URL");
 // Chromium's memory measurement (bench/harness/page.ts) needs the full browser, not Playwright's
 // default headless shell, and without ForceEagerMeasureMemory it waits for the next garbage
 // collection, which can take 20 seconds or more.
-const browser = await browserType.launch(
+const launchOptions =
   browserName === "chromium"
     ? { channel: "chromium", args: ["--enable-blink-features=ForceEagerMeasureMemory"] }
-    : {},
-);
+    : {};
+const browser = await browserType.launch(launchOptions);
 const results: ScenarioResult[] = [];
 try {
   for (const scenario of selected) {
     for (const mode of requestedModes ?? scenario.modes) {
       process.stdout.write(`${scenario.name} (${mode}, ${browserName}) … `);
-      const result = await measure(browser, scenario, mode, baseURL, iterations);
+      const result = await measure(browser, launchOptions, scenario, mode, baseURL, iterations);
       results.push(result);
       const summary = Object.entries(result.metrics)
         .map(
