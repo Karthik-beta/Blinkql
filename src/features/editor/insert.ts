@@ -8,28 +8,39 @@ type Contents = { get(): string; replace(text: string): void };
 
 let inserter: Inserter | null = null;
 let contents: Contents | null = null;
+/**
+ * The text sent while there's no editor, such as while it loads (QueryPanel.tsx). The next
+ * editor starts with it, so a template or history entry picked early isn't lost.
+ */
+let pending = "";
 
 /** Sets what insertIntoEditor() calls; the editor sets itself while it's on the page. */
 export function setEditorInserter(next: Inserter | null): void {
   inserter = next;
 }
 
-/** Inserts `text` at the editor's cursor, replacing the selection. Does nothing without an editor. */
+/** Inserts `text` at the editor's cursor, replacing the selection; without an editor, appends it. */
 export function insertIntoEditor(text: string): void {
-  inserter?.(text);
+  if (inserter) inserter(text);
+  else pending += text;
 }
 
 /** Sets what editorContents() and replaceEditorContents() use; the editor sets itself. */
 export function setEditorContents(next: Contents | null): void {
   contents = next;
+  if (next && pending) {
+    next.replace(pending);
+    pending = "";
+  }
 }
 
-/** All the SQL in the editor, or "" without an editor. */
+/** All the SQL in the editor, or what's waiting for one. */
 export function editorContents(): string {
-  return contents?.get() ?? "";
+  return contents ? contents.get() : pending;
 }
 
-/** Replaces everything in the editor with `text`. Does nothing without an editor. */
+/** Replaces everything in the editor, or what's waiting for one, with `text`. */
 export function replaceEditorContents(text: string): void {
-  contents?.replace(text);
+  if (contents) contents.replace(text);
+  else pending = text;
 }
