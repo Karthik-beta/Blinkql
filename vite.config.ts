@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vitest/config";
 import { headersOnEveryResponse } from "./scripts/headers.ts";
+import { offlineWorkbench } from "./src/app/vite-plugin.ts";
 import { duckdbExtensions } from "./src/engine/vite-plugin.ts";
 import { landingPage } from "./src/landing/vite-plugin.ts";
 
@@ -23,6 +24,7 @@ export default defineConfig({
     landingPage(),
     duckdbExtensions(),
     headersOnEveryResponse(),
+    offlineWorkbench(),
     analyze && visualizer({ filename: "bench/bundle/stats.html", gzipSize: true }),
   ],
   // Two pages: the landing page at / and the workbench at /app/. The landing page loads no React.
