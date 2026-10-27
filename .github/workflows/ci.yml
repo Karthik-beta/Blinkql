@@ -97,14 +97,64 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}
 
-      - name: Install browser and system dependencies
+      - name: Install browser
         if: steps.browser-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+        run: pnpm exec playwright install ${{ matrix.browser }}
 
-      # The cache holds the browser only; its OS libraries still need installing.
+      # The packages apt downloaded for the browser's OS libraries on earlier runs,
+      # partial downloads included, so a run only downloads what's still missing.
+      # The mirror sometimes serves them at a few dozen KB a second, too slowly
+      # for one run to finish; each run then carries on from the last one's.
+      - name: Restore system dependency packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/apt-archives
+          key: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-
+
+      # The browser cache holds the browser only; its OS libraries still need
+      # installing. This usually takes under a minute, but apt sometimes stalls for
+      # 10 minutes or more and uses up the job's timeout, so each attempt gets 3
+      # minutes and a stalled one is retried. sudo runs apt in its own session, out
+      # of the timeout's reach, so a stalled apt-get is killed before the next
+      # attempt, which resumes its partial downloads. `dpkg --configure -a` finishes
+      # what a killed attempt left half-installed.
       - name: Install system dependencies
-        if: steps.browser-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps ${{ matrix.browser }}
+        id: system-deps
+        run: |
+          archives=/var/cache/apt/archives
+          mkdir -p ~/apt-archives
+          before=$(du -sb ~/apt-archives | cut -f1)
+          sudo cp -r ~/apt-archives/. "$archives/"
+          # apt resumes partial downloads as its own user.
+          sudo chown -R _apt:root "$archives/partial" || true
+          status=1
+          for attempt in 1 2 3; do
+            if timeout --kill-after=10s 3m pnpm exec playwright install-deps ${{ matrix.browser }}; then
+              status=0
+              break
+            fi
+            echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
+            sudo pkill -KILL -x apt-get || true
+            sudo pkill -KILL -x dpkg || true
+            sudo dpkg --configure -a || true
+          done
+          sudo cp -r "$archives/." ~/apt-archives/
+          sudo chown -R "$USER" ~/apt-archives
+          rm -f ~/apt-archives/lock ~/apt-archives/partial/.lock
+          if [ "$(du -sb ~/apt-archives | cut -f1)" != "$before" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          exit $status
+
+      # Saved even when the install or the tests fail, but only when this run
+      # downloaded something, so a slow mirror's progress isn't lost.
+      - name: Save system dependency packages
+        if: ${{ !cancelled() && steps.system-deps.outputs.changed == 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/apt-archives
+          key: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Run Playwright
         run: pnpm exec playwright test --project=${{ matrix.browser }}
@@ -213,9 +263,19 @@ jobs:
         if: steps.browser-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install chromium
 
+      # The packages the e2e (chromium) job saved, so the slow mirror is skipped.
+      - name: Restore system dependency packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/apt-archives
+          key: apt-${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}-
+          restore-keys: apt-${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}-
+
       # As in the e2e job: apt sometimes stalls, so each attempt gets 3 minutes.
       - name: Install system dependencies
         run: |
+          sudo cp -r ~/apt-archives/. /var/cache/apt/archives/ 2>/dev/null || true
+          sudo chown -R _apt:root /var/cache/apt/archives/partial || true
           for attempt in 1 2 3; do
             if timeout --kill-after=10s 3m pnpm exec playwright install-deps chromium; then
               exit 0

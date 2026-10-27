@@ -43,3 +43,6 @@ Thumbs.db
 
 # Generated benchmark datasets (`pnpm bench:data`)
 bench/datasets/data/
+
+# Bundle treemap (`BLINKQL_ANALYZE=1 pnpm build`)
+bench/bundle/

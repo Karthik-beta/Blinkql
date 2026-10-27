@@ -8,6 +8,7 @@ The method, budgets and optimization log live on the [Performance & Benchmarks](
 pnpm bench         # build, then run every scenario; writes bench/results/<timestamp>-<sha>.json
 pnpm bench:micro   # tinybench micro-benchmarks, printed to the terminal
 pnpm bench:data    # generate the datasets into bench/datasets/data/ (git-ignored)
+BLINKQL_ANALYZE=1 pnpm build   # also write a treemap of every chunk, with gzipped sizes, to bench/bundle/stats.html (git-ignored)
 ```
 
 `pnpm bench` serves the production build with `vite preview` (same headers as Vercel) and drives it with Playwright's pinned browsers. Options:
@@ -15,7 +16,7 @@ pnpm bench:data    # generate the datasets into bench/datasets/data/ (git-ignore
 | Option | Default | |
 |---|---|---|
 | `--scenario <name>` | all | Repeatable |
-| `--mode <cold\|warm>` | the scenario's modes | Repeatable. **cold**: a fresh browser context (empty cache) per iteration. **warm**: one context for all iterations, primed by the warm-ups |
+| `--mode <cold\|warm>` | the scenario's modes | Repeatable. **cold**: a fresh browser context (empty cache) per iteration. **warm**: one context for all iterations, primed by the warm-ups, with a profile on disk like a returning visitor's (an in-memory cache can't hold the engine's 34 MB WebAssembly) |
 | `--browser <name>` | `chromium` | `chromium`, `firefox` or `webkit` |
 | `--warmup <n>` | `3` | Discarded iterations |
 | `--iterations <n>` | `10` | Measured iterations |

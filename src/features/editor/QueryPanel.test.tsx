@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { tableFromArrays } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +6,7 @@ import { resetQueryRun, runQuery } from "@/features/results/query-run";
 import { streamOf } from "@/features/results/test-utils";
 import { editorContents, insertIntoEditor, replaceEditorContents } from "./insert";
 import { QueryPanel } from "./QueryPanel";
-import { withinSqlEditor } from "./test-utils";
+import { findSqlEditor } from "./test-utils";
 
 // Each query waits until the test settles it.
 const engine = vi.hoisted(() => {
@@ -29,12 +29,15 @@ describe("QueryPanel", () => {
   afterEach(() => {
     act(() => resetQueryRun());
     vi.clearAllMocks();
+    // Text sent without an editor waits for the next one, so it mustn't reach the next test's.
+    cleanup();
+    replaceEditorContents("");
   });
 
-  it("shows a labelled SQL editor and a Run button with its shortcut", () => {
+  it("shows a labelled SQL editor and a Run button with its shortcut", async () => {
     render(<QueryPanel />);
 
-    expect(withinSqlEditor().getByRole("textbox", { name: "SQL editor" })).toHaveAttribute(
+    expect((await findSqlEditor()).getByRole("textbox", { name: "SQL editor" })).toHaveAttribute(
       "aria-keyshortcuts",
       "Control+Enter",
     );
@@ -47,6 +50,7 @@ describe("QueryPanel", () => {
 
   it("doesn't run an empty editor", async () => {
     render(<QueryPanel />);
+    await findSqlEditor();
 
     await userEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(engine.streamQuery).not.toHaveBeenCalled();
@@ -54,6 +58,7 @@ describe("QueryPanel", () => {
 
   it("runs names inserted from elsewhere, such as the schema browser", async () => {
     const { unmount } = render(<QueryPanel />);
+    await findSqlEditor();
 
     act(() => insertIntoEditor("SELECT * FROM "));
     act(() => insertIntoEditor("orders"));
@@ -61,11 +66,12 @@ describe("QueryPanel", () => {
     expect(engine.streamQuery).toHaveBeenCalledWith("SELECT * FROM orders", expect.anything());
 
     unmount();
-    expect(() => insertIntoEditor("ignored")).not.toThrow();
+    expect(() => insertIntoEditor("SELECT 3")).not.toThrow();
   });
 
   it("lets other parts read and replace the whole editor, such as the query history", async () => {
     const { unmount } = render(<QueryPanel />);
+    await findSqlEditor();
 
     act(() => insertIntoEditor("SELECT 1"));
     expect(editorContents()).toBe("SELECT 1");
@@ -76,11 +82,24 @@ describe("QueryPanel", () => {
 
     unmount();
     expect(editorContents()).toBe("");
-    expect(() => replaceEditorContents("ignored")).not.toThrow();
+    expect(() => replaceEditorContents("SELECT 3")).not.toThrow();
+  });
+
+  it("keeps what other parts send before the editor has loaded, and starts with it", async () => {
+    act(() => replaceEditorContents("SELECT 1"));
+    act(() => insertIntoEditor(" + 1"));
+    expect(editorContents()).toBe("SELECT 1 + 1");
+
+    render(<QueryPanel />);
+    await findSqlEditor();
+    expect(editorContents()).toBe("SELECT 1 + 1");
+    await userEvent.click(screen.getByRole("button", { name: "Run" }));
+    expect(engine.streamQuery).toHaveBeenCalledWith("SELECT 1 + 1", expect.anything());
   });
 
   it("turns Run into a running state with a timer, then reports the result", async () => {
     render(<QueryPanel />);
+    await findSqlEditor();
 
     let running!: Promise<void>;
     act(() => {
@@ -100,6 +119,7 @@ describe("QueryPanel", () => {
 
   it("offers Cancel only while a query runs, and cancels it", async () => {
     render(<QueryPanel />);
+    await findSqlEditor();
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
 
     let running!: Promise<void>;
@@ -117,6 +137,7 @@ describe("QueryPanel", () => {
 
   it("cancels the running query on Escape", async () => {
     render(<QueryPanel />);
+    await findSqlEditor();
 
     let running!: Promise<void>;
     act(() => {
@@ -129,6 +150,7 @@ describe("QueryPanel", () => {
 
   it("says when a query failed, and why", async () => {
     render(<QueryPanel />);
+    await findSqlEditor();
 
     await act(async () => {
       const running = runQuery("SELEC 1");

@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineStatus } from "@/engine/engine";
 import { setChartPreset } from "@/features/charts/chart-preset";
-import { withinSqlEditor } from "@/features/editor/test-utils";
+import { findSqlEditor } from "@/features/editor/test-utils";
 import { marks } from "@/lib/user-timing";
 import { App } from "./App";
 
@@ -28,6 +28,7 @@ vi.mock("@/engine/engine", () => engine);
 describe("App shell", () => {
   beforeEach(() => {
     engine.setStatus({ state: "idle" });
+    engine.startEngine.mockClear();
   });
 
   afterEach(() => {
@@ -43,12 +44,13 @@ describe("App shell", () => {
     expect(screen.getAllByRole("img", { name: "Blinkql" })).toHaveLength(2);
   });
 
-  it("renders the workspace with the SQL editor", () => {
+  it("renders the workspace with the SQL editor", async () => {
     render(<App />);
 
+    const editor = await findSqlEditor();
     const workspace = screen.getByRole("main", { name: "Workspace" });
     expect(workspace).toContainElement(document.querySelector("[data-sql-editor]"));
-    expect(withinSqlEditor().getByRole("textbox", { name: "SQL editor" })).toBeInTheDocument();
+    expect(editor.getByRole("textbox", { name: "SQL editor" })).toBeInTheDocument();
   });
 
   it("marks the app shell for the benchmark harness", () => {
@@ -57,11 +59,15 @@ describe("App shell", () => {
     expect(performance.getEntriesByName(marks.appShell, "mark")).toHaveLength(1);
   });
 
-  it("starts the engine on load", () => {
+  it("starts the engine once the shell has been painted", async () => {
     render(<App />);
 
-    expect(engine.startEngine).toHaveBeenCalled();
+    expect(engine.startEngine).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toHaveTextContent("Starting engine…");
+
+    // Queued after the app's own frame callback, so it runs after the engine has been started.
+    await act(() => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve))));
+    expect(engine.startEngine).toHaveBeenCalledOnce();
   });
 
   it("shows the DuckDB version once the engine is ready", () => {
@@ -90,14 +96,14 @@ describe("App shell", () => {
     expect(screen.getByRole("button", { name: "Restart engine" })).toBeInTheDocument();
   });
 
-  it("switches the results to the chart when a template's chart preset arrives", () => {
+  it("switches the results to the chart when a template's chart preset arrives", async () => {
     render(<App />);
     const chart = screen.getByRole("button", { name: "Chart" });
     expect(chart).toHaveAttribute("aria-pressed", "false");
 
     act(() => setChartPreset({ sql: "SELECT 1 AS x", type: "bar", x: "x" }));
     expect(chart).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("region", { name: "Chart" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Chart" })).toBeInTheDocument();
     act(() => setChartPreset(null));
   });
 });
