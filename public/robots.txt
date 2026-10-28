@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://blinkql.vercel.app/sitemap.xml
+Sitemap: https://blinkql.karthik.nz/sitemap.xml
