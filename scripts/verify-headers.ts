@@ -2,7 +2,7 @@
 // /assets/ (the immutable Cache-Control that lets a returning visitor start the engine from cache).
 //
 //   node scripts/verify-headers.ts --build-output .vercel/output   (after `vercel build`)
-//   node scripts/verify-headers.ts --url https://blinkql.vercel.app (a live, public URL)
+//   node scripts/verify-headers.ts --url https://blinkql.karthik.nz (a live, public URL)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";

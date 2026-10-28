@@ -3,7 +3,7 @@
 //   pnpm bench                                    build, then every scenario in its default modes
 //   pnpm bench --scenario time-to-app-shell --mode warm
 //   pnpm bench --browser firefox --iterations 20
-//   pnpm bench --url https://blinkql.vercel.app   benchmark a deployment instead of a local preview
+//   pnpm bench --url https://blinkql.karthik.nz   benchmark a deployment instead of a local preview
 //   BLINKQL_REACT_PROFILING=1 pnpm bench          React's profiling build, which counts renders
 //
 // Method (see the Performance & Benchmarks wiki page): 3 warm-up and 10 measured iterations per
