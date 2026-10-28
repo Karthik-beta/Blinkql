@@ -112,4 +112,4 @@ jobs:
         if: steps.target.outputs.env == 'production'
         run: node scripts/verify-headers.ts --url "$PRODUCTION_URL"
         env:
-          PRODUCTION_URL: https://blinkql.vercel.app
+          PRODUCTION_URL: https://blinkql.karthik.nz
