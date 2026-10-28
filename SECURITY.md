@@ -10,7 +10,7 @@ Reports are acknowledged as quickly as possible. We'll keep you updated while th
 
 ## Supported versions
 
-Blinkql is in early development and hasn't had a release yet. Only the latest version, deployed from `main` to https://blinkql.vercel.app, receives security fixes.
+Blinkql is in early development and hasn't had a release yet. Only the latest version, deployed from `main` to https://blinkql.karthik.nz, receives security fixes.
 
 ## Scope
 

@@ -29,7 +29,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Open blinkql.vercel.app
+        1. Open blinkql.karthik.nz
         2. Drop `sample.csv`
         3. Run `SELECT ...`
         4. See error
