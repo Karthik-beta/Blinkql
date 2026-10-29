@@ -1,9 +1,8 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { type Milestone, milestones } from "./milestones.ts";
+import { milestones } from "./milestones.ts";
 import {
-  currentMilestone,
   escapeHtml,
   highlightSql,
   inlineWordmark,
@@ -13,14 +12,9 @@ import {
 import { sampleQuery, sampleRows } from "./sample.ts";
 
 describe("milestones", () => {
-  it("has exactly one current milestone, M0 to M7 in order", () => {
+  it("lists M0 to M7 in order, every one done for version 1.0", () => {
     expect(milestones.map((m) => m.code)).toEqual(["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]);
-    expect(currentMilestone(milestones).code).toBe("M7");
-  });
-
-  it("refuses a roadmap with no current milestone", () => {
-    const allPlanned: Milestone[] = milestones.map((m) => ({ ...m, status: "planned" }));
-    expect(() => currentMilestone(allPlanned)).toThrow(/Exactly one/);
+    expect(milestones.filter((m) => m.status !== "done")).toEqual([]);
   });
 
   it("labels every lamp in words and marks the current step", () => {

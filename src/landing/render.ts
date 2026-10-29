@@ -123,15 +123,6 @@ export function renderMilestones(list: readonly Milestone[]): string {
   return `<ol class="milestones">${items}</ol>`;
 }
 
-/** The current milestone, for the sentence above the lamps. */
-export function currentMilestone(list: readonly Milestone[]): Milestone {
-  const current = list.filter((m) => m.status === "current");
-  if (current.length !== 1 || !current[0]) {
-    throw new Error(`Exactly one milestone must be "current"; found ${current.length}`);
-  }
-  return current[0];
-}
-
 /**
  * The brand wordmark as inline SVG, so its lamp can mirror the hero's run. The letters take the
  * text colour (one SVG for both themes) and the lamp gets a halo for the "done" flash.
