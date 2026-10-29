@@ -5,7 +5,14 @@
 import { exportQuery, query, registerFile, registerUrl, unregisterFile } from "@/engine/engine";
 import { parseEngineError } from "@/features/results/engine-error";
 import { measureSince, measures } from "@/lib/user-timing";
-import { detectFormat, type FileFormat, quoteIdentifier, readerFor, tableNameFor } from "./formats";
+import {
+  detectFormat,
+  type FileFormat,
+  quoteIdentifier,
+  readerFor,
+  tableNameFor,
+  unsupportedFormatMessage,
+} from "./formats";
 import { deviceMemoryGiB, memoryWarning } from "./memory";
 import { probeRemoteFile, remoteFileName, remoteReadMessage } from "./remote";
 import { listDatasets, loadDataset, removeDataset, saveDataset } from "./stored-datasets";
@@ -88,7 +95,7 @@ function displayName(source: File | URL): string {
 async function importFile({ source, ...previous }: Source): Promise<ImportedTable> {
   const fileName = source instanceof URL ? remoteFileName(source) : source.name;
   const format = previous.format ?? detectFormat(fileName);
-  if (!format) throw new Error("Not a CSV, TSV, Parquet, JSON or JSON Lines file");
+  if (!format) throw new Error(unsupportedFormatMessage(fileName));
   if (source instanceof URL) {
     const warning = await probeRemoteFile(source);
     if (warning) {
@@ -114,9 +121,19 @@ async function importFile({ source, ...previous }: Source): Promise<ImportedTabl
     await query(`DROP VIEW IF EXISTS ${quoteIdentifier(name)}`).catch(() => {});
     await unregisterFile(path).catch(() => {});
     takenNames.delete(name);
+    if (format === "xlsx" && error instanceof Error && UNREADABLE_WORKBOOK.test(error.message)) {
+      throw new Error(UNREADABLE_WORKBOOK_MESSAGE);
+    }
     throw error;
   }
 }
+
+// An .xlsx file is a zip archive. Password-protected workbooks are encrypted containers instead,
+// and an .xls file renamed .xlsx is the old binary format, so DuckDB can't open either as a zip.
+const UNREADABLE_WORKBOOK = /Failed to open zip/;
+const UNREADABLE_WORKBOOK_MESSAGE =
+  "The workbook can't be read. It may be password-protected or an older .xls file: " +
+  "remove the password or save it as .xlsx in Excel, then import it again.";
 
 async function describe(table: string): Promise<TableColumn[]> {
   return (await query(`DESCRIBE ${quoteIdentifier(table)}`))

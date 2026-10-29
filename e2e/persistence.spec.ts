@@ -1,8 +1,11 @@
+import { fileURLToPath } from "node:url";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
+// Excel support is an extension the engine fetches and compiles when a workbook is first opened.
+const EXTENSION_TIMEOUT = 30_000;
 
 const csv = {
   name: "Machine Events.csv",
@@ -106,6 +109,31 @@ test.describe("kept datasets", () => {
     await page.keyboard.type("SELECT * FROM machine_events");
     await page.keyboard.press("ControlOrMeta+Enter");
     await expect(summary(page)).toHaveText(/^2 rows in /);
+  });
+
+  test("keeps an Excel workbook across a reload", async ({ page, browserName }) => {
+    test.skip(
+      browserName === "webkit",
+      "Playwright's WebKit can't open the Origin Private File System; see the first test.",
+    );
+    // It starts the engine twice.
+    test.slow();
+    await openWorkbench(page);
+    await page
+      .getByLabel("Import files")
+      .setInputFiles(fileURLToPath(new URL("data/machines.xlsx", import.meta.url)));
+    const table = /^machines Excel · 6 columns · /;
+    await expect(tables(page)).toHaveText([table], { timeout: EXTENSION_TIMEOUT });
+    await expect
+      .poll(async () => (await storedDatasets(page)).map(({ name, format }) => [name, format]))
+      .toEqual([["machines", "xlsx"]]);
+
+    await openWorkbench(page);
+    await expect(tables(page)).toHaveText([table], { timeout: EXTENSION_TIMEOUT });
+    await editor(page).click();
+    await page.keyboard.type("SELECT * FROM machines");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(summary(page)).toHaveText(/^5 rows in /);
   });
 
   test("still imports, for this visit, where files can't be kept", async ({ page }) => {
