@@ -12,8 +12,18 @@ import {
 import { sampleQuery, sampleRows } from "./sample.ts";
 
 describe("milestones", () => {
-  it("lists M0 to M7 in order, every one done for version 1.0", () => {
-    expect(milestones.map((m) => m.code)).toEqual(["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]);
+  it("lists M0 to M8 in order, every one done for version 1.1", () => {
+    expect(milestones.map((m) => m.code)).toEqual([
+      "M0",
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+    ]);
     expect(milestones.filter((m) => m.status !== "done")).toEqual([]);
   });
 

@@ -26,7 +26,7 @@ It's built for the exports operations teams live with, such as machine logs, ERP
 - **Write SQL** with autocomplete for DuckDB's keywords and functions and your own tables and columns. Ctrl+Enter runs the query, or just the selected part, and Escape cancels it.
 - **Scroll through millions of rows** in a results grid that stays responsive.
 - **Chart a result** as a bar, line, scatter, histogram or Pareto chart. Every chart has a text description and can be viewed as a table.
-- **Export** results as CSV or Parquet, and charts as PNG.
+- **Export** results as CSV or Parquet, charts as PNG, or the whole analysis as a self-contained HTML report.
 - **Find past work** in the query history, and keep the queries you come back to as saved queries.
 - **Run analysis templates** for operations and logistics: OEE by machine, downtime Pareto, MTTR and MTBF, output by shift, reject rate, two-file reconciliation, data-quality checks, on-time delivery by carrier, delivery lead time by lane, and cost per kg by lane and carrier. Each maps itself to your columns, and you can adjust the mapping. See [Use Cases](https://github.com/Karthik-beta/Blinkql/wiki/Use-Cases) for examples.
 - **Learn on sample data**: a made-up factory's week and a quarter of its shipments, generated in the browser, and a three-step tour that takes you from sample data to a chart.
