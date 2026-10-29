@@ -1,13 +1,14 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { tableFromArrays } from "apache-arrow";
+import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getChartPreset, setChartPreset } from "@/features/charts/chart-preset";
 import { setShownChart } from "@/features/charts/chart-settings";
 import { setEditorContents } from "@/features/editor/insert";
 import { resetQueryRun, runQuery } from "@/features/results/query-run";
 import { streamOf } from "@/features/results/test-utils";
-import { ShareDialog } from "./ShareDialog";
+import { ShareDialog, type ShareHandle } from "./ShareDialog";
 import { decodeShareLink, encodeShareLink } from "./share-link";
 
 const engine = vi.hoisted(() => ({
@@ -45,6 +46,17 @@ describe("ShareDialog", () => {
     expect(screen.getByRole("button", { name: "Share" })).toBeDisabled();
     await finishQuery("SELECT 7 AS a");
     expect(screen.getByRole("button", { name: "Share" })).toBeEnabled();
+  });
+
+  it("opens through its handle, such as from the command palette, once a query has finished", async () => {
+    const share = createRef<ShareHandle>();
+    render(<ShareDialog ref={share} />);
+    act(() => share.current?.open());
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await finishQuery("SELECT 7 AS a");
+    act(() => share.current?.open());
+    expect(await screen.findByRole("dialog", { name: "Share query" })).toBeInTheDocument();
   });
 
   it("links to the last query and the chart on screen, and says the link holds no data", async () => {

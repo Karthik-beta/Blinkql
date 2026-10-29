@@ -2,7 +2,15 @@
 // holds the last query and the chart on screen, never data, so whoever opens it runs the query on
 // their own files.
 import { Copy, Share2, TriangleAlert } from "lucide-react";
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type Ref,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -115,13 +123,19 @@ function ShareContent({ sql }: { sql: string }) {
   );
 }
 
+export type ShareHandle = {
+  /** Opens the dialog, as the button does, once a query has finished. */
+  open(): void;
+};
+
 /** The "Share" button and its dialog; also opens a share link the page was loaded with. */
-export function ShareDialog() {
+export function ShareDialog({ ref }: { ref?: Ref<ShareHandle> }) {
   const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
   const [open, setOpen] = useState(false);
   // Shown until the next query runs, which makes it out of date.
   const [notice, setNotice] = useState<{ message: string; run: QueryRun } | null>(null);
   const sql = run.state === "done" ? run.sql : null;
+  useImperativeHandle(ref, () => ({ open: () => sql && setOpen(true) }));
 
   useEffect(() => {
     const message = openSharedQuery();

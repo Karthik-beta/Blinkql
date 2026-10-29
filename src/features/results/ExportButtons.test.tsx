@@ -1,8 +1,9 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { tableFromArrays } from "apache-arrow";
+import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ExportButtons } from "./ExportButtons";
+import { ExportButtons, type ExportHandle } from "./ExportButtons";
 import { resetQueryRun, runQuery } from "./query-run";
 import { streamOf } from "./test-utils";
 
@@ -69,5 +70,16 @@ describe("ExportButtons", () => {
     expect(
       await screen.findByText('Couldn\'t export: syntax error at or near "CREATE"'),
     ).toBeInTheDocument();
+  });
+
+  it("exports through its handle, such as from the command palette", async () => {
+    const buttons = createRef<ExportHandle>();
+    render(<ExportButtons ref={buttons} />);
+    await finishQuery("SELECT 1 AS a");
+
+    act(() => buttons.current?.exportAs("csv"));
+
+    expect(exporter.exportResult).toHaveBeenCalledWith("SELECT 1 AS a", "csv");
+    expect(await screen.findByText("Downloaded blinkql-result.csv")).toBeInTheDocument();
   });
 });

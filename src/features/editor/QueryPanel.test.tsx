@@ -1,11 +1,12 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { tableFromArrays } from "apache-arrow";
+import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "@/features/results/query-run";
 import { streamOf } from "@/features/results/test-utils";
 import { editorContents, insertIntoEditor, replaceEditorContents } from "./insert";
-import { QueryPanel } from "./QueryPanel";
+import { QueryPanel, type QueryPanelHandle } from "./QueryPanel";
 import { findSqlEditor } from "./test-utils";
 
 // Each query waits until the test settles it.
@@ -95,6 +96,16 @@ describe("QueryPanel", () => {
     expect(editorContents()).toBe("SELECT 1 + 1");
     await userEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(engine.streamQuery).toHaveBeenCalledWith("SELECT 1 + 1", expect.anything());
+  });
+
+  it("runs what Run would through its handle, such as from the command palette", async () => {
+    const panel = createRef<QueryPanelHandle>();
+    render(<QueryPanel ref={panel} />);
+    await findSqlEditor();
+
+    act(() => replaceEditorContents("  SELECT 1\n"));
+    act(() => panel.current?.run());
+    expect(engine.streamQuery).toHaveBeenCalledWith("SELECT 1", expect.anything());
   });
 
   it("turns Run into a running state with a timer, then reports the result", async () => {

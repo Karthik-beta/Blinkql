@@ -1,8 +1,9 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setEditorInserter } from "@/features/editor/insert";
-import { CatalogPanel } from "./CatalogPanel";
+import { type CatalogHandle, CatalogPanel } from "./CatalogPanel";
 import { importFiles, resetCatalog } from "./catalog";
 
 // The engine is replaced by a fake that knows two tables' columns. Column statistics wait until
@@ -408,6 +409,20 @@ describe("CatalogPanel", () => {
       "Couldn't load the sample: Out of memory",
     );
     expect(screen.getByRole("dialog", { name: "Load sample data" })).toBeInTheDocument();
+  });
+
+  it("opens the file picker and loads samples through its handle, such as from the palette", async () => {
+    const catalog = createRef<CatalogHandle>();
+    render(<CatalogPanel ref={catalog} />);
+    const click = vi.spyOn(screen.getByLabelText("Import files"), "click");
+
+    act(() => catalog.current?.importFiles());
+    expect(click).toHaveBeenCalledOnce();
+
+    act(() => catalog.current?.loadSample("plants"));
+    expect(screen.getByRole("dialog", { name: "Load sample data" })).toBeInTheDocument();
+    expect(await screen.findByRole("treeitem", { name: /^plants / })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("warns, without blocking the import, when a file is large for the device", async () => {
