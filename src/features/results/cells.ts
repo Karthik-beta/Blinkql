@@ -29,6 +29,11 @@ export function resultColumns(table: Table): ResultColumn[] {
   });
 }
 
+/** Whether values of `type` are numbers, which line up on the right so their digits do too. */
+export function isNumeric(type: DataType): boolean {
+  return DataType.isInt(type) || DataType.isFloat(type) || DataType.isDecimal(type);
+}
+
 /** "2026-10-16 05:47:17", or with milliseconds when there are any, from milliseconds since 1970. */
 function formatTimestamp(ms: number): string {
   return new Date(ms)

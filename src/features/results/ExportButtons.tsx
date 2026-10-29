@@ -1,22 +1,26 @@
-// Buttons that download the last finished query's result as CSV or Parquet.
+// Buttons that download the last finished query's result as CSV, Parquet or an HTML report.
 import { Download } from "lucide-react";
 import { type Ref, useImperativeHandle, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { parseEngineError } from "./engine-error";
-import { type ExportFormat, exportResult } from "./export";
+import { type ExportFormat, exportReport, exportResult } from "./export";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 
-/** The formats a result can be exported as. */
-export const exportFormats: readonly { format: ExportFormat; label: string }[] = [
+/** What a result can be exported as: a file format, or a report with its query and chart. */
+export type ExportKind = ExportFormat | "report";
+
+/** The kinds of export, in the order their buttons show. */
+export const exportFormats: readonly { format: ExportKind; label: string }[] = [
   { format: "csv", label: "CSV" },
   { format: "parquet", label: "Parquet" },
+  { format: "report", label: "HTML report" },
 ];
 
 type Outcome = { message: string; failed: boolean };
 
 export type ExportHandle = {
   /** Exports the last result, as its button does. */
-  exportAs(format: ExportFormat): void;
+  exportAs(format: ExportKind): void;
 };
 
 export function ExportButtons({ ref }: { ref?: Ref<ExportHandle> }) {
@@ -25,13 +29,13 @@ export function ExportButtons({ ref }: { ref?: Ref<ExportHandle> }) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const sql = run.state === "done" ? run.sql : null;
 
-  const exportAs = async (format: ExportFormat) => {
+  const exportAs = async (format: ExportKind) => {
     // Ignored rather than disabled while exporting, so the button keeps keyboard focus.
     if (!sql || exporting) return;
     setExporting(true);
     setOutcome({ message: "Exporting…", failed: false });
     try {
-      const name = await exportResult(sql, format);
+      const name = format === "report" ? await exportReport(sql) : await exportResult(sql, format);
       setOutcome({ message: `Downloaded ${name}`, failed: false });
     } catch (error) {
       const { message } = parseEngineError(

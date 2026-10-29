@@ -9,6 +9,7 @@ import { streamOf } from "./test-utils";
 
 const exporter = vi.hoisted(() => ({
   exportResult: vi.fn(async (_sql: string, format: string) => `blinkql-result.${format}`),
+  exportReport: vi.fn(async (_sql: string) => "blinkql-report.html"),
 }));
 vi.mock("./export", () => exporter);
 
@@ -32,10 +33,12 @@ describe("ExportButtons", () => {
     render(<ExportButtons />);
     expect(screen.getByRole("button", { name: "Export as CSV" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export as Parquet" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export as HTML report" })).toBeDisabled();
 
     await finishQuery("SELECT 1 AS a");
     expect(screen.getByRole("button", { name: "Export as CSV" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Export as Parquet" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export as HTML report" })).toBeEnabled();
   });
 
   it("exports the last query's result and says when the download is ready", async () => {
@@ -50,6 +53,18 @@ describe("ExportButtons", () => {
       "aria-live",
       "polite",
     );
+  });
+
+  it("exports the last query's result as an HTML report", async () => {
+    const user = userEvent.setup();
+    render(<ExportButtons />);
+    await finishQuery("SELECT 1 AS a");
+
+    await user.click(screen.getByRole("button", { name: "Export as HTML report" }));
+
+    expect(exporter.exportReport).toHaveBeenCalledWith("SELECT 1 AS a");
+    expect(exporter.exportResult).not.toHaveBeenCalled();
+    expect(await screen.findByText("Downloaded blinkql-report.html")).toBeInTheDocument();
   });
 
   it("says why an export failed, in DuckDB's words", async () => {
@@ -81,5 +96,10 @@ describe("ExportButtons", () => {
 
     expect(exporter.exportResult).toHaveBeenCalledWith("SELECT 1 AS a", "csv");
     expect(await screen.findByText("Downloaded blinkql-result.csv")).toBeInTheDocument();
+
+    act(() => buttons.current?.exportAs("report"));
+
+    expect(exporter.exportReport).toHaveBeenCalledWith("SELECT 1 AS a");
+    expect(await screen.findByText("Downloaded blinkql-report.html")).toBeInTheDocument();
   });
 });

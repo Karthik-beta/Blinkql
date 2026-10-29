@@ -4,7 +4,7 @@ import { Float64, Table, Utf8, vectorFromArray } from "apache-arrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChartPanel } from "./ChartPanel";
 import { setChartPreset } from "./chart-preset";
-import { getShownChart } from "./chart-settings";
+import { getShownChart, getShownChartPicture } from "./chart-settings";
 
 // The last query's result has a time, a weekday and a measurement, like a table shown with Show
 // rows; the engine answers every chart query with `chartRows`.
@@ -25,7 +25,10 @@ vi.mock("@/features/results/result-store", async () => {
   };
   return { getResult: () => result, subscribeToResult: () => () => {} };
 });
-const draw = vi.hoisted(() => ({ drawChart: vi.fn(() => () => {}) }));
+const draw = vi.hoisted(() => ({
+  drawChart: vi.fn(() => () => {}),
+  chartPng: vi.fn((_container: HTMLElement): string | undefined => undefined),
+}));
 vi.mock("./draw-chart", () => draw);
 
 const chartRows = new Table({
@@ -161,5 +164,25 @@ describe("ChartPanel", () => {
 
     unmount();
     expect(getShownChart()).toBeNull();
+  });
+
+  it("pictures the drawn chart for a report while it's on screen, but not as a table", async () => {
+    engine.query.mockResolvedValue(chartRows);
+    draw.chartPng.mockReturnValue("data:image/png;base64,AAAA");
+    const user = userEvent.setup();
+    const { unmount } = render(<ChartPanel />);
+    await vi.waitFor(() => expect(draw.drawChart).toHaveBeenCalled());
+
+    expect(await getShownChartPicture()).toEqual({
+      png: "data:image/png;base64,AAAA",
+      description: "Bar chart of count(*) by weekday, 2 bars, highest 4 (3), lowest 2 (5)",
+    });
+
+    await user.click(screen.getByRole("button", { name: "View as table" }));
+    expect(await getShownChartPicture()).toBeNull();
+    await user.click(screen.getByRole("button", { name: "View as table" }));
+
+    unmount();
+    expect(await getShownChartPicture()).toBeNull();
   });
 });

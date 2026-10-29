@@ -16,7 +16,7 @@ import { download, exportFileName } from "@/features/results/export";
 import { getQueryRun, subscribeToQueryRun } from "@/features/results/query-run";
 import { getResult, subscribeToResult } from "@/features/results/result-store";
 import { getChartPreset, subscribeToChartPreset } from "./chart-preset";
-import { setShownChart } from "./chart-settings";
+import { type ChartPicture, setShownChart, setShownChartPicture } from "./chart-settings";
 import {
   type Aggregate,
   type ChartColumn,
@@ -93,6 +93,17 @@ const AGGREGATES: Aggregate[] = ["count", "sum", "avg", "min", "max"];
 const PARETO_AGGREGATES: Aggregate[] = ["count", "sum"];
 
 const selectClass = "h-7 rounded-md border border-input bg-background px-1.5 text-xs";
+
+/** The chart drawn in `container` as a PNG, described by `label`; null when none is drawn there. */
+async function pictureOf(
+  container: HTMLElement | null,
+  label: string,
+): Promise<ChartPicture | null> {
+  if (!container) return null;
+  const { chartPng } = await import("./draw-chart");
+  const png = chartPng(container);
+  return png ? { png, description: label } : null;
+}
 
 function column<T>(table: Table, name: string): T[] {
   return Array.from(table.getChild(name) ?? []) as T[];
@@ -271,12 +282,17 @@ export function ChartPanel() {
     };
   }, [source, specKey]);
 
-  // Kept for share links, which carry the settings of the chart on screen.
+  // Kept for share links, which carry the settings of the chart on screen, and for reports,
+  // which picture it.
   useEffect(() => {
     if (!chart) return;
     const { type, x, y, aggregate } = chart.spec;
     setShownChart({ type, x: x.name, ...(y && { y: y.name }), aggregate });
-    return () => setShownChart(null);
+    setShownChartPicture(() => pictureOf(canvas.current, chart.label));
+    return () => {
+      setShownChart(null);
+      setShownChartPicture(null);
+    };
   }, [chart]);
 
   const columnOptions = (options: ChartColumn[]) =>
@@ -327,9 +343,8 @@ export function ChartPanel() {
           className="ml-auto"
           disabled={!chart || showTable}
           onClick={async () => {
-            const { chartPng } = await import("./draw-chart");
-            const png = canvas.current && chartPng(canvas.current);
-            if (png) download(png, exportFileName("png", new Date(), "chart"));
+            const picture = chart && (await pictureOf(canvas.current, chart.label));
+            if (picture) download(picture.png, exportFileName("png", new Date(), "chart"));
           }}
         >
           Export PNG

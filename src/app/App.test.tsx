@@ -132,6 +132,7 @@ describe("App shell", () => {
       "Show chart",
       "Export as CSV",
       "Export as Parquet",
+      "Export as HTML report",
       "Share query",
       "Browse templates",
       "Import files",
@@ -155,6 +156,7 @@ describe("App shell", () => {
       "Cancel queryEsc",
       "Export as CSV",
       "Export as Parquet",
+      "Export as HTML report",
       "Share query",
     ]);
   });
