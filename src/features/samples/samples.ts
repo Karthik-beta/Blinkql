@@ -1,7 +1,8 @@
-// Sample datasets for templates, onboarding and teaching: a week in a made-up factory. Every
-// table is generated in SQL with `range()`, and `hash()` stands in for randomness, so the data is
-// the same on every run and nothing is downloaded. The machines, operators, orders and plants are
-// synthetic; they follow the shape of real MES and ERP exports (issue #42).
+// Sample datasets for templates, onboarding and teaching: a week in a made-up factory and a quarter
+// of its shipments. Every table is generated in SQL with `range()`, and `hash()` stands in for
+// randomness, so the data is the same on every run and nothing is downloaded. The machines,
+// operators, orders, plants, carriers and lanes are synthetic; they follow the shape of real MES,
+// ERP and transport management exports (issues #42 and #169).
 import { exportQuery } from "@/engine/engine";
 import { getCatalog, importFiles } from "@/features/catalog/catalog";
 
@@ -225,6 +226,53 @@ const itemImportSql = `SELECT
 FROM range(60) t(i)
 ORDER BY i`;
 
+// A quarter of road freight out of the plants, as a transport management system exports it. Each
+// lane has a promised transit time and a rate per kg; each carrier is late more or less often and
+// charges more or less, and longer lanes run late more often. Some long-haul loads arrive a day
+// early, small loads pay a minimum charge, and shipments still on the road at the end of September
+// have no delivery date yet.
+const shipmentsSql = `WITH carriers(c, carrier, late_rate, price) AS (VALUES
+  (0, 'Arrow Roadways', 0.04, 1.30),
+  (1, 'Coastline Cargo', 0.14, 1.00),
+  (2, 'Deccan Haulage', 0.36, 0.80),
+  (3, 'Kaveri Transport', 0.09, 0.95),
+  (4, 'Summit Freight', 0.24, 1.15)
+),
+lanes(l, origin, destination, transit_days, rate_per_kg, lane_risk) AS (VALUES
+  (0, 'Pune', 'Mumbai', 1, 4.0, 0.00),
+  (1, 'Pune', 'Delhi', 4, 9.0, 0.05),
+  (2, 'Chennai', 'Bengaluru', 1, 4.5, 0.00),
+  (3, 'Chennai', 'Kolkata', 4, 10.0, 0.06),
+  (4, 'Coimbatore', 'Kochi', 1, 3.5, 0.02),
+  (5, 'Coimbatore', 'Hyderabad', 2, 6.0, 0.03),
+  (6, 'Hosur', 'Ahmedabad', 4, 9.5, 0.08),
+  (7, 'Hosur', 'Guwahati', 7, 14.0, 0.15)
+),
+booked AS (
+  SELECT carriers.*, lanes.*, i, ${unit("i", "3")} AS u, ${unit("i", "4")} AS v,
+    ${unit("i", "5")} AS w, ${unit("i", "7")} AS x,
+    DATE '2026-07-01' + CAST(hash(i, 6) % 92 AS INTEGER) AS ship_date,
+    CASE WHEN u < late_rate + lane_risk THEN 1 + CAST(floor(v * (1 + transit_days)) AS INTEGER)
+      WHEN u > 0.8 AND transit_days > 1 THEN -1 ELSE 0 END AS delay_days,
+    round(50 + 2450 * w * w, 1) AS weight_kg
+  FROM range(1000) t(i)
+  JOIN carriers ON c = hash(i, 1) % 5
+  JOIN lanes ON l = hash(i, 2) % 8
+)
+SELECT
+  'SHP-' || (100000 + row_number() OVER (ORDER BY ship_date, i)) AS shipment_id,
+  carrier,
+  origin,
+  destination,
+  ship_date,
+  ship_date + transit_days AS promised_date,
+  CASE WHEN ship_date + transit_days + delay_days <= DATE '2026-09-30'
+    THEN ship_date + transit_days + delay_days END AS delivered_date,
+  weight_kg,
+  round(greatest(1500, weight_kg * rate_per_kg * price * (0.9 + 0.2 * x)), 2) AS freight_cost
+FROM booked
+ORDER BY shipment_id`;
+
 export const samples: readonly Sample[] = [
   {
     name: "machine_telemetry",
@@ -282,6 +330,13 @@ export const samples: readonly Sample[] = [
     title: "Plants",
     description: "The plant codes that items may refer to.",
     sql: plantsSql,
+  },
+  {
+    name: "shipments",
+    title: "Shipments",
+    description:
+      "A quarter's freight from the plants: carrier, lane, promised and delivered dates, weight and cost.",
+    sql: shipmentsSql,
   },
 ];
 

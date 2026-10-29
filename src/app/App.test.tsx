@@ -144,6 +144,7 @@ describe("App shell", () => {
       "Load sample data: MES work orders",
       "Load sample data: Item import",
       "Load sample data: Plants",
+      "Load sample data: Shipments",
       "Take the tour",
       "Restart engine",
       "Show keyboard shortcuts",

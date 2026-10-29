@@ -417,7 +417,8 @@ function LoadSampleButton({
       <DialogContent>
         <DialogTitle>Load sample data</DialogTitle>
         <DialogDescription>
-          A made-up week in a factory, generated in this browser. Each sample becomes a table.
+          A made-up factory's week and a quarter of its shipments, generated in this browser. Each
+          sample becomes a table.
         </DialogDescription>
         <ul className="-mx-2 flex flex-col">
           {samples.map((sample) => {
