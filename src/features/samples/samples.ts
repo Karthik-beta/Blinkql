@@ -112,7 +112,7 @@ SELECT
     ELSE 0 END AS total_count,
   total_count - CASE WHEN v < scrap_rate * total_count THEN 1 ELSE 0 END AS good_count
 FROM minutes LEFT JOIN down ON down.machine_id = minutes.machine_id AND down_at = minute_at
-ORDER BY machine_id, minute_at`;
+ORDER BY minutes.machine_id, minute_at`;
 
 // Each machine has one operator per shift. The day a shift belongs to starts at 06:00, so the
 // hours after midnight count towards the night shift that started the evening before. An operator

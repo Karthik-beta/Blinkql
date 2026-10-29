@@ -335,6 +335,10 @@ export function ChartPanel() {
           Export PNG
         </Button>
       </div>
+      {/* The canvas's name changes silently; this says what a new setting drew. */}
+      <p aria-live="polite" className="sr-only">
+        {chart?.label}
+      </p>
       {error ? (
         <p role="alert" className="p-3 text-xs text-destructive">
           {error}

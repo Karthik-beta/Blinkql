@@ -50,6 +50,17 @@ describe("ChartPanel", () => {
     );
   });
 
+  it("announces each chart it draws, so changing a setting is heard", async () => {
+    engine.query.mockResolvedValue(chartRows);
+    const user = userEvent.setup();
+    render(<ChartPanel />);
+    const label = "Bar chart of count(*) by weekday, 2 bars, highest 4 (3), lowest 2 (5)";
+    expect(await screen.findByText(label)).toHaveAttribute("aria-live", "polite");
+
+    await user.selectOptions(screen.getByLabelText("Chart type"), "line");
+    expect(await screen.findByText(/^Line chart of /)).toHaveAttribute("aria-live", "polite");
+  });
+
   it("shows the chart's data as a table", async () => {
     engine.query.mockResolvedValue(chartRows);
     const user = userEvent.setup();

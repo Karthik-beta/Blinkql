@@ -55,6 +55,16 @@ describe("App shell", () => {
     expect(editor.getByRole("textbox", { name: "SQL editor" })).toBeInTheDocument();
   });
 
+  it("starts with a link that skips to the workspace without changing the URL", () => {
+    render(<App />);
+
+    const skip = screen.getByRole("link", { name: "Skip to the workspace" });
+    skip.focus();
+    act(() => skip.click());
+    expect(screen.getByRole("main", { name: "Workspace" })).toHaveFocus();
+    expect(location.hash).toBe("");
+  });
+
   it("marks the app shell for the benchmark harness", () => {
     render(<App />);
 

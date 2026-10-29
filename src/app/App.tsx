@@ -164,6 +164,19 @@ export function App() {
 
   return (
     <div className="flex h-dvh flex-col">
+      {/* The sidebar can hold hundreds of buttons (history). Focused here rather than by following
+          the link, so the URL stays as it is. */}
+      {/* biome-ignore lint/a11y/useValidAnchor: skip links are links, which is what screen reader users expect to find */}
+      <a
+        href="#workspace"
+        className="sr-only z-50 rounded-md border bg-popover px-3 py-1 text-popover-foreground text-xs focus:not-sr-only focus:fixed focus:top-2 focus:left-4 focus:outline-2 focus:outline-ring"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById("workspace")?.focus();
+        }}
+      >
+        Skip to the workspace
+      </a>
       <header className="flex h-11 shrink-0 items-center border-b bg-chrome px-4">
         <img src={wordmarkLight} alt="Blinkql" className="h-5 w-auto dark:hidden" />
         <img src={wordmarkDark} alt="Blinkql" className="hidden h-5 w-auto dark:block" />
@@ -177,7 +190,12 @@ export function App() {
           <CatalogPanel ref={handles.catalogPanel} />
           <HistoryPanel />
         </div>
-        <main aria-label="Workspace" className="flex min-w-0 flex-1 flex-col">
+        <main
+          id="workspace"
+          aria-label="Workspace"
+          tabIndex={-1}
+          className="flex min-w-0 flex-1 flex-col outline-none"
+        >
           <QueryPanel ref={handles.queryPanel} onRestart={() => void restart()} />
           <div className="flex items-center gap-3 border-t px-3 py-1">
             <fieldset aria-label="Results view" className="flex gap-1">

@@ -16,7 +16,8 @@ async function openWorkbench(page: Page) {
 
 /** Presses Tab until the SQL editor has focus, the way a keyboard-only user gets there. */
 async function tabToEditor(page: Page) {
-  for (let presses = 0; presses < 10; presses++) {
+  // The skip link, the header buttons and the tables list come first.
+  for (let presses = 0; presses < 15; presses++) {
     await page.keyboard.press("Tab");
     // The editor is in a shadow root (src/features/editor/SqlEditor.tsx), so ask that root.
     const focused = await editor(page).evaluate(
