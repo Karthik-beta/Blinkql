@@ -1,12 +1,15 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DuckDBInstance } from "@duckdb/node-api";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
+// Excel support is an extension the engine fetches and compiles when a workbook is first opened.
+const EXTENSION_TIMEOUT = 30_000;
 
 type Fixture = { name: string; mimeType: string; buffer: Buffer };
 
@@ -28,6 +31,10 @@ const jsonLines: Fixture = {
   ),
 };
 let parquet: Fixture;
+// Five machines with a header row and text, number, date and true/false columns, some empty.
+// Committed rather than written in beforeAll, since native DuckDB writes .xlsx only with its excel
+// extension, downloaded on first use: `COPY (…) TO 'machines.xlsx' (FORMAT xlsx, HEADER true)`.
+const excelWorkbook = fileURLToPath(new URL("data/machines.xlsx", import.meta.url));
 
 test.beforeAll(async () => {
   // A real Parquet file, written by native DuckDB.
@@ -144,13 +151,69 @@ test.describe("file import", () => {
 
     const alert = page.getByRole("alert");
     await expect(alert).toContainText(
-      "Couldn't import notes.txt: Not a CSV, TSV, Parquet, JSON or JSON Lines file",
+      "Couldn't import notes.txt: Not a CSV, TSV, Excel (.xlsx), Parquet, JSON or JSON Lines file",
     );
     await expect(alert).toContainText(
       "Couldn't import broken.parquet: File 'broken.parquet' too small to be a Parquet file",
     );
     await expect(alert).not.toContainText("exception_type");
     await expect(alert).not.toContainText("exception_message");
+    await expect(tableList(page)).toHaveCount(0);
+  });
+
+  test("imports an Excel workbook's first sheet, loading Excel support only then", async ({
+    page,
+  }) => {
+    const excelRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/excel.duckdb_extension")) excelRequests.push(request.url());
+    });
+    await openWorkbench(page);
+    expect(excelRequests).toEqual([]);
+
+    await page.getByLabel("Import files").setInputFiles(excelWorkbook);
+
+    await expect(tableList(page).getByRole("treeitem")).toHaveText(
+      [/^machines Excel · 6 columns · [\d.]+ KB$/],
+      { timeout: EXTENSION_TIMEOUT },
+    );
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    expect(excelRequests).toHaveLength(1);
+
+    const editor = page.getByRole("textbox", { name: "SQL editor" });
+    await editor.click();
+    await page.keyboard.type(
+      "SELECT kind, hours, installed, active FROM machines WHERE line = 2 ORDER BY machine_id",
+    );
+    await page.keyboard.press("ControlOrMeta+Enter");
+
+    const rows = page.getByRole("grid", { name: "Results" }).getByRole("row");
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(1)).toHaveText(/Mill.*7\.25.*2025-01-15.*true/);
+    await expect(rows.nth(2)).toHaveText(/Grinder.*30.*2022-06-01.*true/);
+  });
+
+  test("explains which workbooks it can't read", async ({ page }) => {
+    await openWorkbench(page);
+
+    await page.getByLabel("Import files").setInputFiles([
+      { name: "old.xls", mimeType: "application/vnd.ms-excel", buffer: Buffer.from("old") },
+      // What a password-protected workbook starts with: an encrypted container, not a zip.
+      {
+        name: "locked.xlsx",
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: Buffer.from("d0cf11e0a1b11ae1000000000000000000000000", "hex"),
+      },
+    ]);
+
+    const alert = page.getByRole("alert");
+    await expect(alert).toContainText(
+      "Couldn't import old.xls: Excel 97–2003 workbooks (.xls) can't be read. Save it as .xlsx in Excel first.",
+    );
+    await expect(alert).toContainText(
+      "Couldn't import locked.xlsx: The workbook can't be read. It may be password-protected",
+      { timeout: EXTENSION_TIMEOUT },
+    );
     await expect(tableList(page)).toHaveCount(0);
   });
 

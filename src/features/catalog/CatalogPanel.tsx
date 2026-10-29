@@ -54,6 +54,7 @@ const formatLabels: Readonly<Record<FileFormat, string>> = {
   parquet: "Parquet",
   json: "JSON",
   jsonl: "JSON lines",
+  xlsx: "Excel",
 };
 
 const count = new Intl.NumberFormat();
@@ -598,8 +599,8 @@ export function CatalogPanel({ ref }: { ref?: Ref<CatalogHandle> }) {
 
       {catalog.tables.length === 0 && catalog.importing.length === 0 && (
         <p className="text-muted-foreground text-xs">
-          No tables yet. Drop a CSV, Parquet or JSON file anywhere, use Import files, or load sample
-          data to try things out.
+          No tables yet. Drop a CSV, Excel, Parquet or JSON file anywhere, use Import files, or load
+          sample data to try things out.
         </p>
       )}
       {catalog.tables.length > 0 && (
