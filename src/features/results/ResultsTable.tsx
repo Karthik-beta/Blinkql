@@ -1,6 +1,6 @@
 // biome-ignore-all lint/a11y/useSemanticElements: a virtualized grid can't be a <table>; it positions its rows itself, so it uses ARIA grid roles
 // biome-ignore-all lint/a11y/useFocusableInteractive: the grid keeps the focus and points at the active cell with aria-activedescendant, so rows and cells take none
-import { DataType } from "apache-arrow";
+import type { DataType } from "apache-arrow";
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -16,6 +16,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { afterNextPaint, measureSince, measures } from "@/lib/user-timing";
+import { isNumeric } from "./cells";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 import { getResult, type Result, readCell, subscribeToResult } from "./result-store";
 import { type Cell, selectionBounds, selectionText } from "./selection";
@@ -50,11 +51,8 @@ const RESIZE_STEP_PX = 16;
 /** Whether the last query failed: the one thing about the query run the table depends on. */
 const lastRunFailed = () => getQueryRun().state === "failed";
 
-/** Numbers line up on the right, so their digits do too. */
 function alignment(type: DataType): string {
-  return DataType.isInt(type) || DataType.isFloat(type) || DataType.isDecimal(type)
-    ? "text-right"
-    : "text-left";
+  return isNumeric(type) ? "text-right" : "text-left";
 }
 
 /**

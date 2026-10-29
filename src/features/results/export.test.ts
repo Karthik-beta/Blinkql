@@ -1,5 +1,8 @@
+import { Int32, Table, Utf8, vectorFromArray } from "apache-arrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { exportFileName, exportResult } from "./export";
+import { setShownChartPicture } from "@/features/charts/chart-settings";
+import { exportFileName, exportReport, exportResult } from "./export";
+import { appendRows, clearResult, finishResult, startResult } from "./result-store";
 
 const engine = vi.hoisted(() => ({
   exportQuery: vi.fn(
@@ -24,6 +27,8 @@ describe("export", () => {
   });
 
   afterEach(() => {
+    clearResult();
+    setShownChartPicture(null);
     vi.clearAllMocks();
   });
 
@@ -54,5 +59,80 @@ describe("export", () => {
 
     await expect(exportResult("SELECT * FROM nope", "parquet")).rejects.toThrow("no such table");
     expect(clicked).toEqual([]);
+  });
+
+  /** Shows `table` as the result on screen. */
+  function show(table: Table): void {
+    startResult(table.schema, 0);
+    for (const rows of table.batches) appendRows(rows);
+    finishResult(0);
+  }
+
+  /** The HTML of the report downloaded last. */
+  async function downloadedReport(): Promise<string> {
+    const blob = vi.mocked(URL.createObjectURL).mock.calls.at(-1)?.[0] as Blob;
+    expect(blob.type).toBe("text/html");
+    return blob.text();
+  }
+
+  it("downloads the result on screen as an HTML report, without running the query again", async () => {
+    show(
+      new Table({
+        id: vectorFromArray([1, 2], new Int32()),
+        machine: vectorFromArray(["press", null], new Utf8()),
+      }),
+    );
+
+    const name = await exportReport("SELECT id, machine FROM machines");
+
+    expect(engine.exportQuery).not.toHaveBeenCalled();
+    expect(name).toMatch(/^blinkql-report-\d{4}-\d{2}-\d{2}-\d{6}\.html$/);
+    expect(clicked[0]?.download).toBe(name);
+    const doc = new DOMParser().parseFromString(await downloadedReport(), "text/html");
+    expect(doc.querySelector("pre > code")?.textContent).toBe("SELECT id, machine FROM machines");
+    expect([...doc.querySelectorAll("th")].map((th) => [th.textContent, th.className])).toEqual([
+      ["id", "number"],
+      ["machine", ""],
+    ]);
+    expect(
+      [...doc.querySelectorAll("tbody tr")].map((row) =>
+        [...row.children].map((cell) => cell.textContent),
+      ),
+    ).toEqual([
+      ["1", "press"],
+      ["2", "NULL"],
+    ]);
+    expect(doc.querySelector("img")).toBeNull();
+  });
+
+  it("takes only the first 1,000 rows of a larger result", async () => {
+    show(
+      new Table({
+        n: vectorFromArray(
+          Array.from({ length: 1_200 }, (_, i) => i),
+          new Int32(),
+        ),
+      }),
+    );
+
+    await exportReport("SELECT n FROM t");
+
+    const doc = new DOMParser().parseFromString(await downloadedReport(), "text/html");
+    expect(doc.querySelectorAll("tbody tr")).toHaveLength(1_000);
+    expect(doc.querySelector("caption")?.textContent).toBe("Result: first 1,000 of 1,200 rows");
+  });
+
+  it("includes the chart on screen", async () => {
+    show(new Table({ n: vectorFromArray([1], new Int32()) }));
+    setShownChartPicture(async () => ({
+      png: "data:image/png;base64,AAAA",
+      description: "Bar chart of count(*) by n, 1 bar",
+    }));
+
+    await exportReport("SELECT 1 AS n");
+
+    const doc = new DOMParser().parseFromString(await downloadedReport(), "text/html");
+    expect(doc.querySelector("img")?.getAttribute("src")).toBe("data:image/png;base64,AAAA");
+    expect(doc.querySelector("img")?.getAttribute("alt")).toBe("Bar chart of count(*) by n, 1 bar");
   });
 });
