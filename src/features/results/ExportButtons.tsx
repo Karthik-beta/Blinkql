@@ -1,19 +1,25 @@
 // Buttons that download the last finished query's result as CSV or Parquet.
 import { Download } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { type Ref, useImperativeHandle, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { parseEngineError } from "./engine-error";
 import { type ExportFormat, exportResult } from "./export";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 
-const FORMATS: { format: ExportFormat; label: string }[] = [
+/** The formats a result can be exported as. */
+export const exportFormats: readonly { format: ExportFormat; label: string }[] = [
   { format: "csv", label: "CSV" },
   { format: "parquet", label: "Parquet" },
 ];
 
 type Outcome = { message: string; failed: boolean };
 
-export function ExportButtons() {
+export type ExportHandle = {
+  /** Exports the last result, as its button does. */
+  exportAs(format: ExportFormat): void;
+};
+
+export function ExportButtons({ ref }: { ref?: Ref<ExportHandle> }) {
   const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
   const [exporting, setExporting] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -38,6 +44,8 @@ export function ExportButtons() {
     }
   };
 
+  useImperativeHandle(ref, () => ({ exportAs: (format) => void exportAs(format) }));
+
   return (
     <div className="ml-auto flex min-w-0 items-center gap-1">
       <span
@@ -48,7 +56,7 @@ export function ExportButtons() {
       </span>
       <fieldset aria-label="Export" className="flex items-center gap-1">
         <Download aria-hidden className="size-3.5 text-muted-foreground" />
-        {FORMATS.map(({ format, label }) => (
+        {exportFormats.map(({ format, label }) => (
           <Button
             key={format}
             variant="ghost"

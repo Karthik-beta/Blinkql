@@ -2,7 +2,14 @@
 // columns to the ones it needs. Running it puts its SQL in the editor and runs it there, so the
 // query can be read, changed and rerun like any other.
 import { ArrowLeft, LayoutTemplate } from "lucide-react";
-import { type FormEvent, useId, useState, useSyncExternalStore } from "react";
+import {
+  type FormEvent,
+  type Ref,
+  useId,
+  useImperativeHandle,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { getCatalog, subscribeToCatalog } from "@/features/catalog/catalog";
@@ -288,21 +295,24 @@ function TemplateForm({
   );
 }
 
+export type TemplatesHandle = {
+  /** Opens the gallery, as the button does. */
+  open(): void;
+};
+
 /** The "Templates" button and the dialog it opens. */
-export function TemplatesDialog() {
+export function TemplatesDialog({ ref }: { ref?: Ref<TemplatesHandle> }) {
   const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState<Template | null>(null);
+  const show = () => {
+    // Back to the gallery each time; not on close, so it doesn't flash while closing.
+    setChosen(null);
+    setOpen(true);
+  };
+  useImperativeHandle(ref, () => ({ open: show }));
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          // Back to the gallery each time; not on close, so it doesn't flash while closing.
-          setChosen(null);
-          setOpen(true);
-        }}
-      >
+      <Button variant="outline" size="sm" onClick={show}>
         <LayoutTemplate data-icon="inline-start" aria-hidden />
         Templates
       </Button>

@@ -1,5 +1,15 @@
 import { Play, Square } from "lucide-react";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  lazy,
+  type Ref,
+  Suspense,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { ErrorPanel } from "@/features/results/ErrorPanel";
 import { errorSpan, parseEngineError } from "@/features/results/engine-error";
@@ -51,13 +61,19 @@ function Summary({ run }: { run: QueryRun }) {
   }
 }
 
+export type QueryPanelHandle = {
+  /** Runs what Run would: the selection, or the whole editor. */
+  run(): void;
+};
+
 type Props = {
+  ref?: Ref<QueryPanelHandle>;
   /** Restarts the engine, offered when it crashed. */
   onRestart?: () => void;
 };
 
 /** The SQL editor with its toolbar (Run) and, below it, the results bar. */
-export function QueryPanel({ onRestart }: Props) {
+export function QueryPanel({ ref, onRestart }: Props) {
   const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
   const editor = useRef<SqlEditorHandle>(null);
   const running = run.state === "running";
@@ -92,6 +108,8 @@ export function QueryPanel({ onRestart }: Props) {
   }, [running]);
 
   const runSql = ({ sql, from }: { sql: string; from: number }) => void runQuery(sql, from);
+  const runEditor = () => editor.current && runSql(editor.current.sqlToRun());
+  useImperativeHandle(ref, () => ({ run: runEditor }));
 
   return (
     <section aria-label="Query" className="flex min-h-0 flex-1 flex-col">
@@ -110,7 +128,7 @@ export function QueryPanel({ onRestart }: Props) {
           focusableWhenDisabled
           disabled={running}
           aria-keyshortcuts={runShortcut.aria}
-          onClick={() => editor.current && runSql(editor.current.sqlToRun())}
+          onClick={runEditor}
         >
           <Play data-icon="inline-start" aria-hidden />
           {running ? (

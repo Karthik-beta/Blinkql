@@ -1,4 +1,5 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineStatus } from "@/engine/engine";
 import { setChartPreset } from "@/features/charts/chart-preset";
@@ -105,5 +106,66 @@ describe("App shell", () => {
     expect(chart).toHaveAttribute("aria-pressed", "true");
     expect(await screen.findByRole("region", { name: "Chart" })).toBeInTheDocument();
     act(() => setChartPreset(null));
+  });
+
+  it("reaches every core action from the command palette", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Commands" }));
+
+    const options = await screen.findAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Run queryCtrl+Enter",
+      "Cancel queryEsc",
+      "Show table",
+      "Show chart",
+      "Export as CSV",
+      "Export as Parquet",
+      "Share query",
+      "Browse templates",
+      "Import files",
+      "Load sample data: Machine telemetry",
+      "Load sample data: Breakdown log",
+      "Load sample data: Shift output",
+      "Load sample data: Attendance",
+      "Load sample data: Quality checks",
+      "Load sample data: ERP work orders",
+      "Load sample data: MES work orders",
+      "Load sample data: Item import",
+      "Load sample data: Plants",
+      "Restart engine",
+      "Show keyboard shortcuts",
+    ]);
+    // Nothing is running and there's no result yet.
+    const disabled = options.filter((option) => option.getAttribute("aria-disabled") === "true");
+    expect(disabled.map((option) => option.textContent)).toEqual([
+      "Cancel queryEsc",
+      "Export as CSV",
+      "Export as Parquet",
+      "Share query",
+    ]);
+  });
+
+  it("switches to the chart and back from the command palette", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const chart = screen.getByRole("button", { name: "Chart" });
+
+    await user.keyboard("{Control>}k{/Control}");
+    await user.keyboard("show chart{Enter}");
+    await waitFor(() => expect(chart).toHaveAttribute("aria-pressed", "true"));
+
+    await user.keyboard("{Control>}k{/Control}");
+    await user.keyboard("show table{Enter}");
+    await waitFor(() => expect(chart).toHaveAttribute("aria-pressed", "false"));
+  });
+
+  it("opens the keyboard shortcuts from the command palette", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.keyboard("{Control>}k{/Control}");
+    await user.keyboard("shortcuts{Enter}");
+    expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeInTheDocument();
   });
 });

@@ -12,8 +12,10 @@ import {
   type FocusEvent,
   type FormEvent,
   type KeyboardEvent,
+  type Ref,
   useEffect,
   useId,
+  useImperativeHandle,
   useRef,
   useState,
   useSyncExternalStore,
@@ -363,7 +365,13 @@ function AddUrlButton() {
 }
 
 /** A button that opens the list of sample datasets; picking one loads it as a table. */
-function LoadSampleButton({ tables }: { tables: readonly ImportedTable[] }) {
+function LoadSampleButton({
+  ref,
+  tables,
+}: {
+  ref: Ref<{ load(name: string): void }>;
+  tables: readonly ImportedTable[];
+}) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -385,6 +393,13 @@ function LoadSampleButton({ tables }: { tables: readonly ImportedTable[] }) {
       setLoading(null);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    load(name) {
+      setOpen(true);
+      void load(name);
+    },
+  }));
 
   return (
     <Dialog
@@ -438,14 +453,26 @@ function LoadSampleButton({ tables }: { tables: readonly ImportedTable[] }) {
   );
 }
 
+export type CatalogHandle = {
+  /** Opens the file picker, as Import files does. */
+  importFiles(): void;
+  /** Loads a sample, showing how it goes in the sample data dialog. */
+  loadSample(name: string): void;
+};
+
 /**
  * The schema browser: a tree of tables and their columns (the ARIA tree pattern, one Tab stop),
  * with buttons that open the file picker, ask for a file's URL and load sample data. Clicking a
  * name, or pressing Enter on it, inserts it into the editor.
  */
-export function CatalogPanel() {
+export function CatalogPanel({ ref }: { ref?: Ref<CatalogHandle> }) {
   const catalog = useSyncExternalStore(subscribeToCatalog, getCatalog);
   const input = useRef<HTMLInputElement>(null);
+  const sampleButton = useRef<{ load(name: string): void }>(null);
+  useImperativeHandle(ref, () => ({
+    importFiles: () => input.current?.click(),
+    loadSample: (name) => sampleButton.current?.load(name),
+  }));
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [active, setActive] = useState<string | null>(null);
   const items = useRef(new Map<string, HTMLDivElement>());
@@ -591,7 +618,7 @@ export function CatalogPanel() {
           ))}
         </div>
       )}
-      <LoadSampleButton tables={catalog.tables} />
+      <LoadSampleButton ref={sampleButton} tables={catalog.tables} />
 
       <div aria-live="polite" className="text-muted-foreground text-xs">
         {catalog.importing.length > 0 && <p>Importing {catalog.importing.join(", ")}…</p>}

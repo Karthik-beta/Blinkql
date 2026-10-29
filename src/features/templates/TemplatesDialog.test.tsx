@@ -1,10 +1,11 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Catalog } from "@/features/catalog/catalog";
 import { getChartPreset, setChartPreset } from "@/features/charts/chart-preset";
 import { setEditorContents } from "@/features/editor/insert";
-import { TemplatesDialog } from "./TemplatesDialog";
+import { TemplatesDialog, type TemplatesHandle } from "./TemplatesDialog";
 
 // The catalog holds whatever tables a test gives it; loading the sample adds quality_checks.
 const catalog = vi.hoisted(() => {
@@ -154,5 +155,13 @@ describe("TemplatesDialog", () => {
     const user = await openTemplate();
     await user.click(screen.getByRole("button", { name: "All templates" }));
     expect(screen.getByRole("heading", { name: "Templates" })).toBeInTheDocument();
+  });
+
+  it("opens the gallery through its handle, such as from the command palette", () => {
+    const dialog = createRef<TemplatesHandle>();
+    render(<TemplatesDialog ref={dialog} />);
+
+    act(() => dialog.current?.open());
+    expect(screen.getByRole("dialog", { name: "Templates" })).toBeInTheDocument();
   });
 });
