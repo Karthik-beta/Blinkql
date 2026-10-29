@@ -3,13 +3,7 @@
 import { readFileSync } from "node:fs";
 import type { Plugin } from "vite";
 import { milestones } from "./milestones.ts";
-import {
-  currentMilestone,
-  inlineWordmark,
-  renderGrid,
-  renderMilestones,
-  renderSql,
-} from "./render.ts";
+import { inlineWordmark, renderGrid, renderMilestones, renderSql } from "./render.ts";
 import { sampleQuery } from "./sample.ts";
 
 const wordmarkSvg = new URL("../../brand/logo/blinkql-wordmark-light.svg", import.meta.url);
@@ -22,14 +16,11 @@ const wordmarkSvg = new URL("../../brand/logo/blinkql-wordmark-light.svg", impor
 const PRELOAD_FONTS = ["atkinson-hyperlegible-next-latin-wght-normal"];
 
 function fragments(): Record<string, string> {
-  const current = currentMilestone(milestones);
   return {
     wordmark: inlineWordmark(readFileSync(wordmarkSvg, "utf8")),
     sql: renderSql(),
     grid: renderGrid(),
     milestones: renderMilestones(milestones),
-    "current-code": current.code,
-    "current-name": current.name,
     "row-count": String(sampleQuery.rowCount),
     "elapsed-ms": String(sampleQuery.elapsedMs),
     "query-tab": sampleQuery.tab,

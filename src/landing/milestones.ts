@@ -58,8 +58,9 @@ export const milestones: readonly Milestone[] = [
   {
     code: "M7",
     name: "Version 1.0",
-    summary: "Accessibility, shortcuts, shareable query links and full docs.",
-    status: "current",
+    summary:
+      "Accessibility checks, a command palette, an onboarding tour, shareable query links and full docs.",
+    status: "done",
   },
 ];
 
