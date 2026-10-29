@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineStatus } from "@/engine/engine";
 import { setChartPreset } from "@/features/charts/chart-preset";
 import { findSqlEditor } from "@/features/editor/test-utils";
+import { endTour } from "@/features/tour/tour-step";
 import { marks } from "@/lib/user-timing";
 import { App } from "./App";
 
@@ -143,6 +144,7 @@ describe("App shell", () => {
       "Load sample data: MES work orders",
       "Load sample data: Item import",
       "Load sample data: Plants",
+      "Take the tour",
       "Restart engine",
       "Show keyboard shortcuts",
     ]);
@@ -168,6 +170,16 @@ describe("App shell", () => {
     await user.keyboard("{Control>}k{/Control}");
     await user.keyboard("show table{Enter}");
     await waitFor(() => expect(chart).toHaveAttribute("aria-pressed", "false"));
+  });
+
+  it("starts the tour from the command palette", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.keyboard("{Control>}k{/Control}");
+    await user.keyboard("take the tour{Enter}");
+    expect(await screen.findByRole("region", { name: "Tour" })).toBeInTheDocument();
+    act(() => endTour());
   });
 
   it("opens the keyboard shortcuts from the command palette", async () => {
