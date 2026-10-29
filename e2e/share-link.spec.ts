@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { animationsFinished, expect, test } from "./fixtures";
 
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
@@ -41,6 +41,7 @@ test.describe("Share links", () => {
     const dialog = page.getByRole("dialog", { name: "Share query" });
     await expect(dialog.getByText(/holds the query and chart settings, but no data/)).toBeVisible();
     const link = await dialog.getByLabel("Link").inputValue();
+    await animationsFinished(page);
     const scan = await makeAxeBuilder().include('[role="dialog"]').analyze();
     expect(scan.violations).toEqual([]);
 
