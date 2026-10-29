@@ -70,6 +70,23 @@ function longWorkDuringQueries(page: Page): Promise<LongWork[]> {
 }
 
 /**
+ * Waits for running transitions and animations to end, such as a dialog fading in, so a check
+ * sees the page as it settles. Infinite ones (the engine lamp breathes while it loads) are skipped.
+ */
+export function animationsFinished(page: Page): Promise<void> {
+  return page.evaluate(async () => {
+    // A transition can start a frame after whatever caused it, e.g. a dialog being opened.
+    for (let frame = 0; frame < 2; frame++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+    await Promise.allSettled(finite.map((animation) => animation.finished));
+  });
+}
+
+/**
  * Options for `test.use()` that put the page in a light or dark system colour scheme.
  *
  * Playwright's `colorScheme` emulation is lost in Firefox when Cross-Origin-Opener-Policy moves

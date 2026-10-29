@@ -86,6 +86,22 @@ describe("HistoryPanel", () => {
     expect(screen.getByText("Copied to the clipboard.")).toBeInTheDocument();
   });
 
+  it("describes each past run's buttons by its SQL, so they can be told apart", () => {
+    render(<HistoryPanel />);
+    ran("SELECT 1");
+    ran("SELECT 2");
+
+    const list = screen.getByRole("list", { name: "Query history" });
+    const descriptions = within(list)
+      .getAllByRole("button", { name: "Run again" })
+      .map((button) => button.getAttribute("aria-describedby"))
+      .map((id) => id && document.getElementById(id)?.textContent);
+    expect(descriptions).toEqual(["SELECT 2", "SELECT 1"]);
+    expect(
+      within(list).getAllByRole("button", { name: "Copy SQL" })[0],
+    ).toHaveAccessibleDescription("SELECT 2");
+  });
+
   it("saves the editor's SQL under a name, then opens and runs it", async () => {
     const user = userEvent.setup();
     render(<HistoryPanel />);

@@ -173,7 +173,8 @@ function TableItem({
         <div id={labelId} className="flex min-w-0 flex-1 flex-col">
           <div className="truncate font-mono text-xs" title={table.fileName}>
             {table.name}
-          </div>
+          </div>{" "}
+          {/* The space keeps the lines apart as text, so "name format" isn't read as one word. */}
           <div className="text-muted-foreground text-xs">
             {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
             {table.source instanceof File && ` · ${formatSize(table.source.size)}`}

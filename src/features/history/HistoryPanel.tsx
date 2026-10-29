@@ -1,5 +1,5 @@
 import { Copy, FolderOpen, Pencil, Play, Save, Trash2 } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { editorContents, replaceEditorContents } from "@/features/editor/insert";
 import { formatDuration, formatRows } from "@/features/results/format";
@@ -45,6 +45,7 @@ function Outcome({ entry }: { entry: HistoryEntry }) {
 function HistoryList({ onCopied }: { onCopied: (message: string) => void }) {
   const { history, loaded } = useSyncExternalStore(subscribeToHistory, getHistory);
   const [search, setSearch] = useState("");
+  const id = useId();
   const shown = filterHistory(history, search);
 
   const copy = (sql: string) =>
@@ -72,7 +73,11 @@ function HistoryList({ onCopied }: { onCopied: (message: string) => void }) {
         {shown.map((entry) => (
           <li key={entry.id} className="flex items-start gap-1 rounded-md px-1 py-1 hover:bg-muted">
             <div className="flex min-w-0 flex-1 flex-col">
-              <code className="truncate font-mono text-xs" title={entry.sql}>
+              <code
+                id={`${id}-${entry.id}`}
+                className="truncate font-mono text-xs"
+                title={entry.sql}
+              >
                 {entry.sql}
               </code>
               <span className="truncate text-muted-foreground text-xs tabular-nums">
@@ -86,6 +91,8 @@ function HistoryList({ onCopied }: { onCopied: (message: string) => void }) {
               variant="ghost"
               size="icon-sm"
               aria-label="Run again"
+              // Every past run has these buttons; its SQL tells screen reader users which is which.
+              aria-describedby={`${id}-${entry.id}`}
               title="Run again"
               onClick={() => openAndRun(entry.sql)}
             >
@@ -95,6 +102,7 @@ function HistoryList({ onCopied }: { onCopied: (message: string) => void }) {
               variant="ghost"
               size="icon-sm"
               aria-label="Copy SQL"
+              aria-describedby={`${id}-${entry.id}`}
               title="Copy SQL"
               onClick={() => void copy(entry.sql)}
             >

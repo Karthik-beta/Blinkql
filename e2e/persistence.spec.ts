@@ -52,11 +52,11 @@ test.describe("kept datasets", () => {
     test.slow();
     await openWorkbench(page);
     await page.getByLabel("Import files").setInputFiles([csv]);
-    await expect(tables(page)).toHaveText(["machine_eventsCSV · 3 columns · 49 B"]);
+    await expect(tables(page)).toHaveText(["machine_events CSV · 3 columns · 49 B"]);
     await expect.poll(() => storedNames(page)).toEqual(["machine_events"]);
 
     await openWorkbench(page);
-    await expect(tables(page)).toHaveText(["machine_eventsCSV · 3 columns · 49 B"]);
+    await expect(tables(page)).toHaveText(["machine_events CSV · 3 columns · 49 B"]);
     await editor(page).click();
     await page.keyboard.type("SELECT sum(minutes) AS total FROM machine_events");
     await page.keyboard.press("ControlOrMeta+Enter");
@@ -84,10 +84,10 @@ test.describe("kept datasets", () => {
     test.slow();
     await openWorkbench(page);
     await page.getByLabel("Import files").setInputFiles([csv]);
-    await expect(tables(page)).toHaveText(["machine_eventsCSV · 3 columns · 49 B"]);
+    await expect(tables(page)).toHaveText(["machine_events CSV · 3 columns · 49 B"]);
 
     await page.getByRole("button", { name: "Convert machine_events to Parquet" }).click();
-    await expect(tables(page)).toHaveText([/^machine_eventsParquet · 3 columns · /]);
+    await expect(tables(page)).toHaveText([/^machine_events Parquet · 3 columns · /]);
     await expect(
       page.getByRole("button", { name: "Convert machine_events to Parquet" }),
     ).toHaveCount(0);
@@ -101,7 +101,7 @@ test.describe("kept datasets", () => {
       .toEqual([["machine_events", "parquet"]]);
 
     await openWorkbench(page);
-    await expect(tables(page)).toHaveText([/^machine_eventsParquet · 3 columns · /]);
+    await expect(tables(page)).toHaveText([/^machine_events Parquet · 3 columns · /]);
     await editor(page).click();
     await page.keyboard.type("SELECT * FROM machine_events");
     await page.keyboard.press("ControlOrMeta+Enter");
@@ -120,7 +120,7 @@ test.describe("kept datasets", () => {
     await openWorkbench(page);
     await page.getByLabel("Import files").setInputFiles([csv]);
 
-    await expect(tables(page)).toHaveText(["machine_eventsCSV · 3 columns · 49 B"]);
+    await expect(tables(page)).toHaveText(["machine_events CSV · 3 columns · 49 B"]);
     await expect(
       page.getByText(
         "This browser can't keep these files, so their tables will be gone after a reload.",
