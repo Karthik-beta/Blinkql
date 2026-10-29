@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { animationsFinished, expect, test } from "./fixtures";
 
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
@@ -38,6 +38,7 @@ test.describe("Command palette", () => {
 
     await pressPaletteShortcut(page);
     await expect(search(page)).toBeFocused();
+    await animationsFinished(page);
     const scan = await makeAxeBuilder().include('[role="dialog"]').analyze();
     expect(scan.violations).toEqual([]);
     await page.keyboard.press("Escape");
@@ -79,6 +80,7 @@ test.describe("Command palette", () => {
     await runCommand(page, "keyboard shortcuts");
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog.getByRole("row", { name: /^Open the command palette/ })).toBeVisible();
+    await animationsFinished(page);
     const scan = await makeAxeBuilder().include('[role="dialog"]').analyze();
     expect(scan.violations).toEqual([]);
 

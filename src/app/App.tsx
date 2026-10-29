@@ -33,6 +33,8 @@ import { ResultsTable } from "@/features/results/ResultsTable";
 import { samples } from "@/features/samples/samples";
 import { ShareDialog, type ShareHandle } from "@/features/share/ShareDialog";
 import { TemplatesDialog, type TemplatesHandle } from "@/features/templates/TemplatesDialog";
+import { Tour, TourInvite } from "@/features/tour/Tour";
+import { startTour } from "@/features/tour/tour-step";
 import { afterNextPaint, markOnce, marks, recordCommit } from "@/lib/user-timing";
 import wordmarkDark from "../../brand/logo/blinkql-wordmark-dark.svg";
 import wordmarkLight from "../../brand/logo/blinkql-wordmark-light.svg";
@@ -120,6 +122,7 @@ function Commands({
       disabled: catalog.tables.some((table) => table.name === name),
       run: () => catalogPanel.current?.loadSample(name),
     })),
+    { id: "tour", label: "Take the tour", run: startTour },
     { id: "restart", label: "Restart engine", run: () => void restart() },
     { id: "shortcuts", label: "Show keyboard shortcuts", run: () => setShortcutsOpen(true) },
   ];
@@ -199,11 +202,12 @@ export function App() {
             <ShareDialog ref={handles.share} />
           </div>
           {/* The table stays mounted under the chart, so it keeps its scroll and selection. */}
-          <div hidden={showChart} className="flex min-h-0 flex-1 flex-col">
+          <div hidden={showChart} className="relative flex min-h-0 flex-1 flex-col">
             {/* Reports each render of the results to the benchmark in profiling builds. */}
             <Profiler id="results" onRender={recordCommit}>
               <ResultsTable />
             </Profiler>
+            <TourInvite />
           </div>
           {showChart && (
             // Fills the chart's space while it loads, so the bars around it don't move.
@@ -236,6 +240,7 @@ export function App() {
         </div>
       </footer>
       <FileDropOverlay />
+      <Tour />
     </div>
   );
 }
