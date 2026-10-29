@@ -16,16 +16,20 @@ describe("detectFormat", () => {
     ["shifts.json", "json"],
     ["alarms.jsonl", "jsonl"],
     ["alarms.ndjson", "jsonl"],
+    ["Plant.XLSX", "xlsx"],
   ])("reads %s as %s", (fileName, format) => {
     expect(detectFormat(fileName)).toBe(format);
   });
 
-  it.each(["notes.txt", "README", ".csv", "archive.csv.gz"])("rejects %s", (fileName) => {
-    expect(detectFormat(fileName)).toBeNull();
-  });
+  it.each(["notes.txt", "README", ".csv", "archive.csv.gz", "old.xls"])(
+    "rejects %s",
+    (fileName) => {
+      expect(detectFormat(fileName)).toBeNull();
+    },
+  );
 
   it("lists every accepted extension for the file picker", () => {
-    expect(acceptedExtensions).toBe(".csv,.tsv,.parquet,.json,.jsonl,.ndjson");
+    expect(acceptedExtensions).toBe(".csv,.tsv,.parquet,.json,.jsonl,.ndjson,.xlsx");
   });
 });
 
@@ -70,6 +74,7 @@ describe("SQL", () => {
     expect(readerFor("jsonl", "a.jsonl")).toBe(
       "read_json('a.jsonl', format = 'newline_delimited')",
     );
+    expect(readerFor("xlsx", "m.xlsx")).toBe("read_xlsx('m.xlsx')");
     expect(readerFor("csv", "it's.csv")).toBe("read_csv('it''s.csv')");
   });
 });

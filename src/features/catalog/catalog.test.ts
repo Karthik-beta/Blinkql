@@ -119,7 +119,54 @@ describe("catalog", () => {
 
     expect(engine.registerFile).not.toHaveBeenCalled();
     expect(getCatalog().failures).toEqual([
-      { fileName: "notes.txt", message: "Not a CSV, TSV, Parquet, JSON or JSON Lines file" },
+      {
+        fileName: "notes.txt",
+        message: "Not a CSV, TSV, Excel (.xlsx), Parquet, JSON or JSON Lines file",
+      },
+    ]);
+  });
+
+  it("imports the first sheet of an Excel workbook", async () => {
+    await importFiles([new File(["x"], "Plant.xlsx")]);
+
+    expect(engine.registerFile).toHaveBeenCalledWith("plant.xlsx", expect.any(File));
+    expect(engine.query).toHaveBeenCalledWith(
+      `CREATE VIEW "plant" AS SELECT * FROM read_xlsx('plant.xlsx')`,
+    );
+    expect(getCatalog().tables.map((table) => table.format)).toEqual(["xlsx"]);
+  });
+
+  it("asks for an old .xls workbook to be saved as .xlsx", async () => {
+    await importFiles([new File(["x"], "Plant.xls")]);
+
+    expect(engine.registerFile).not.toHaveBeenCalled();
+    expect(getCatalog().failures).toEqual([
+      {
+        fileName: "Plant.xls",
+        message: "Excel 97–2003 workbooks (.xls) can't be read. Save it as .xlsx in Excel first.",
+      },
+    ]);
+  });
+
+  it("explains a workbook that isn't a readable .xlsx, such as a password-protected one", async () => {
+    engine.query.mockRejectedValueOnce(
+      new Error(
+        JSON.stringify({
+          exception_type: "IO",
+          exception_message: "Failed to open zip for reading",
+        }),
+      ),
+    );
+
+    await importFiles([new File(["x"], "locked.xlsx")]);
+
+    expect(getCatalog().failures).toEqual([
+      {
+        fileName: "locked.xlsx",
+        message:
+          "The workbook can't be read. It may be password-protected or an older .xls file: " +
+          "remove the password or save it as .xlsx in Excel, then import it again.",
+      },
     ]);
   });
 
@@ -253,7 +300,7 @@ describe("catalog", () => {
     expect(getCatalog().failures).toEqual([
       {
         fileName: "https://example.com/report.pdf",
-        message: "Not a CSV, TSV, Parquet, JSON or JSON Lines file",
+        message: "Not a CSV, TSV, Excel (.xlsx), Parquet, JSON or JSON Lines file",
       },
     ]);
   });

@@ -101,7 +101,7 @@ async function boot(): Promise<Engine> {
     }
     const connection = await unlessCrashed(db.connect());
     markOnce(marks.engineConnected);
-    // Load extensions (Parquet, JSON) from our own origin instead of extensions.duckdb.org.
+    // Load extensions (Parquet, JSON, Excel) from our own origin instead of extensions.duckdb.org.
     const repository = new URL(EXTENSIONS_PATH, location.href).href;
     await unlessCrashed(connection.query(`SET custom_extension_repository = '${repository}'`));
     // Errors as JSON carry the error type, its position in the SQL and suggested names, which

@@ -7,7 +7,7 @@
 
 **Queries in the blink of an eye.**
 
-Blinkql is a SQL workbench that runs in your browser. Open a CSV, Parquet or JSON file, write a query and get your results in milliseconds. The engine runs inside the tab, so your files never leave your computer: no account, no server, no upload.
+Blinkql is a SQL workbench that runs in your browser. Open a CSV, Excel, Parquet or JSON file, write a query and get your results in milliseconds. The engine runs inside the tab, so your files never leave your computer: no account, no server, no upload.
 
 It's built for the exports operations teams live with, such as machine logs, ERP and MES extracts and sensor dumps of 1–2 million rows, and it comes with ready-made analyses for OEE, downtime and shift reporting.
 
@@ -20,7 +20,7 @@ It's built for the exports operations teams live with, such as machine logs, ERP
 
 ## What you can do
 
-- **Import files** in CSV, TSV, Parquet, JSON or NDJSON: drop them on the page, pick them, or give an HTTPS address. Remote Parquet is read in ranges, so only the parts a query needs are downloaded.
+- **Import files** in CSV, TSV, Excel (.xlsx, first sheet), Parquet, JSON or NDJSON: drop them on the page, pick them, or give an HTTPS address. Remote Parquet is read in ranges, so only the parts a query needs are downloaded.
 - **Keep your files** between visits, where the browser allows it, in storage only Blinkql can read. Convert a CSV table to Parquet in one click to make it smaller and faster to query.
 - **Browse and profile tables**: see every column and its type, and profile a table without writing SQL.
 - **Write SQL** with autocomplete for DuckDB's keywords and functions and your own tables and columns. Ctrl+Enter runs the query, or just the selected part, and Escape cancels it.
@@ -49,7 +49,7 @@ Your files are read by your browser and never leave your device. Blinkql has no 
 ### Use it
 
 1. Open [blinkql.karthik.nz/app](https://blinkql.karthik.nz/app/). There is nothing to install.
-2. Click **Take the tour** to load sample data, query it and chart it in three steps, or drop a CSV, Parquet or JSON file onto the page.
+2. Click **Take the tour** to load sample data, query it and chart it in three steps, or drop a CSV, Excel, Parquet or JSON file onto the page.
 3. Write SQL in the editor and press Ctrl+Enter (⌘+Enter on a Mac) to run it.
 
 ### Develop it

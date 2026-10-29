@@ -1,5 +1,5 @@
 // DuckDB extensions Blinkql serves from its own origin (ADR-008). DuckDB-wasm doesn't build in
-// Parquet or JSON support: it loads them as extensions on first use, by default from
+// Parquet, JSON or Excel support: it loads them as extensions on first use, by default from
 // extensions.duckdb.org, which the Content Security Policy blocks. The build fetches these files,
 // checks them against the checksums below, and ships them under EXTENSIONS_PATH
 // (src/engine/vite-plugin.ts).
@@ -19,8 +19,12 @@ export const extensionChecksums: Readonly<Record<string, string>> = {
     "22765c8f7dc741cda2b571a66ac7bb355295d7d69a6c37e5315b265672984f55",
   "wasm_eh/json.duckdb_extension.wasm":
     "b997276c8e15cc3ebdeda340d73d15dc1c4f4755ad281280451cb0a2f79302e9",
+  "wasm_eh/excel.duckdb_extension.wasm":
+    "b2262171df7c810b0cddb2c86e6bbc320526e2ccba1c1395320cccbd488ccc50",
   "wasm_mvp/parquet.duckdb_extension.wasm":
     "0785c6c95d003eff4faa7b3b4b660f02c9c92f6d68d135ddf330d42e3a650600",
   "wasm_mvp/json.duckdb_extension.wasm":
     "5771b6d57335eca8e2ba4fdaacb491a53b49577bd7f1b0c39e2cd7a39b4e9313",
+  "wasm_mvp/excel.duckdb_extension.wasm":
+    "58503da7fbf40b714285e3a1416965c685cb49c8a24f29f43a811b28370f2750",
 };

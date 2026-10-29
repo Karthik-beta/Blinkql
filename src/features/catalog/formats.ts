@@ -2,7 +2,7 @@
 
 import { keywords } from "@/features/editor/duckdb-words";
 
-export type FileFormat = "csv" | "parquet" | "json" | "jsonl";
+export type FileFormat = "csv" | "parquet" | "json" | "jsonl" | "xlsx";
 
 const formatsByExtension: Readonly<Record<string, FileFormat>> = {
   csv: "csv",
@@ -11,6 +11,7 @@ const formatsByExtension: Readonly<Record<string, FileFormat>> = {
   json: "json",
   jsonl: "jsonl",
   ndjson: "jsonl",
+  xlsx: "xlsx",
 };
 
 /** The `accept` value for file pickers. */
@@ -28,6 +29,14 @@ function splitExtension(fileName: string): [base: string, extension: string] {
 export function detectFormat(fileName: string): FileFormat | null {
   const [, extension] = splitExtension(fileName);
   return formatsByExtension[extension] ?? null;
+}
+
+/** Why a file whose format detectFormat() doesn't know can't be imported. */
+export function unsupportedFormatMessage(fileName: string): string {
+  const [, extension] = splitExtension(fileName);
+  return extension === "xls"
+    ? "Excel 97–2003 workbooks (.xls) can't be read. Save it as .xlsx in Excel first."
+    : "Not a CSV, TSV, Excel (.xlsx), Parquet, JSON or JSON Lines file";
 }
 
 /**
@@ -68,6 +77,7 @@ function quoteString(value: string): string {
 /**
  * A table function that reads the registered file at `path`. DuckDB's sniffer detects a CSV's
  * delimiter, header and column types, and whether a .json file is an array or one object per line.
+ * A workbook is read from its first sheet, the header row detected the same way.
  */
 export function readerFor(format: FileFormat, path: string): string {
   const file = quoteString(path);
@@ -80,5 +90,7 @@ export function readerFor(format: FileFormat, path: string): string {
       return `read_json(${file})`;
     case "jsonl":
       return `read_json(${file}, format = 'newline_delimited')`;
+    case "xlsx":
+      return `read_xlsx(${file})`;
   }
 }
