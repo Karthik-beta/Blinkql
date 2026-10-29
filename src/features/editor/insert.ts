@@ -1,5 +1,5 @@
 // Lets other parts of the workbench, such as the schema browser or the query history, type into
-// the SQL editor and read what's in it.
+// the SQL editor, read what's in it and move the keyboard focus to it.
 
 type Inserter = (text: string) => void;
 
@@ -43,4 +43,16 @@ export function editorContents(): string {
 export function replaceEditorContents(text: string): void {
   if (contents) contents.replace(text);
   else pending = text;
+}
+
+let focuser: (() => void) | null = null;
+
+/** Sets what focusEditor() calls; the editor sets itself while it's on the page. */
+export function setEditorFocuser(next: (() => void) | null): void {
+  focuser = next;
+}
+
+/** Moves the keyboard focus to the editor, if there is one. */
+export function focusEditor(): void {
+  focuser?.();
 }

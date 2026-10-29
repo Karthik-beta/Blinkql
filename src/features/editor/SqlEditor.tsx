@@ -14,7 +14,7 @@ import {
 } from "@codemirror/view";
 import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
 import { errorMark, hasErrorMark, setErrorMark } from "./error-mark";
-import { setEditorContents, setEditorInserter } from "./insert";
+import { setEditorContents, setEditorFocuser, setEditorInserter } from "./insert";
 import { duckdbSql } from "./language";
 import { runShortcut } from "./shortcut";
 import { type SqlToRun, sqlToRun } from "./sql-to-run";
@@ -132,6 +132,7 @@ export function SqlEditor({ ref, onRun }: Props) {
     });
     view.current = editor;
     setEditorInserter((text) => editor.dispatch(editor.state.replaceSelection(text)));
+    setEditorFocuser(() => editor.focus());
     setEditorContents({
       get: () => editor.state.doc.toString(),
       replace: (text) =>
@@ -142,6 +143,7 @@ export function SqlEditor({ ref, onRun }: Props) {
     });
     return () => {
       setEditorInserter(null);
+      setEditorFocuser(null);
       setEditorContents(null);
       editor.destroy();
       view.current = null;
