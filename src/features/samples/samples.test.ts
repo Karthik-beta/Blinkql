@@ -75,6 +75,17 @@ const columns: Record<string, Record<string, string>> = {
     plant_code: "VARCHAR",
   },
   plants: { plant_code: "VARCHAR", plant_name: "VARCHAR" },
+  shipments: {
+    shipment_id: "VARCHAR",
+    carrier: "VARCHAR",
+    origin: "VARCHAR",
+    destination: "VARCHAR",
+    ship_date: "DATE",
+    promised_date: "DATE",
+    delivered_date: "DATE",
+    weight_kg: "DOUBLE",
+    freight_cost: "DOUBLE",
+  },
 };
 
 describe("samples", () => {
@@ -194,5 +205,44 @@ describe("samples", () => {
         count(*) FILTER (i.plant_code NOT IN (SELECT plant_code FROM plants)) AS unknown_plant
       FROM item_import i`);
     for (const fault of Object.values(faults ?? {})) expect(Number(fault)).toBeGreaterThan(0);
+  });
+
+  it("ship a quarter's freight on 8 lanes with 5 carriers, a few still in transit", async () => {
+    const [shape] = await rows(`SELECT
+        count(*) AS shipments,
+        count(DISTINCT shipment_id) AS ids,
+        count(DISTINCT carrier) AS carriers,
+        count(DISTINCT (origin, destination)) AS lanes,
+        min(ship_date) AS first_shipped,
+        max(ship_date) AS last_shipped,
+        count(*) FILTER (delivered_date IS NULL) AS in_transit,
+        count(*) FILTER (delivered_date < ship_date OR promised_date <= ship_date
+          OR weight_kg <= 0 OR freight_cost <= 0) AS impossible
+      FROM shipments`);
+    expect(shape).toMatchObject({ carriers: 5n, lanes: 8n, impossible: 0n });
+    expect(shape?.ids).toBe(shape?.shipments);
+    expect(Number(shape?.shipments)).toBeGreaterThan(800);
+    expect(shape?.first_shipped).toEqual(new Date("2026-07-01"));
+    expect(shape?.last_shipped).toEqual(new Date("2026-09-30"));
+    expect(Number(shape?.in_transit)).toBeGreaterThan(0);
+    expect(Number(shape?.in_transit)).toBeLessThan(Number(shape?.shipments) / 20);
+  });
+
+  it("set carriers apart on punctuality and price, and lanes on transit time", async () => {
+    const carriers = await rows(`SELECT carrier,
+        avg(CASE WHEN delivered_date <= promised_date THEN 1 ELSE 0 END)
+          FILTER (delivered_date IS NOT NULL) AS on_time,
+        sum(freight_cost) / sum(weight_kg) AS per_kg
+      FROM shipments GROUP BY ALL ORDER BY on_time`);
+    const onTime = carriers.map((carrier) => Number(carrier.on_time));
+    expect(onTime.every((rate) => rate > 0.5 && rate < 1)).toBe(true);
+    expect(Math.max(...onTime) - Math.min(...onTime)).toBeGreaterThan(0.2);
+    const perKg = carriers.map((carrier) => Number(carrier.per_kg));
+    expect(Math.max(...perKg) / Math.min(...perKg)).toBeGreaterThan(1.3);
+    const lanes = await rows(`SELECT origin, destination,
+        median(delivered_date - ship_date) AS median_days
+      FROM shipments GROUP BY ALL`);
+    const days = lanes.map((lane) => Number(lane.median_days));
+    expect(Math.max(...days) - Math.min(...days)).toBeGreaterThanOrEqual(5);
   });
 });
