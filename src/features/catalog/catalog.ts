@@ -106,8 +106,7 @@ async function importFile({ source, ...previous }: Source): Promise<ImportedTabl
 
   const name = tableNameFor(previous.name ?? fileName, takenNames);
   takenNames.add(name);
-  // Registered under the table name, so two files called data.csv in different folders can't clash.
-  const path = `${name}.${format}`;
+  const path = filePath({ name, format });
   const started = performance.now();
   try {
     if (source instanceof URL) await registerUrl(path, source.href);
@@ -134,6 +133,14 @@ const UNREADABLE_WORKBOOK = /Failed to open zip/;
 const UNREADABLE_WORKBOOK_MESSAGE =
   "The workbook can't be read. It may be password-protected or an older .xls file: " +
   "remove the password or save it as .xlsx in Excel, then import it again.";
+
+/**
+ * The name `table`'s file is registered under, which SQL can read it by too, e.g. "plants.xlsx".
+ * It's the table's name, so two files called data.csv in different folders can't clash.
+ */
+export function filePath({ name, format }: Pick<ImportedTable, "name" | "format">): string {
+  return `${name}.${format}`;
+}
 
 async function describeTable(table: string): Promise<TableColumn[]> {
   return (await query(`DESCRIBE ${quoteIdentifier(table)}`))
@@ -331,7 +338,7 @@ export async function forgetTable(name: string): Promise<void> {
   if (!table) return;
   update((current) => ({ ...current, tables: current.tables.filter((other) => other !== table) }));
   await query(`DROP VIEW IF EXISTS ${quoteIdentifier(name)}`).catch(() => {});
-  await unregisterFile(`${name}.${table.format}`).catch(() => {});
+  await unregisterFile(filePath(table)).catch(() => {});
   await saving.get(name);
   await removeDataset(name).catch(() => {});
   takenNames.delete(name);
