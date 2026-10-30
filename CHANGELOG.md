@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.1.0](https://github.com/Karthik-beta/Blinkql/compare/blinkql-v1.0.0...blinkql-v1.1.0) (2026-10-30)
+
+
+### Features
+
+* **app:** export an analysis as a self-contained HTML report ([#174](https://github.com/Karthik-beta/Blinkql/issues/174)) ([6791311](https://github.com/Karthik-beta/Blinkql/commit/679131144638fcd72d18e339da45209f07be963b)), closes [#168](https://github.com/Karthik-beta/Blinkql/issues/168)
+* **catalog:** import Excel (.xlsx) workbooks from their first sheet ([#173](https://github.com/Karthik-beta/Blinkql/issues/173)) ([89964cf](https://github.com/Karthik-beta/Blinkql/commit/89964cff8516b6c5de8f545c5ed776d6d26569a1)), closes [#167](https://github.com/Karthik-beta/Blinkql/issues/167)
+* **catalog:** show a table's full name in its tooltip and its file name below it ([#181](https://github.com/Karthik-beta/Blinkql/issues/181)) ([c30bf0d](https://github.com/Karthik-beta/Blinkql/commit/c30bf0d4171bac112b815806847d9b6a42f7edc8))
+* **catalog:** show how to read a workbook's other sheets and explain mixed cells ([#179](https://github.com/Karthik-beta/Blinkql/issues/179)) ([a5d838b](https://github.com/Karthik-beta/Blinkql/commit/a5d838b779fc97b99ed4936e8fb75509c2cc379a))
+* **landing:** credit the author and link to karthik.nz ([#183](https://github.com/Karthik-beta/Blinkql/issues/183)) ([c976866](https://github.com/Karthik-beta/Blinkql/commit/c976866b105d55091e2e14087c02aa305ba96c41))
+* **templates:** add a shipments sample and logistics templates for delivery and cost ([#171](https://github.com/Karthik-beta/Blinkql/issues/171)) ([eef7a1c](https://github.com/Karthik-beta/Blinkql/commit/eef7a1cbd83f9daa5b5d1cefd4eaeb6cf397d22e)), closes [#169](https://github.com/Karthik-beta/Blinkql/issues/169)
+
+
+### Bug fixes
+
+* **app:** show the report's chart in the colours of the page it's on ([#180](https://github.com/Karthik-beta/Blinkql/issues/180)) ([c5e20a4](https://github.com/Karthik-beta/Blinkql/commit/c5e20a48518f14a3cc29e75df0372e45f492a08e))
+
+
+### Documentation
+
+* list every package script in CONTRIBUTING and recommend the test-runner extensions ([#182](https://github.com/Karthik-beta/Blinkql/issues/182)) ([c643cba](https://github.com/Karthik-beta/Blinkql/commit/c643cbaf7e4cc87be61636c180b070add991c12f))
+
 ## 1.0.0 (2026-10-29)
 
 
