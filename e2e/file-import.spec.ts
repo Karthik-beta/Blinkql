@@ -73,10 +73,14 @@ test.describe("file import", () => {
     const tables = tableList(page).getByRole("treeitem");
     await expect(tables).toHaveCount(4);
     // The sniffer found the semicolon delimiter and the header row.
-    await expect(tables.nth(0)).toHaveText("machine_events CSV · 3 columns · 49 B");
-    await expect(tables.nth(1)).toHaveText(/^orders Parquet · 2 columns · [\d.]+ K?B$/);
-    await expect(tables.nth(2)).toHaveText("shifts JSON · 2 columns · 45 B");
-    await expect(tables.nth(3)).toHaveText("alarms JSON lines · 3 columns · 77 B");
+    await expect(tables.nth(0)).toHaveText(
+      "machine_events CSV · 3 columns · 49 B · Machine Events.csv",
+    );
+    await expect(tables.nth(1)).toHaveText(
+      /^orders Parquet · 2 columns · [\d.]+ K?B · orders\.parquet$/,
+    );
+    await expect(tables.nth(2)).toHaveText("shifts JSON · 2 columns · 45 B · shifts.json");
+    await expect(tables.nth(3)).toHaveText("alarms JSON lines · 3 columns · 77 B · alarms.ndjson");
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 
@@ -97,7 +101,7 @@ test.describe("file import", () => {
 
     await expect(page.getByText("Drop files to import them as tables")).toBeHidden();
     await expect(tableList(page).getByRole("treeitem")).toHaveText([
-      "machine_events CSV · 3 columns · 49 B",
+      "machine_events CSV · 3 columns · 49 B · Machine Events.csv",
     ]);
   });
 
@@ -174,7 +178,7 @@ test.describe("file import", () => {
     await page.getByLabel("Import files").setInputFiles(excelWorkbook);
 
     await expect(tableList(page).getByRole("treeitem")).toHaveText(
-      [/^machines Excel · 6 columns · [\d.]+ KB$/],
+      [/^machines Excel · 6 columns · [\d.]+ KB · machines\.xlsx$/],
       { timeout: EXTENSION_TIMEOUT },
     );
     await expect(page.getByRole("alert")).toHaveCount(0);
