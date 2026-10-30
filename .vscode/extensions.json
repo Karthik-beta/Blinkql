@@ -1,4 +1,10 @@
 {
-  "recommendations": ["biomejs.biome", "bradlc.vscode-tailwindcss", "editorconfig.editorconfig"],
+  "recommendations": [
+    "biomejs.biome",
+    "bradlc.vscode-tailwindcss",
+    "editorconfig.editorconfig",
+    "vitest.explorer",
+    "ms-playwright.playwright"
+  ],
   "unwantedRecommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
 }

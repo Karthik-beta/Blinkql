@@ -30,14 +30,21 @@ The dev server starts at http://localhost:5173. `pnpm install` also installs the
 
 | Script | What it does |
 |---|---|
+| `pnpm dev` | Development server with hot reload (Vite) |
 | `pnpm typecheck` | TypeScript, strict mode |
+| `pnpm lint` | Biome lint rules only, without formatting or import order |
+| `pnpm format` | Format every file in place (Biome) |
 | `pnpm check` | Biome lint, formatting and import order (`pnpm check:fix` applies fixes) |
 | `pnpm test` | Unit and integration tests (Vitest) |
+| `pnpm test:watch` | Unit and integration tests, rerun as you save (Vitest watch mode) |
 | `pnpm test:e2e` | End-to-end tests on Chromium, Firefox and WebKit (Playwright) |
 | `pnpm build` | Production build |
+| `pnpm preview` | The production build at http://localhost:4173, with production's headers, after `pnpm build` |
 | `pnpm size` | Bundle size budgets, after `pnpm build` (size-limit) |
 | `pnpm lhci` | LCP and CLS budgets for `/` and `/app/`, after `pnpm build` (Lighthouse CI) |
+| `pnpm verify:headers` | Check that a deployment sends the headers in `vercel.json` (`--url <url>` or `--build-output <dir>`) |
 | `pnpm bench` | Benchmark suite (see [bench/README.md](bench/README.md)) |
+| `pnpm bench:micro` | Micro-benchmarks of hot functions in Node, printed to the terminal (tinybench) |
 | `pnpm bench:data` | Generate the benchmark datasets |
 | `pnpm bench:smoke` | A short benchmark run against generous ceilings, after `pnpm build` |
 
