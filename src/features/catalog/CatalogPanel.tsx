@@ -34,6 +34,7 @@ import { runQuery } from "@/features/results/query-run";
 import { loadSample, samples } from "@/features/samples/samples";
 import {
   convertTable,
+  filePath,
   forgetTable,
   getCatalog,
   type ImportedTable,
@@ -144,14 +145,17 @@ function TableItem({
   itemProps: ItemProps;
 }) {
   const labelId = useId();
+  const sheetHintId = useId();
   const columns = table.columns.length;
   const convertible = isConvertible(table);
+  const sheetHint = expanded && table.format === "xlsx";
   const { tabIndex, ...handlers } = itemProps({ key: table.name, table });
   return (
     <div
       role="treeitem"
       aria-expanded={expanded}
       aria-labelledby={labelId}
+      aria-describedby={sheetHint ? sheetHintId : undefined}
       aria-keyshortcuts={convertible ? "C P R Delete" : "P R Delete"}
       className={itemClass}
       tabIndex={tabIndex}
@@ -242,6 +246,16 @@ function TableItem({
           <Trash2 aria-hidden />
         </Button>
       </div>
+      {/* The table is a workbook's first sheet; the others are only a query away. */}
+      {sheetHint && (
+        <p id={sheetHintId} className="pl-6 text-muted-foreground text-xs">
+          First sheet only. For another, query{" "}
+          <code className="wrap-anywhere font-mono">
+            read_xlsx('{filePath(table)}', sheet = 'Sheet2')
+          </code>
+          .
+        </p>
+      )}
       {expanded && <ColumnGroup table={table} itemProps={itemProps} />}
     </div>
   );

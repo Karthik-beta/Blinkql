@@ -20,7 +20,7 @@ It's built for the exports operations teams live with, such as machine logs, ERP
 
 ## What you can do
 
-- **Import files** in CSV, TSV, Excel (.xlsx, first sheet), Parquet, JSON or NDJSON: drop them on the page, pick them, or give an HTTPS address. Remote Parquet is read in ranges, so only the parts a query needs are downloaded.
+- **Import files** in CSV, TSV, Excel (.xlsx: the first sheet as a table, the others with `read_xlsx` in SQL), Parquet, JSON or NDJSON: drop them on the page, pick them, or give an HTTPS address. Remote Parquet is read in ranges, so only the parts a query needs are downloaded.
 - **Keep your files** between visits, where the browser allows it, in storage only Blinkql can read. Convert a CSV table to Parquet in one click to make it smaller and faster to query.
 - **Browse and profile tables**: see every column and its type, and profile a table without writing SQL.
 - **Write SQL** with autocomplete for DuckDB's keywords and functions and your own tables and columns. Ctrl+Enter runs the query, or just the selected part, and Escape cancels it.
