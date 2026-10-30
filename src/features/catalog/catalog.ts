@@ -114,7 +114,7 @@ async function importFile({ source, ...previous }: Source): Promise<ImportedTabl
     else await registerFile(path, source);
     // Creating the view reads the schema, so an unreadable file fails here rather than later.
     await query(`CREATE VIEW ${quoteIdentifier(name)} AS SELECT * FROM ${readerFor(format, path)}`);
-    const columns = await describe(name);
+    const columns = await describeTable(name);
     measureSince(measures.import, started);
     return { name, fileName: displayName(source), format, columns, source };
   } catch (error) {
@@ -135,7 +135,7 @@ const UNREADABLE_WORKBOOK_MESSAGE =
   "The workbook can't be read. It may be password-protected or an older .xls file: " +
   "remove the password or save it as .xlsx in Excel, then import it again.";
 
-async function describe(table: string): Promise<TableColumn[]> {
+async function describeTable(table: string): Promise<TableColumn[]> {
   return (await query(`DESCRIBE ${quoteIdentifier(table)}`))
     .toArray()
     .map((row) => ({ name: String(row.column_name), type: String(row.column_type) }));
@@ -294,7 +294,7 @@ export async function convertTable(name: string): Promise<void> {
     const converted: ImportedTable = {
       ...table,
       format: "parquet",
-      columns: await describe(name),
+      columns: await describeTable(name),
       source: file,
     };
     await unregisterFile(csvPath).catch(() => {});
