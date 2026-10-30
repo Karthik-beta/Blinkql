@@ -3,7 +3,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
+:root,
+.light {
   color-scheme: light;
   --radius: 0.375rem; /* 6px: controls. Docked panes use 0, floating layers use radius-xl (10px) */
   /* shadcn/ui semantic tokens */

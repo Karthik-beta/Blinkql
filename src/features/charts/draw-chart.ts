@@ -2,7 +2,13 @@
 // isn't part of the workbench's first load: it imports only the charts and components used.
 import { BarChart, LineChart, ScatterChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
-import { type EChartsCoreOption, getInstanceByDom, init, use } from "echarts/core";
+import {
+  type EChartsCoreOption,
+  type EChartsType,
+  getInstanceByDom,
+  init,
+  use,
+} from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { afterNextPaint, measureSince, measures } from "@/lib/user-timing";
 import type { ChartData } from "./ChartPanel";
@@ -18,12 +24,21 @@ type Colours = {
   second: string;
 };
 
+type Theme = "light" | "dark";
+
+/** The data drawn in each chart's container, to draw it again in another theme. */
+const drawn = new WeakMap<HTMLElement, ChartData>();
+
 /**
- * The design tokens' colours, as the canvas draws them. The tokens are oklch(), which ECharts
- * can't parse to shade them, so each is drawn on a pixel and read back as rgb().
+ * The design tokens' colours in `theme`, or in the page's theme, as the canvas draws them. The
+ * tokens are oklch(), which ECharts can't parse to shade them, so each is drawn on a pixel and
+ * read back as rgb().
  */
-function readColours(): Colours {
-  const style = getComputedStyle(document.documentElement);
+function readColours(theme?: Theme): Colours {
+  // An element with a theme's class has that theme's tokens, whatever the page's theme.
+  const probe = theme && Object.assign(document.createElement("div"), { className: theme });
+  if (probe) document.body.append(probe);
+  const style = getComputedStyle(probe || document.documentElement);
   const context = document
     .createElement("canvas")
     .getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
@@ -34,7 +49,7 @@ function readColours(): Colours {
     const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
     return `rgb(${r}, ${g}, ${b})`;
   };
-  return {
+  const colours = {
     background: rgb("--background"),
     ink: rgb("--data-ink"),
     muted: rgb("--muted-foreground"),
@@ -42,6 +57,8 @@ function readColours(): Colours {
     first: rgb("--chart-1"),
     second: rgb("--chart-2"),
   };
+  probe?.remove();
+  return colours;
 }
 
 const formatNumber = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4 }).format;
@@ -109,18 +126,34 @@ function option({ spec, rows }: ChartData, colours: Colours): EChartsCoreOption 
   }
 }
 
-/** The chart drawn in `container` as a PNG data URL, at twice its size, on the page background. */
-export function chartPng(container: HTMLElement): string | undefined {
-  return getInstanceByDom(container)?.getDataURL({
-    type: "png",
-    pixelRatio: 2,
-    backgroundColor: readColours().background,
+/**
+ * The chart drawn in `container` as a PNG data URL, at twice its size, on its background: in
+ * `theme`'s colours, or as it is on screen.
+ */
+export function chartPng(container: HTMLElement, theme?: Theme): string | undefined {
+  const shown = getInstanceByDom(container);
+  const data = drawn.get(container);
+  if (!shown || !data) return undefined;
+  const colours = readColours(theme);
+  const png = (chart: EChartsType) =>
+    chart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: colours.background });
+  if (!theme) return png(shown);
+  // Drawn again off screen, so the chart on screen keeps the page's colours.
+  const copy = init(document.createElement("div"), null, {
+    renderer: "canvas",
+    width: shown.getWidth(),
+    height: shown.getHeight(),
   });
+  copy.setOption(option(data, colours));
+  const url = png(copy);
+  copy.dispose();
+  return url;
 }
 
 /** Draws `data` in `container`, redrawing it as it resizes and the theme changes. Returns a cleanup. */
 export function drawChart(container: HTMLElement, data: ChartData): () => void {
   const chart = init(container, null, { renderer: "canvas" });
+  drawn.set(container, data);
   const draw = () => {
     chart.setOption(option(data, readColours()), true);
     const canvas = container.querySelector("canvas");
@@ -138,6 +171,7 @@ export function drawChart(container: HTMLElement, data: ChartData): () => void {
     cancelMeasure();
     resize.disconnect();
     theme.disconnect();
+    drawn.delete(container);
     chart.dispose();
   };
 }
