@@ -62,6 +62,13 @@ export const milestones: readonly Milestone[] = [
       "Accessibility checks, a command palette, an onboarding tour, shareable query links and full docs.",
     status: "done",
   },
+  {
+    code: "M8",
+    name: "Excel, reports and logistics",
+    summary:
+      "Excel import, HTML reports and templates for on-time delivery, lead time and freight cost.",
+    status: "done",
+  },
 ];
 
 /** The words shown next to each lamp, so a status never depends on colour alone. */

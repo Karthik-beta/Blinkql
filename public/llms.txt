@@ -1,13 +1,13 @@
 # Blinkql
 
-> Blinkql is an open-source SQL workbench that runs entirely in the browser, for files too big for a spreadsheet and too sensitive to upload: CSV, Parquet and JSON exports of 1–2 million rows, and Excel workbooks. Queries run locally, and files never leave the user's computer. Version 1.0 is out; it was built in the open across eight milestones.
+> Blinkql is an open-source SQL workbench that runs entirely in the browser, for files too big for a spreadsheet and too sensitive to upload: CSV, Parquet and JSON exports of 1–2 million rows, and Excel workbooks. Queries run locally, and files never leave the user's computer. Version 1.1 is out; it was built in the open across nine milestones.
 
 The workbench is at https://blinkql.karthik.nz/app/. Licensed under MIT.
 
 ## Docs
 
 - [README](https://github.com/Karthik-beta/Blinkql/blob/main/README.md): what Blinkql does and how to start
-- [Roadmap and milestones](https://github.com/Karthik-beta/Blinkql/wiki/Roadmap-and-Milestones): the eight milestones from M0 to version 1.0
+- [Roadmap and milestones](https://github.com/Karthik-beta/Blinkql/wiki/Roadmap-and-Milestones): the nine milestones from M0 to version 1.1
 - [Use cases](https://github.com/Karthik-beta/Blinkql/wiki/Use-Cases): who it's for, with examples from factories and operations
 - [Privacy and security](https://github.com/Karthik-beta/Blinkql/wiki/Privacy-and-Security): why no data leaves the browser
 - [Architecture](https://github.com/Karthik-beta/Blinkql/wiki/Architecture): how the browser-based engine fits together

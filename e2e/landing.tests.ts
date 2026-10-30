@@ -22,21 +22,21 @@ async function runLive(page: Page) {
  */
 export function landingTests(colorScheme: "light" | "dark") {
   test.describe(`landing page (${colorScheme})`, () => {
-    test("says what Blinkql is and that version 1.0 is out", async ({ page }) => {
+    test("says what Blinkql is and that version 1.1 is out", async ({ page }) => {
       await page.goto("/");
 
       await expect(page).toHaveTitle("Blinkql: query big files without uploading them");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "Query big files without uploading them",
       );
-      await expect(page.getByText("Version 1.0 is out").first()).toBeVisible();
+      await expect(page.getByText("Version 1.1 is out").first()).toBeVisible();
 
       const status = page.locator("#status");
-      await expect(status.getByRole("heading", { level: 2 })).toHaveText("Version 1.0");
+      await expect(status.getByRole("heading", { level: 2 })).toHaveText("Version 1.1");
       const milestones = status.getByRole("listitem");
-      await expect(milestones).toHaveCount(8);
+      await expect(milestones).toHaveCount(9);
       await expect(milestones.filter({ hasText: "In progress" })).toHaveCount(0);
-      await expect(milestones.filter({ hasText: "M7" })).toContainText("Done");
+      await expect(milestones.filter({ hasText: "M8" })).toContainText("Done");
       await expect(status.getByRole("link", { name: "Open the workbench" })).toHaveAttribute(
         "href",
         "/app/",
