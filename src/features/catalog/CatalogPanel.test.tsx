@@ -322,6 +322,24 @@ describe("CatalogPanel", () => {
     expect(within(within(tree).getByRole("group")).getAllByRole("treeitem")).toHaveLength(2);
   });
 
+  it("explains, once expanded, how to read a workbook's other sheets", async () => {
+    await importFiles([new File(["x"], "Plant Data.xlsx"), new File(["x"], "orders.csv")]);
+    render(<CatalogPanel />);
+    const [workbook, csv] = within(screen.getByRole("tree", { name: "Tables" })).getAllByRole(
+      "treeitem",
+    );
+    expect(workbook).not.toHaveAccessibleDescription();
+
+    act(() => workbook?.focus());
+    await userEvent.keyboard("{ArrowRight}{ArrowDown}{ArrowRight}");
+
+    expect(workbook).toHaveAccessibleDescription(
+      "First sheet only. For another, query read_xlsx('plant_data.xlsx', sheet = 'Sheet2').",
+    );
+    expect(csv).toHaveAttribute("aria-expanded", "true");
+    expect(csv).not.toHaveAccessibleDescription();
+  });
+
   it("adds a remote file from a labelled dialog, submitted with Enter", async () => {
     render(<CatalogPanel />);
 

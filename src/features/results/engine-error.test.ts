@@ -19,6 +19,8 @@ const errors = {
   conversion: `{"exception_type":"Conversion","exception_message":"Could not convert string 'a' to INT32","position":"10"}`,
   outOfMemory: `{"exception_type":"Out of Memory","exception_message":"Allocation failure"}`,
   missingFile: `{"exception_type":"IO","exception_message":"No files found that match the pattern \\"nope.csv\\"","position":"14"}`,
+  missingSheet: `{"exception_type":"Binder","exception_message":"Sheet \\"Line\\" not found in xlsx file \\"machines.xlsx\\"\\nDid you mean: \\"Lines\\""}`,
+  workbookCell: `{"exception_type":"Invalid Input","exception_message":"read_xlsx: Failed to parse cell 'B3': Could not convert string 'n/a' to DOUBLE"}`,
   subquery: `{"exception_type":"Invalid Input","exception_message":"More than one row returned by a subquery used as an expression - scalar subqueries can only return a single row.\\n\\nUse \\"SET scalar_subquery_error_on_multiple_rows=false\\" to revert to previous behavior of returning a random row."}`,
 };
 
@@ -154,6 +156,24 @@ describe("describeError", () => {
     expect(describe_(errors.missingFile).hint).toBe(
       "Import the file first, then query it by its name under Tables.",
     );
+  });
+
+  it("suggests the workbook sheet DuckDB thinks was meant", () => {
+    expect(describe_(errors.missingSheet)).toEqual({
+      title: 'Sheet "Line" not found in xlsx file "machines.xlsx"',
+      hint: 'Did you mean "Lines"?',
+      label: "Binder error",
+    });
+  });
+
+  it("names the workbook cell whose text doesn't fit its column's type", () => {
+    expect(describe_(errors.workbookCell)).toEqual({
+      title: "Cell B3 holds 'n/a', but its column was read as DOUBLE",
+      hint:
+        "A column's type comes from its first value. Fix the cell in Excel and import the " +
+        "workbook again, or read it as text with read_xlsx(…, all_varchar = true).",
+      label: "Invalid Input error",
+    });
   });
 
   it("uses the first line of anything else, without a hint", () => {

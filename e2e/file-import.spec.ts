@@ -34,7 +34,13 @@ let parquet: Fixture;
 // Five machines with a header row and text, number, date and true/false columns, some empty.
 // Committed rather than written in beforeAll, since native DuckDB writes .xlsx only with its excel
 // extension, downloaded on first use: `COPY (…) TO 'machines.xlsx' (FORMAT xlsx, HEADER true)`.
+// DuckDB writes one sheet per file, so a second sheet, Lines (line 1 North, 2 South, 3 East), was
+// added with Python's zipfile: xl/worksheets/sheet2.xml, listed in xl/workbook.xml, its .rels and
+// [Content_Types].xml.
 const excelWorkbook = fileURLToPath(new URL("data/machines.xlsx", import.meta.url));
+// readings.xlsx is machines.xlsx with its sheet1.xml replaced the same way: a reading column whose
+// first value is a number and whose second, in cell B3, is the text "n/a".
+const mixedWorkbook = fileURLToPath(new URL("data/readings.xlsx", import.meta.url));
 
 test.beforeAll(async () => {
   // A real Parquet file, written by native DuckDB.
@@ -191,6 +197,48 @@ test.describe("file import", () => {
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(1)).toHaveText(/Mill.*7\.25.*2025-01-15.*true/);
     await expect(rows.nth(2)).toHaveText(/Grinder.*30.*2022-06-01.*true/);
+  });
+
+  test("reads a workbook's other sheets in SQL, as its table explains", async ({ page }) => {
+    await openWorkbench(page);
+    await page.getByLabel("Import files").setInputFiles(excelWorkbook);
+    const table = tableList(page).getByRole("treeitem", { name: /^machines Excel/ });
+    await expect(table).toBeVisible({ timeout: EXTENSION_TIMEOUT });
+
+    const editor = page.getByRole("textbox", { name: "SQL editor" });
+    await editor.click();
+    // The workbook is read by the name the table's hint shows.
+    await page.keyboard.type("SELECT * FROM read_xlsx('machines.xlsx', sheet = 'Lines')");
+    await page.keyboard.press("ControlOrMeta+Enter");
+
+    const rows = page.getByRole("grid", { name: "Results" }).getByRole("row");
+    await expect(rows).toHaveText([/line.*hall/, /1.*North/, /2.*South/, /3.*East/]);
+
+    // A sheet name that's off gets the closest one suggested.
+    await editor.click();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("SELECT * FROM read_xlsx('machines.xlsx', sheet = 'Line')");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(page.getByRole("alert")).toContainText('Did you mean "Lines"?');
+
+    await table.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(table).toHaveAccessibleDescription(
+      "First sheet only. For another, query read_xlsx('machines.xlsx', sheet = 'Sheet2').",
+    );
+  });
+
+  test("explains a workbook column that mixes numbers and text", async ({ page }) => {
+    await openWorkbench(page);
+    await page.getByLabel("Import files").setInputFiles(mixedWorkbook);
+
+    await page.getByRole("button", { name: "Show rows of readings" }).click({
+      timeout: EXTENSION_TIMEOUT,
+    });
+
+    const alert = page.getByRole("alert");
+    await expect(alert).toContainText("Cell B3 holds 'n/a', but its column was read as DOUBLE");
+    await expect(alert).toContainText("read_xlsx(…, all_varchar = true)");
   });
 
   test("explains which workbooks it can't read", async ({ page }) => {

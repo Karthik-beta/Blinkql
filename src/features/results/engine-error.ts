@@ -116,6 +116,11 @@ const quoted = (name: string) => `"${name}"`;
 /** The first line of DuckDB's message: the rest is suggestions and candidate lists. */
 const firstLine = (message: string) => message.split("\n")[0]?.trim() ?? message;
 
+// read_xlsx types each column by its first value, so a cell further down that doesn't convert,
+// such as "n/a" in a column of numbers, fails every query that reads the sheet.
+const WORKBOOK_CELL =
+  /^read_xlsx: Failed to parse cell '(\w+)': Could not convert string (.*) to (\w+)/;
+
 /** What went wrong and what to try, for the error panel. */
 export function describeError(error: EngineError): ErrorDescription {
   const label = `${error.type} error`;
@@ -202,6 +207,27 @@ export function describeError(error: EngineError): ErrorDescription {
     return {
       title: "The query ran out of memory",
       hint: "Filter or aggregate in SQL, or add a LIMIT, so less data has to fit in the browser.",
+      label,
+    };
+  }
+
+  if (/^Sheet ".*" not found in xlsx file/.test(error.message)) {
+    const suggestion = /Did you mean: "(.*)"/.exec(error.message)?.[1];
+    return {
+      title: firstLine(error.message),
+      hint: suggestion ? `Did you mean ${quoted(suggestion)}?` : undefined,
+      label,
+    };
+  }
+
+  const cell = WORKBOOK_CELL.exec(error.message);
+  if (cell) {
+    const [, reference, value, type] = cell;
+    return {
+      title: `Cell ${reference} holds ${value}, but its column was read as ${type}`,
+      hint:
+        "A column's type comes from its first value. Fix the cell in Excel and import the " +
+        "workbook again, or read it as text with read_xlsx(…, all_varchar = true).",
       label,
     };
   }
