@@ -15,6 +15,11 @@ const engine = vi.hoisted(() => {
       ["Order Date", "DATE"],
     ],
     machines: [["machine_id", "VARCHAR"]],
+    machine_events: [
+      ["ts", "TIMESTAMP"],
+      ["machine_id", "VARCHAR"],
+      ["event", "VARCHAR"],
+    ],
     plants: [
       ["plant_code", "VARCHAR"],
       ["plant_name", "VARCHAR"],
@@ -84,15 +89,26 @@ describe("CatalogPanel", () => {
 
     const tables = within(tree).getAllByRole("treeitem");
     expect(tables).toHaveLength(2);
-    expect(within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns · 1 B" })).toBe(
-      tables[0],
-    );
-    expect(within(tree).getByRole("treeitem", { name: "machines CSV · 1 column · 1 B" })).toBe(
-      tables[1],
-    );
+    expect(
+      within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns · 1 B · orders.csv" }),
+    ).toBe(tables[0]);
+    expect(
+      within(tree).getByRole("treeitem", { name: "machines CSV · 1 column · 1 B · machines.csv" }),
+    ).toBe(tables[1]);
     expect(tables[0]).toHaveAttribute("aria-expanded", "false");
     expect(tables.map((table) => table.tabIndex)).toEqual([0, -1]);
     expect(engine.query.mock.calls.map(([sql]) => sql).some(summarized)).toBe(false);
+  });
+
+  it("titles a table with its full name and shows the file it came from", async () => {
+    await importFiles([new File(["x"], "Machine Events.csv")]);
+    render(<CatalogPanel />);
+
+    const table = screen.getByRole("treeitem", {
+      name: "machine_events CSV · 3 columns · 1 B · Machine Events.csv",
+    });
+    expect(within(table).getByText("machine_events")).toHaveAttribute("title", "machine_events");
+    expect(within(table).getByText(/^CSV ·/).textContent).toMatch(/ · Machine Events\.csv$/);
   });
 
   it("moves through tables and columns with the arrow keys", async () => {
@@ -203,14 +219,16 @@ describe("CatalogPanel", () => {
     await userEvent.click(button);
     expect(
       within(tree).getByRole("treeitem", {
-        name: "orders CSV · 2 columns · 1 B · Converting to Parquet…",
+        name: "orders CSV · 2 columns · 1 B · orders.csv · Converting to Parquet…",
       }),
     ).toBeVisible();
     expect(button).toBeDisabled();
 
     await act(async () => finish(new Uint8Array(2048)));
     expect(
-      within(tree).getByRole("treeitem", { name: "orders Parquet · 2 columns · 2 KB" }),
+      within(tree).getByRole("treeitem", {
+        name: "orders Parquet · 2 columns · 2 KB · orders.csv",
+      }),
     ).toBeVisible();
     expect(
       within(tree).queryByRole("button", { name: "Convert orders to Parquet" }),
@@ -223,7 +241,9 @@ describe("CatalogPanel", () => {
       "parquet",
     );
     expect(
-      await within(tree).findByRole("treeitem", { name: "machines Parquet · 1 column · 2 KB" }),
+      await within(tree).findByRole("treeitem", {
+        name: "machines Parquet · 1 column · 2 KB · machines.csv",
+      }),
     ).toBeVisible();
     expect(insert).not.toHaveBeenCalled();
   });
@@ -238,7 +258,7 @@ describe("CatalogPanel", () => {
       "Couldn't convert orders.csv to Parquet: Out of Memory Error: could not allocate",
     );
     expect(
-      within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns · 1 B" }),
+      within(tree).getByRole("treeitem", { name: "orders CSV · 2 columns · 1 B · orders.csv" }),
     ).toBeVisible();
   });
 
@@ -246,7 +266,9 @@ describe("CatalogPanel", () => {
     await importFiles([new File([new Uint8Array(1536)], "orders.csv")]);
     render(<CatalogPanel />);
 
-    expect(screen.getByRole("treeitem", { name: "orders CSV · 2 columns · 1.5 KB" })).toBeVisible();
+    expect(
+      screen.getByRole("treeitem", { name: "orders CSV · 2 columns · 1.5 KB · orders.csv" }),
+    ).toBeVisible();
   });
 
   it("forgets a table with its button or Delete, without inserting its name", async () => {
@@ -355,7 +377,9 @@ describe("CatalogPanel", () => {
       "https://example.com/data/orders.parquet",
     );
     expect(
-      await screen.findByRole("treeitem", { name: "orders Parquet · 2 columns" }),
+      await screen.findByRole("treeitem", {
+        name: "orders Parquet · 2 columns · https://example.com/data/orders.parquet",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -408,7 +432,9 @@ describe("CatalogPanel", () => {
 
     expect(engine.exportQuery).toHaveBeenCalledWith(expect.stringContaining("P100"), "parquet");
     expect(
-      await screen.findByRole("treeitem", { name: "plants Parquet · 2 columns · 2 KB" }),
+      await screen.findByRole("treeitem", {
+        name: "plants Parquet · 2 columns · 2 KB · plants.parquet",
+      }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
@@ -450,7 +476,7 @@ describe("CatalogPanel", () => {
     render(<CatalogPanel />);
 
     expect(
-      screen.getByRole("treeitem", { name: "orders CSV · 2 columns · 3 GB" }),
+      screen.getByRole("treeitem", { name: "orders CSV · 2 columns · 3 GB · orders.csv" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/orders\.csv.*large for this device/);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();

@@ -176,13 +176,15 @@ function TableItem({
           <ChevronRight className={`size-4 transition-transform ${expanded ? "rotate-90" : ""}`} />
         </button>
         <div id={labelId} className="flex min-w-0 flex-1 flex-col">
-          <div className="truncate font-mono text-xs" title={table.fileName}>
+          {/* A long name is cut short; its title shows it whole, as SQL needs it. */}
+          <div className="truncate font-mono text-xs" title={table.name}>
             {table.name}
           </div>{" "}
           {/* The space keeps the lines apart as text, so "name format" isn't read as one word. */}
-          <div className="text-muted-foreground text-xs">
+          <div className="wrap-break-word text-muted-foreground text-xs">
             {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
             {table.source instanceof File && ` · ${formatSize(table.source.size)}`}
+            {` · ${table.fileName}`}
             {converting && " · Converting to Parquet…"}
           </div>
         </div>
