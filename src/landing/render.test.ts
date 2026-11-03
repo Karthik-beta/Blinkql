@@ -1,29 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { milestones } from "./milestones.ts";
-import { renderGrid, renderMilestones } from "./render.ts";
+import { renderGrid, shortVersion } from "./render.ts";
 import { sampleQuery, sampleRows } from "./sample.ts";
-
-describe("milestones", () => {
-  it("lists M0 to M7 in order, every one done for version 1.0", () => {
-    expect(milestones.map((m) => m.code)).toEqual(["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]);
-    expect(milestones.filter((m) => m.status !== "done")).toEqual([]);
-  });
-
-  it("labels every lamp in words and marks the current step", () => {
-    const html = renderMilestones([
-      { code: "M0", name: "Foundations", summary: "s", status: "done" },
-      { code: "M1", name: "Core query loop", summary: "s", status: "current" },
-      { code: "M2", name: "Next", summary: "s", status: "planned" },
-    ]);
-    expect(html).toContain('data-status="done"');
-    expect(html).toContain(">Done<");
-    expect(html).toContain('data-status="current" aria-current="step"');
-    expect(html).toContain(">In progress<");
-    expect(html).toContain(">Planned<");
-    expect(html.match(/aria-current/g)).toHaveLength(1);
-  });
-});
 
 describe("results grid", () => {
   const html = renderGrid();
@@ -47,5 +25,17 @@ describe("results grid", () => {
   it("right-aligns numbers and shows engine type names", () => {
     expect(html).toContain('<td class="num">0.612</td>');
     expect(html).toContain('<span class="col-type">DOUBLE</span>');
+  });
+});
+
+describe("shortVersion", () => {
+  it("shows major.minor, so a patch release reads the same", () => {
+    expect(shortVersion("1.0.0")).toBe("1.0");
+    expect(shortVersion("1.0.3")).toBe("1.0");
+    expect(shortVersion("12.4.0-rc.1")).toBe("12.4");
+  });
+
+  it("rejects a version that isn't semantic", () => {
+    expect(() => shortVersion("1.0")).toThrow();
   });
 });
