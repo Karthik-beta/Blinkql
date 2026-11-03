@@ -1,14 +1,7 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { milestones } from "./milestones.ts";
-import {
-  escapeHtml,
-  highlightSql,
-  inlineWordmark,
-  renderGrid,
-  renderMilestones,
-} from "./render.ts";
+import { renderGrid, renderMilestones } from "./render.ts";
 import { sampleQuery, sampleRows } from "./sample.ts";
 
 describe("milestones", () => {
@@ -29,23 +22,6 @@ describe("milestones", () => {
     expect(html).toContain(">In progress<");
     expect(html).toContain(">Planned<");
     expect(html.match(/aria-current/g)).toHaveLength(1);
-  });
-});
-
-describe("SQL highlighting", () => {
-  it("colours keywords, functions, strings, numbers and comments", () => {
-    const html = highlightSql("SELECT SUM(x) FROM t WHERE d >= '2026-10-01' AND n > 60.0 -- note");
-    expect(html).toContain('<span class="sql-keyword">SELECT</span>');
-    expect(html).toContain('<span class="sql-function">SUM</span>(x)');
-    expect(html).toContain('<span class="sql-string">&#39;2026-10-01&#39;</span>');
-    expect(html).toContain('<span class="sql-number">60.0</span>');
-    expect(html).toContain('<span class="sql-comment">-- note</span>');
-    expect(html).toContain(" t ");
-  });
-
-  it("escapes markup", () => {
-    expect(highlightSql("x <> '<b>'")).not.toContain("<b>");
-    expect(escapeHtml(`<a href="x">&'`)).toBe("&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
   });
 });
 
@@ -71,25 +47,5 @@ describe("results grid", () => {
   it("right-aligns numbers and shows engine type names", () => {
     expect(html).toContain('<td class="num">0.612</td>');
     expect(html).toContain('<span class="col-type">DOUBLE</span>');
-  });
-});
-
-describe("wordmark", () => {
-  const svg = readFileSync(
-    new URL("../../brand/logo/blinkql-wordmark-light.svg", import.meta.url),
-    "utf8",
-  );
-  const html = inlineWordmark(svg);
-
-  it("follows the text colour and hides from screen readers (the link has the name)", () => {
-    expect(html).toContain('fill="currentColor"');
-    expect(html).not.toContain("#1A201B");
-    expect(html).toContain('aria-hidden="true"');
-    expect(html).not.toContain('role="img"');
-  });
-
-  it("gives the lamp a halo for the done flash", () => {
-    expect(html).toContain('class="wordmark-halo"');
-    expect(html).toContain('class="wordmark-lamp"');
   });
 });

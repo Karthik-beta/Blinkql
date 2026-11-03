@@ -43,3 +43,17 @@ test("opens the workbench and queries a local file with the network off", async 
   const results = page.getByRole("grid", { name: "Results" });
   await expect(results.getByRole("row").nth(1)).toContainText("50");
 });
+
+test("leaves the docs to the network", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto("/app/");
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+
+  // The workbench now opens from the service worker; the docs pages still come from the server.
+  expect((await page.goto("/app/"))?.fromServiceWorker()).toBe(true);
+  for (const path of ["/docs/", "/docs/get-started/"]) {
+    expect((await page.goto(path))?.fromServiceWorker(), path).toBe(false);
+  }
+});

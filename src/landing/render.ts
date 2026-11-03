@@ -1,5 +1,6 @@
 // Renders the landing page's data-driven parts to HTML at build time (see ./vite-plugin.ts), so
 // the page ships as static HTML: it works without JavaScript and makes no requests for content.
+import { escapeHtml, highlightSql } from "../site/html.ts";
 import { type Milestone, statusLabels } from "./milestones.ts";
 import {
   type SampleColumn,
@@ -8,59 +9,6 @@ import {
   sampleQuery,
   sampleRows,
 } from "./sample.ts";
-
-export function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-const SQL_KEYWORDS = new Set([
-  "ALL",
-  "AND",
-  "AS",
-  "ASC",
-  "BY",
-  "DESC",
-  "FROM",
-  "GROUP",
-  "LIMIT",
-  "OR",
-  "ORDER",
-  "SELECT",
-  "WHERE",
-  "WITH",
-]);
-
-const SQL_TOKEN =
-  /(--.*$)|('(?:[^']|'')*')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_]\w*)(?=\s*\()|([A-Za-z_]\w*)/g;
-
-/** One line of SQL as HTML, coloured with the editor's `--syntax-*` tokens. */
-export function highlightSql(line: string): string {
-  let html = "";
-  let last = 0;
-  for (const match of line.matchAll(SQL_TOKEN)) {
-    const [text, comment, string, number, fn, word] = match;
-    html += escapeHtml(line.slice(last, match.index));
-    last = match.index + text.length;
-    const kind = comment
-      ? "comment"
-      : string
-        ? "string"
-        : number
-          ? "number"
-          : fn
-            ? "function"
-            : word && SQL_KEYWORDS.has(word.toUpperCase())
-              ? "keyword"
-              : undefined;
-    html += kind ? `<span class="sql-${kind}">${escapeHtml(text)}</span>` : escapeHtml(text);
-  }
-  return html + escapeHtml(line.slice(last));
-}
 
 /** The hero's query in the editor, with line numbers the way the editor draws them. */
 export function renderSql(lines: readonly string[] = sampleQuery.sql): string {
@@ -121,25 +69,4 @@ export function renderMilestones(list: readonly Milestone[]): string {
     )
     .join("");
   return `<ol class="milestones">${items}</ol>`;
-}
-
-/**
- * The brand wordmark as inline SVG, so its lamp can mirror the hero's run. The letters take the
- * text colour (one SVG for both themes) and the lamp gets a halo for the "done" flash.
- */
-export function inlineWordmark(svg: string): string {
-  const lamp = svg.match(/<circle class="lamp" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"[^>]*\/>/);
-  if (!lamp) throw new Error("The wordmark SVG has no lamp circle");
-  const [circle, cx, cy, r] = lamp;
-  return svg
-    .replace(
-      / width="\d+" height="\d+" role="img" aria-label="[^"]*"/,
-      ' class="wordmark" aria-hidden="true"',
-    )
-    .replace(/<title>[^<]*<\/title>/, "")
-    .replace(/fill="#1A201B"/g, 'fill="currentColor"')
-    .replace(
-      circle,
-      `<circle class="wordmark-halo" cx="${cx}" cy="${cy}" r="${r}"/><circle class="wordmark-lamp" cx="${cx}" cy="${cy}" r="${r}"/>`,
-    );
 }

@@ -1,0 +1,55 @@
+<h2>Choose what to hand over</h2>
+<p>Every way out of the workbench uses the query you ran last, once it has finished without an error. While a query runs, or after one fails, the export buttons and <strong>Share</strong> are unavailable. Pick by what the other person needs and what they should see.</p>
+<table>
+  <thead><tr><th scope="col">What you make</th><th scope="col">What it holds</th><th scope="col">Holds data</th></tr></thead>
+  <tbody>
+    <tr><td>CSV or Parquet file</td><td>Every row of the result</td><td>Yes</td></tr>
+    <tr><td>HTML report</td><td>The query, the chart on screen and up to 1,000 rows</td><td>Yes</td></tr>
+    <tr><td>PNG image</td><td>The chart on screen</td><td>What the chart shows</td></tr>
+    <tr><td>Copied cells</td><td>The cells you selected</td><td>Yes</td></tr>
+    <tr><td>Share link</td><td>The query and the chart's settings</td><td>No</td></tr>
+  </tbody>
+</table>
+<p>Files you export go to your browser's downloads folder. Nothing is uploaded on the way. <a href="/docs/privacy-and-storage/">Privacy and storage</a> has the details.</p>
+
+<h2>Export results as CSV or Parquet</h2>
+<p>The export buttons are at the right of the bar between the editor and the results, next to <strong>Share</strong>.</p>
+<ol>
+  <li>Run a query, for example <code>SELECT * FROM shipments WHERE delivered_date IS NULL</code> on the sample shipments.</li>
+  <li>Select <strong>CSV</strong> or <strong>Parquet</strong>.</li>
+</ol>
+<p>The engine runs the query again and writes the whole result, however many rows it has, not only the rows on screen. While it works, the bar says "Exporting…". When it's done, the browser downloads the file and the bar says which, for example "Downloaded blinkql-result-2026-10-25-090503.csv". The name is the date and time of the export.</p>
+<p>Choose CSV for a spreadsheet. Choose Parquet to open the result again in Blinkql or another data tool. Parquet keeps the column types and is smaller.</p>
+
+<h2>Export a chart as PNG</h2>
+<ol>
+  <li>Select <strong>Chart</strong> and set up the chart. <a href="/docs/explore-results/">Explore results</a> explains the chart controls.</li>
+  <li>Select <strong>Export PNG</strong>, at the right of the chart controls.</li>
+</ol>
+<p>The image is the chart as it is on screen, in the page's current colours, at twice its size on screen so it stays sharp on slides. The file is named like <code>blinkql-chart-2026-10-25-090503.png</code>. <strong>Export PNG</strong> is unavailable while <strong>View as table</strong> is on.</p>
+<!--docs:screenshot:chart-->
+
+<h2>Save an analysis as an HTML report</h2>
+<p>A report is a single HTML file to send to someone who doesn't use Blinkql. It opens in any browser, offline too, because it loads nothing from elsewhere.</p>
+<ol>
+  <li>Run the query. To include a chart, select <strong>Chart</strong> and set it up, and leave <strong>View as table</strong> off.</li>
+  <li>Select <strong>HTML report</strong>.</li>
+</ol>
+<p>The report is titled "Blinkql report" and says when it was made and how many rows the result has. It shows the query, the chart if one was on screen, and the first 1,000 rows of the result. A longer result is labelled, for example "Result: first 1,000 of 2,500 rows". The chart is drawn in light and dark colours, and the report shows the one that matches the reader's setting. It prints in light colours. The file is named like <code>blinkql-report-2026-10-25-090503.html</code>.</p>
+<aside class="note"><p>A report holds data from your file. Check its rows before you send it.</p></aside>
+
+<h2>Copy cells and queries</h2>
+<ul>
+  <li>To copy cells, select them in the results table with <kbd>Shift</kbd> and the arrow keys, then press <kbd>Ctrl</kbd>+<kbd>C</kbd> (<kbd>⌘</kbd>+<kbd>C</kbd> on a Mac). They're copied as tab-separated text, one line per row, so a spreadsheet pastes them as the same block. If the selection includes the header row, the column names come too.</li>
+  <li>To copy a query you ran earlier, open <strong>History</strong> in the sidebar and select <strong>Copy SQL</strong> on its entry.</li>
+</ul>
+
+<h2>Share a query as a link</h2>
+<p>A share link holds the query and, if a chart is on screen, its settings. It holds no data. Whoever opens it runs the query on their own files, so it suits colleagues who have the same file or the same sample data.</p>
+<ol>
+  <li>Run the query. If you want the link to open a chart, select <strong>Chart</strong> and set it up.</li>
+  <li>Select <strong>Share</strong>. The <strong>Share query</strong> dialog shows the link.</li>
+  <li>Select <strong>Copy link</strong>. The dialog says "Link copied". If the browser blocks the clipboard, the dialog selects the link so you can copy it yourself.</li>
+</ol>
+<p>Values written into the query are part of the link, such as the carrier name in <code>WHERE carrier = 'Deccan Haulage'</code>. Before you share, the dialog lists them under "The query has values written into it, which anyone with the link can read". To keep a value out of the link, take it out of the query first.</p>
+<p>When someone opens the link, the workbench puts the query in their editor and says "Opened a shared query. Run it once its data is loaded." The query doesn't run by itself, because its tables may not be loaded yet. They load the same file, or the same sample from <strong>Load sample data</strong>, and select <strong>Run</strong>. The table names must match the ones in the query. A link that's been cut short or changed opens nothing, and the workbench says "That share link couldn't be read, so nothing was opened."</p>

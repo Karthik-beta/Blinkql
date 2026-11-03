@@ -29,4 +29,11 @@ export default [
     gzip: true,
     limit: "5 kB",
   },
+  {
+    // Every docs page loads the same script: the theme follower.
+    name: "Docs pages (/docs/…/): initial JavaScript",
+    path: initialJavaScript("docs/get-started/"),
+    gzip: true,
+    limit: "5 kB",
+  },
 ];

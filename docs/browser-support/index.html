@@ -1,0 +1,62 @@
+<h2>Supported browsers</h2>
+<p>Blinkql supports the latest two versions of Chrome, Edge, Firefox and Safari on desktop. Every change is tested automatically in Chromium, Firefox and WebKit, the browser engines behind all four. Phones and tablets can open the workbench, but its layout is made for a desktop screen.</p>
+<p>Once the workbench has loaded, it opens without a network connection, and the status bar says <strong>Offline</strong>. Files on your computer still import and query offline. Files from a web address need a connection.</p>
+
+<h2>File size and memory</h2>
+<p>There's no fixed limit on file size. What limits you is memory. The engine runs inside the browser tab, which gives it at most 4 GB, and some browsers and computers allow less. How far that goes depends on the file's format and on the query.</p>
+<p>When you import a file larger than half of that, the workbench warns you: "This file is large for this device's memory. If queries fail, add a LIMIT, select fewer columns or aggregate." The file still imports. The limit it compares with is 4 GB, or the computer's memory if the browser reports less than that. Chrome and Edge report it. Firefox and Safari don't, so there the warning starts at 2 GB.</p>
+<p>To work with large files:</p>
+<ul>
+  <li>Use Parquet rather than CSV. The engine reads only the columns a query uses, and the file is smaller. To convert a CSV table, focus it in the <strong>Tables</strong> list and press <kbd>C</kbd>, or use its convert button. <a href="/docs/open-files/">Open files</a> explains converting.</li>
+  <li>Name the columns you need instead of <code>SELECT *</code>.</li>
+  <li>Filter and aggregate in SQL, so the result is small. Add a <code>LIMIT</code> when you only want to look at rows.</li>
+</ul>
+<pre><code class="language-sql">SELECT carrier, count(*) AS shipments, round(avg(freight_cost), 2) AS avg_cost
+FROM shipments
+WHERE ship_date &gt;= DATE '2026-09-01'
+GROUP BY carrier
+ORDER BY avg_cost DESC</code></pre>
+
+<h2>Files from a web address</h2>
+<p>To read a file from a web address, select <strong>Add from URL</strong> next to the <strong>Tables</strong> heading. The address has to meet a few conditions.</p>
+<ul>
+  <li>It starts with <code>https://</code>. Plain <code>http://</code> works only for <code>localhost</code> and <code>127.0.0.1</code>, so you can test with a server on your own computer.</li>
+  <li>Its path ends in a file name with one of the extensions Blinkql reads, such as <code>orders.parquet</code>. That name decides the format and the table's name.</li>
+  <li>The server allows other websites to read the file, through CORS. This is a setting on the server, not in your browser. Most cloud storage services have it off until the owner turns it on for <code>https://blinkql.karthik.nz</code>.</li>
+  <li>For Parquet, the server should support range requests, so the engine can download only the parts a query needs. Most cloud storage services do. Without them, the file still works, but the workbench warns "The server doesn't support range requests, so the whole file is downloaded every time it's read."</li>
+</ul>
+<p>A file from a web address isn't kept in the browser. After a reload, add it again.</p>
+
+<h2>Storage space</h2>
+<p>Blinkql keeps a copy of each file you import from your computer, so its table comes back on your next visit. The copy is written straight to disk, so keeping a large file doesn't need memory for it. Each browser decides how much a site may store, usually as a share of free disk space, and the copies count towards it.</p>
+<p>The copies are a convenience, not a backup. Browsers can delete a site's stored data when disk space runs low, and Safari can delete it after a period without visits. Blinkql asks the browser to keep the copies, but the browser decides. Keep your original files.</p>
+<p>To save space, forget tables you no longer need, and convert CSV tables to Parquet, which replaces the kept copy with a smaller one. <a href="/docs/privacy-and-storage/">Privacy and storage</a> lists everything the browser keeps and how to remove it.</p>
+
+<h2>Troubleshooting</h2>
+<p>An import that fails shows under the <strong>Tables</strong> list as "Couldn't import" with the file's name, followed by one of the messages below.</p>
+
+<h3>The file's format isn't recognised</h3>
+<p>"Not a CSV, TSV, Excel (.xlsx), Parquet, JSON or JSON Lines file" means the file's extension isn't one of <code>.csv</code>, <code>.tsv</code>, <code>.xlsx</code>, <code>.parquet</code>, <code>.json</code>, <code>.jsonl</code> or <code>.ndjson</code>. Blinkql judges the format by the extension alone. Rename the file if its extension is wrong. For a web address with no file name at the end, such as a download link ending in <code>?id=42</code>, download the file and import it instead.</p>
+
+<h3>An Excel workbook won't open</h3>
+<ul>
+  <li>"Excel 97–2003 workbooks (.xls) can't be read. Save it as .xlsx in Excel first." Open it in Excel and save it as an Excel workbook (.xlsx).</li>
+  <li>"The workbook can't be read. It may be password-protected or an older .xls file" means the file isn't a readable .xlsx. Remove its password, or save it as .xlsx in Excel, then import it again.</li>
+</ul>
+
+<h3>A web address won't load</h3>
+<ul>
+  <li>"Enter a full address, starting with https://" or "Only https:// addresses can be read." Check the address you typed.</li>
+  <li>"The server doesn't let other websites read this file (it doesn't allow CORS). Download the file and import it instead." The browser couldn't read the file. The usual reason is CORS, but you see the same message when you're offline or the server can't be reached, because the browser doesn't say why a request failed. Ask the file's owner to allow <code>https://blinkql.karthik.nz</code>, or download the file and import it.</li>
+  <li>"The server answered" followed by a status, such as <code>403 Forbidden</code> or <code>404 Not Found</code>. The server refused the request or has no file there. Check the address, and for a private file, that the link gives access without signing in.</li>
+</ul>
+
+<h3>A query runs out of memory</h3>
+<p>The error panel says "The query ran out of memory". Filter or aggregate in SQL, or add a <code>LIMIT</code>, so less data has to fit in the browser. Converting a CSV table to Parquet also helps. <a href="/docs/write-queries/">Write queries</a> covers the other error messages.</p>
+
+<h3>The engine stopped or didn't start</h3>
+<p>If the engine itself fails, the error panel says "The engine stopped" and the status bar starts with "Engine stopped". Select <strong>Restart engine</strong>. Your tables are imported again automatically. The query may have been fine, so run it again, or narrow it first if it read a lot of data.</p>
+<p>If the status bar says "Engine failed to start", select <strong>Restart engine</strong> to try again. If it keeps failing, update your browser to a supported version.</p>
+
+<h3>Tables are gone after a reload</h3>
+<p>If the <strong>Tables</strong> list said "This browser can't keep these files, so their tables will be gone after a reload.", the browser had no room for the copy or doesn't allow sites to store files. This can happen in private windows, when storage is full, and when site data is blocked in the browser's settings. Use a normal window, free some space, or allow site data for <code>blinkql.karthik.nz</code>. Tables from a web address are never kept, so add those again.</p>
