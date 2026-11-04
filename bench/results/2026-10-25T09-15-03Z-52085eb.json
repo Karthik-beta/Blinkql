@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "timestamp": "2026-10-25T09:15:03.646Z",
+  "commit": {
+    "sha": "52085ebaa8da55ecca364b28e99cee9418a8e1a9",
+    "dirty": true
+  },
+  "environment": {
+    "os": {
+      "platform": "win32",
+      "release": "10.0.26300",
+      "arch": "x64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz",
+      "cores": 8
+    },
+    "memoryBytes": 25659326464,
+    "node": "v26.12.0",
+    "browser": {
+      "name": "chromium",
+      "version": "156.0.8078.4"
+    },
+    "ci": false
+  },
+  "config": {
+    "warmup": 3,
+    "measured": 20,
+    "target": "local-preview",
+    "url": null,
+    "reactProfiling": false,
+    "interleaved": true
+  },
+  "results": [
+    {
+      "scenario": "rerun-while-running",
+      "description": "Run \"SELECT 42 AS answer\" while \"SELECT sum(hash(range)) AS total FROM range(150000000)\" is running, through the UI.",
+      "mode": "warm",
+      "metrics": {
+        "rerunMs": {
+          "unit": "ms",
+          "median": 3556.7225,
+          "p95": 3934.08325,
+          "min": 3385.885,
+          "max": 4391.76,
+          "mean": 3610.547999999999,
+          "samples": [
+            4391.76,
+            3563.38,
+            3385.885,
+            3497.41,
+            3471.985,
+            3550.335,
+            3909.995,
+            3508.85,
+            3529.395,
+            3685.005,
+            3666.32,
+            3604.365,
+            3665.365,
+            3563.11,
+            3440.185,
+            3456.96,
+            3653.77,
+            3775.98,
+            3404.43,
+            3486.475
+          ]
+        },
+        "attempts": {
+          "unit": "count",
+          "median": 2,
+          "p95": 2,
+          "min": 2,
+          "max": 2,
+          "mean": 2,
+          "samples": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2
+          ]
+        }
+      }
+    }
+  ]
+}

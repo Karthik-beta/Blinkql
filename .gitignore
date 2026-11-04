@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Vercel (`vercel pull` / `vercel build` write here)
+.vercel/
+
+# Environment files (commit only examples)
+.env
+.env.*
+!.env.example
+*.local
+
+# Test and benchmark artifacts
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.lighthouseci/
+bench/smoke-results/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.sw?
+
+# Generated benchmark datasets (`pnpm bench:data`)
+bench/datasets/data/
+
+# Bundle treemap (`BLINKQL_ANALYZE=1 pnpm build`)
+bench/bundle/

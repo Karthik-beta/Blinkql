@@ -1,0 +1,717 @@
+{
+  "schemaVersion": 1,
+  "timestamp": "2026-10-26T12:59:19.797Z",
+  "commit": {
+    "sha": "3639160d75ccdd843aae286e26a98014f0b14b9d",
+    "dirty": false
+  },
+  "environment": {
+    "os": {
+      "platform": "win32",
+      "release": "10.0.26300",
+      "arch": "x64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz",
+      "cores": 8
+    },
+    "memoryBytes": 25659326464,
+    "node": "v26.12.0",
+    "browser": {
+      "name": "chromium",
+      "version": "156.0.8078.4"
+    },
+    "ci": false
+  },
+  "config": {
+    "warmup": 3,
+    "measured": 10,
+    "target": "local-preview",
+    "url": null,
+    "reactProfiling": false
+  },
+  "results": [
+    {
+      "scenario": "time-to-app-shell",
+      "description": "Navigation start until the app shell is committed (the blinkql:app-shell mark).",
+      "mode": "cold",
+      "metrics": {
+        "timeToAppShell": {
+          "unit": "ms",
+          "median": 359.975,
+          "p95": 386.638,
+          "min": 352.26,
+          "max": 398.455,
+          "mean": 363.59,
+          "samples": [
+            361.705,
+            398.455,
+            354.885,
+            359.505,
+            357.535,
+            356.125,
+            362.785,
+            372.195,
+            352.26,
+            360.445
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-app-shell",
+      "description": "Navigation start until the app shell is committed (the blinkql:app-shell mark).",
+      "mode": "warm",
+      "metrics": {
+        "timeToAppShell": {
+          "unit": "ms",
+          "median": 345.155,
+          "p95": 362.945,
+          "min": 329.46,
+          "max": 364.335,
+          "mean": 348.525,
+          "samples": [
+            361.005,
+            346.405,
+            364.335,
+            329.46,
+            340.755,
+            359.21,
+            343.51,
+            343.905,
+            361.245,
+            335.42
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-engine-ready",
+      "description": "Navigation start until DuckDB-wasm is running in its worker and has answered a first query (the blinkql:engine-ready mark), and the bytes downloaded until then.",
+      "mode": "cold",
+      "metrics": {
+        "timeToEngineReady": {
+          "unit": "ms",
+          "median": 1609.308,
+          "p95": 1672.621,
+          "min": 1552.73,
+          "max": 1699.25,
+          "mean": 1608.916,
+          "samples": [
+            1552.73,
+            1565.08,
+            1623.92,
+            1621.86,
+            1640.075,
+            1584.285,
+            1699.25,
+            1624.135,
+            1581.07,
+            1596.755
+          ]
+        },
+        "bytesTransferred": {
+          "unit": "bytes",
+          "median": 34629753,
+          "p95": 34629753,
+          "min": 34629753,
+          "max": 34629753,
+          "mean": 34629753,
+          "samples": [
+            34629753,
+            34629753,
+            34629753,
+            34629753,
+            34629753,
+            34629753,
+            34629753,
+            34629753,
+            34629753,
+            34629753
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-engine-ready",
+      "description": "Navigation start until DuckDB-wasm is running in its worker and has answered a first query (the blinkql:engine-ready mark), and the bytes downloaded until then.",
+      "mode": "warm",
+      "metrics": {
+        "timeToEngineReady": {
+          "unit": "ms",
+          "median": 1598.242,
+          "p95": 1697.264,
+          "min": 1570.385,
+          "max": 1710.955,
+          "mean": 1614.833,
+          "samples": [
+            1680.53,
+            1710.955,
+            1602.02,
+            1608.46,
+            1576.355,
+            1570.385,
+            1591.34,
+            1623.57,
+            1594.465,
+            1590.245
+          ]
+        },
+        "bytesTransferred": {
+          "unit": "bytes",
+          "median": 34251466,
+          "p95": 34251466,
+          "min": 34251466,
+          "max": 34251466,
+          "mean": 34251466,
+          "samples": [
+            34251466,
+            34251466,
+            34251466,
+            34251466,
+            34251466,
+            34251466,
+            34251466,
+            34251466,
+            34251466,
+            34251466
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "scroll-10k-wide",
+      "description": "10,000 rows of telemetry-s-wide.parquet: showing them, then scrolling them for 5 s at a steady speed and 5 s from top to bottom, sampling every frame.",
+      "mode": "warm",
+      "metrics": {
+        "renderMs": {
+          "unit": "ms",
+          "median": 16.74,
+          "p95": 24.232,
+          "min": 13.045,
+          "max": 24.25,
+          "mean": 18.316,
+          "samples": [
+            24.21,
+            14.01,
+            13.045,
+            24.25,
+            14.885,
+            16.26,
+            20.465,
+            16.94,
+            22.555,
+            16.54
+          ]
+        },
+        "renderLongestFrameMs": {
+          "unit": "ms",
+          "median": 65.332,
+          "p95": 68.191,
+          "min": 56.405,
+          "max": 68.285,
+          "mean": 64.395,
+          "samples": [
+            66.395,
+            60.59,
+            56.405,
+            64.27,
+            62.685,
+            62.59,
+            68.035,
+            68.285,
+            68.075,
+            66.62
+          ]
+        },
+        "firstRowsMs": {
+          "unit": "ms",
+          "median": 486.16,
+          "p95": 550.986,
+          "min": 457.175,
+          "max": 571.895,
+          "mean": 496.473,
+          "samples": [
+            525.43,
+            471.87,
+            457.175,
+            485.11,
+            511.22,
+            480.98,
+            490.385,
+            571.895,
+            487.21,
+            483.455
+          ]
+        },
+        "firstRowsRenderMs": {
+          "unit": "ms",
+          "median": 74.833,
+          "p95": 78.627,
+          "min": 67.42,
+          "max": 78.78,
+          "mean": 74.438,
+          "samples": [
+            78.44,
+            74.105,
+            67.42,
+            69.86,
+            76.085,
+            72.665,
+            73.85,
+            78.78,
+            75.56,
+            77.61
+          ]
+        },
+        "memoryBytes": {
+          "unit": "bytes",
+          "median": 56642066,
+          "p95": 56994576.15,
+          "min": 56395471,
+          "max": 56997408,
+          "mean": 56664221.9,
+          "samples": [
+            56835645,
+            56731151,
+            56736633,
+            56395471,
+            56446102,
+            56468989,
+            56552981,
+            56991115,
+            56486724,
+            56997408
+          ]
+        },
+        "wheelFrameMedianMs": {
+          "unit": "ms",
+          "median": 13.336,
+          "p95": 13.34,
+          "min": 13.335,
+          "max": 13.34,
+          "mean": 13.337,
+          "samples": [
+            13.337,
+            13.335,
+            13.34,
+            13.335,
+            13.34,
+            13.34,
+            13.335,
+            13.335,
+            13.335,
+            13.34
+          ]
+        },
+        "wheelFrameP95Ms": {
+          "unit": "ms",
+          "median": 13.604,
+          "p95": 13.671,
+          "min": 13.537,
+          "max": 13.692,
+          "mean": 13.609,
+          "samples": [
+            13.537,
+            13.612,
+            13.63,
+            13.646,
+            13.591,
+            13.692,
+            13.593,
+            13.607,
+            13.6,
+            13.584
+          ]
+        },
+        "wheelSlowFrames": {
+          "unit": "count",
+          "median": 1,
+          "p95": 2,
+          "min": 0,
+          "max": 2,
+          "mean": 0.9,
+          "samples": [
+            1,
+            1,
+            1,
+            0,
+            2,
+            1,
+            0,
+            0,
+            1,
+            2
+          ]
+        },
+        "wheelLongestFrameMs": {
+          "unit": "ms",
+          "median": 0,
+          "p95": 0,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "samples": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "dragFrameMedianMs": {
+          "unit": "ms",
+          "median": 53.388,
+          "p95": 66.619,
+          "min": 53.37,
+          "max": 66.62,
+          "mean": 56.031,
+          "samples": [
+            53.385,
+            53.39,
+            66.62,
+            53.375,
+            66.618,
+            53.375,
+            53.41,
+            53.37,
+            53.398,
+            53.37
+          ]
+        },
+        "dragFrameP95Ms": {
+          "unit": "ms",
+          "median": 79.977,
+          "p95": 80.062,
+          "min": 66.74,
+          "max": 80.078,
+          "mean": 76.623,
+          "samples": [
+            80.022,
+            75.988,
+            80.078,
+            66.753,
+            80.004,
+            79.954,
+            76.644,
+            80.001,
+            66.74,
+            80.042
+          ]
+        },
+        "dragSlowFrames": {
+          "unit": "count",
+          "median": 84.5,
+          "p95": 86,
+          "min": 80,
+          "max": 86,
+          "mean": 83.8,
+          "samples": [
+            83,
+            84,
+            81,
+            86,
+            80,
+            86,
+            83,
+            85,
+            85,
+            85
+          ]
+        },
+        "dragLongestFrameMs": {
+          "unit": "ms",
+          "median": 88.318,
+          "p95": 98.958,
+          "min": 80.51,
+          "max": 100.875,
+          "mean": 89.858,
+          "samples": [
+            89.5,
+            80.51,
+            93.365,
+            87.135,
+            100.875,
+            87.11,
+            86.375,
+            96.615,
+            85.95,
+            91.15
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "scroll-100k-wide",
+      "description": "100,000 rows of telemetry-s-wide.parquet: showing them, then scrolling them for 5 s at a steady speed and 5 s from top to bottom, sampling every frame.",
+      "mode": "warm",
+      "metrics": {
+        "renderMs": {
+          "unit": "ms",
+          "median": 21.345,
+          "p95": 24.084,
+          "min": 14.665,
+          "max": 24.34,
+          "mean": 20.757,
+          "samples": [
+            19.365,
+            22.405,
+            16.525,
+            20.285,
+            24.34,
+            20.15,
+            23.77,
+            14.665,
+            23.145,
+            22.92
+          ]
+        },
+        "renderLongestFrameMs": {
+          "unit": "ms",
+          "median": 88.92,
+          "p95": 100.523,
+          "min": 80.13,
+          "max": 101.02,
+          "mean": 90.58,
+          "samples": [
+            81.455,
+            101.02,
+            88.42,
+            89.195,
+            98.195,
+            99.915,
+            84.44,
+            88.645,
+            80.13,
+            94.39
+          ]
+        },
+        "firstRowsMs": {
+          "unit": "ms",
+          "median": 647.31,
+          "p95": 678.372,
+          "min": 634.52,
+          "max": 698.37,
+          "mean": 650.897,
+          "samples": [
+            645.155,
+            653.93,
+            652.57,
+            643.135,
+            649.465,
+            698.37,
+            642.815,
+            651.155,
+            637.85,
+            634.52
+          ]
+        },
+        "firstRowsRenderMs": {
+          "unit": "ms",
+          "median": 101.435,
+          "p95": 112.475,
+          "min": 94.31,
+          "max": 113.085,
+          "mean": 103.263,
+          "samples": [
+            95.805,
+            113.085,
+            101.04,
+            101.83,
+            109.635,
+            111.73,
+            98.975,
+            99.625,
+            94.31,
+            106.595
+          ]
+        },
+        "memoryBytes": {
+          "unit": "bytes",
+          "median": 91562949,
+          "p95": 91614671.65,
+          "min": 91444936,
+          "max": 91617130,
+          "mean": 91543523,
+          "samples": [
+            91444936,
+            91457812,
+            91552372,
+            91492243,
+            91505368,
+            91585431,
+            91573526,
+            91594745,
+            91617130,
+            91611667
+          ]
+        },
+        "wheelFrameMedianMs": {
+          "unit": "ms",
+          "median": 13.335,
+          "p95": 13.34,
+          "min": 13.335,
+          "max": 13.34,
+          "mean": 13.337,
+          "samples": [
+            13.34,
+            13.34,
+            13.335,
+            13.335,
+            13.335,
+            13.34,
+            13.335,
+            13.34,
+            13.335,
+            13.335
+          ]
+        },
+        "wheelFrameP95Ms": {
+          "unit": "ms",
+          "median": 13.609,
+          "p95": 13.717,
+          "min": 13.385,
+          "max": 13.732,
+          "mean": 13.608,
+          "samples": [
+            13.732,
+            13.612,
+            13.605,
+            13.615,
+            13.59,
+            13.385,
+            13.699,
+            13.635,
+            13.605,
+            13.598
+          ]
+        },
+        "wheelSlowFrames": {
+          "unit": "count",
+          "median": 1,
+          "p95": 5.65,
+          "min": 0,
+          "max": 7,
+          "mean": 2,
+          "samples": [
+            1,
+            1,
+            1,
+            2,
+            0,
+            4,
+            1,
+            7,
+            2,
+            1
+          ]
+        },
+        "wheelLongestFrameMs": {
+          "unit": "ms",
+          "median": 0,
+          "p95": 0,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "samples": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "dragFrameMedianMs": {
+          "unit": "ms",
+          "median": 53.393,
+          "p95": 66.681,
+          "min": 53.365,
+          "max": 66.69,
+          "mean": 57.373,
+          "samples": [
+            53.455,
+            53.4,
+            53.385,
+            53.377,
+            53.38,
+            66.69,
+            53.38,
+            66.632,
+            53.365,
+            66.67
+          ]
+        },
+        "dragFrameP95Ms": {
+          "unit": "ms",
+          "median": 80.002,
+          "p95": 80.051,
+          "min": 75.358,
+          "max": 80.06,
+          "mean": 79.537,
+          "samples": [
+            80,
+            80.006,
+            79.994,
+            79.918,
+            79.978,
+            80.06,
+            75.358,
+            80.003,
+            80.015,
+            80.04
+          ]
+        },
+        "dragSlowFrames": {
+          "unit": "count",
+          "median": 82.5,
+          "p95": 85,
+          "min": 75,
+          "max": 85,
+          "mean": 81.7,
+          "samples": [
+            80,
+            82,
+            83,
+            85,
+            84,
+            75,
+            85,
+            81,
+            84,
+            78
+          ]
+        },
+        "dragLongestFrameMs": {
+          "unit": "ms",
+          "median": 84.358,
+          "p95": 99.94,
+          "min": 76.71,
+          "max": 101.875,
+          "mean": 87.122,
+          "samples": [
+            101.875,
+            80.14,
+            87.17,
+            76.71,
+            84.45,
+            97.575,
+            83.785,
+            84.265,
+            80.435,
+            94.81
+          ]
+        }
+      }
+    }
+  ]
+}

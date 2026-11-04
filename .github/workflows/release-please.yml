@@ -1,0 +1,48 @@
+# Keeps a release PR open on main, built from Conventional Commits:
+#
+#   feat -> minor bump, fix / perf -> patch bump (breaking changes bump the
+#   minor version until 1.0, see bump-minor-pre-major)
+#
+# The PR updates CHANGELOG.md, package.json and .release-please-manifest.json.
+# Merging it tags the release and publishes it on GitHub. Configuration lives
+# in release-please-config.json.
+#
+# Needs the repository secret RELEASE_PLEASE_TOKEN: a fine-grained personal
+# access token for this repository with read and write access to Contents,
+# Issues and Pull requests. The default GITHUB_TOKEN won't do: Actions isn't
+# allowed to open PRs here, and PRs it opens wouldn't trigger CI, which the
+# `main` ruleset requires before merging.
+
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+# The personal access token does all the writing.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check for release token
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_PLEASE_TOKEN" ]; then
+            echo "::error::Repository secret RELEASE_PLEASE_TOKEN is not set. See the comment at the top of release-please.yml."
+            exit 1
+          fi
+
+      - uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

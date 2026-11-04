@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "timestamp": "2026-10-27T04:32:31.812Z",
+  "commit": {
+    "sha": "86bfbf9451ec1d09309b76884a83cfa7c897bf4a",
+    "dirty": true
+  },
+  "environment": {
+    "os": {
+      "platform": "win32",
+      "release": "10.0.26300",
+      "arch": "x64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz",
+      "cores": 8
+    },
+    "memoryBytes": 25659326464,
+    "node": "v26.12.0",
+    "browser": {
+      "name": "chromium",
+      "version": "156.0.8078.4"
+    },
+    "ci": false
+  },
+  "config": {
+    "warmup": 3,
+    "measured": 10,
+    "target": "local-preview",
+    "url": null,
+    "reactProfiling": false
+  },
+  "results": [
+    {
+      "scenario": "time-to-app-shell",
+      "description": "Navigation start until the app shell is committed (the blinkql:app-shell mark).",
+      "mode": "cold",
+      "metrics": {
+        "timeToAppShell": {
+          "unit": "ms",
+          "median": 351.232,
+          "p95": 454.204,
+          "min": 304.585,
+          "max": 471.99,
+          "mean": 365.295,
+          "samples": [
+            308.41,
+            341.345,
+            310.305,
+            358.705,
+            304.585,
+            367.055,
+            414.325,
+            343.76,
+            432.465,
+            471.99
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-app-shell",
+      "description": "Navigation start until the app shell is committed (the blinkql:app-shell mark).",
+      "mode": "warm",
+      "metrics": {
+        "timeToAppShell": {
+          "unit": "ms",
+          "median": 109.163,
+          "p95": 147.073,
+          "min": 98.815,
+          "max": 148.245,
+          "mean": 117.598,
+          "samples": [
+            129.745,
+            148.245,
+            145.64,
+            111.37,
+            124.18,
+            102.875,
+            102.975,
+            105.175,
+            106.955,
+            98.815
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-engine-ready",
+      "description": "Navigation start until DuckDB-wasm is running in its worker and has answered a first query (the blinkql:engine-ready mark), the bytes downloaded until then, and how long each start-up step took.",
+      "mode": "cold",
+      "metrics": {
+        "timeToEngineReady": {
+          "unit": "ms",
+          "median": 2066.89,
+          "p95": 2261.994,
+          "min": 1987.01,
+          "max": 2276.185,
+          "mean": 2092.487,
+          "samples": [
+            1987.01,
+            2008.03,
+            2063.275,
+            2019.755,
+            2053.005,
+            2276.185,
+            2112.805,
+            2089.65,
+            2070.505,
+            2244.65
+          ]
+        },
+        "bytesTransferred": {
+          "unit": "bytes",
+          "median": 34633983,
+          "p95": 34633983,
+          "min": 34633983,
+          "max": 34633983,
+          "mean": 34633983,
+          "samples": [
+            34633983,
+            34633983,
+            34633983,
+            34633983,
+            34633983,
+            34633983,
+            34633983,
+            34633983,
+            34633983,
+            34633983
+          ]
+        },
+        "engineBootStartMs": {
+          "unit": "ms",
+          "median": 412.97,
+          "p95": 458.434,
+          "min": 369.13,
+          "max": 462.65,
+          "mean": 414.66,
+          "samples": [
+            369.13,
+            399.515,
+            413.75,
+            392.165,
+            402.135,
+            462.65,
+            424.215,
+            412.19,
+            417.565,
+            453.28
+          ]
+        },
+        "workerMs": {
+          "unit": "ms",
+          "median": 6.063,
+          "p95": 8.403,
+          "min": 5.11,
+          "max": 8.725,
+          "mean": 6.325,
+          "samples": [
+            5.61,
+            5.245,
+            5.12,
+            8.01,
+            6.57,
+            8.725,
+            5.875,
+            6.25,
+            5.11,
+            6.735
+          ]
+        },
+        "instantiateMs": {
+          "unit": "ms",
+          "median": 1410.468,
+          "p95": 1567.469,
+          "min": 1388.175,
+          "max": 1567.595,
+          "mean": 1443.15,
+          "samples": [
+            1393.51,
+            1388.175,
+            1403.845,
+            1404.855,
+            1416.08,
+            1567.595,
+            1447.78,
+            1447.4,
+            1394.945,
+            1567.315
+          ]
+        },
+        "openMs": {
+          "unit": "ms",
+          "median": 175.705,
+          "p95": 189.074,
+          "min": 164.775,
+          "max": 189.4,
+          "mean": 177.269,
+          "samples": [
+            176.89,
+            164.775,
+            186.71,
+            167.91,
+            174.52,
+            184.035,
+            189.4,
+            170.885,
+            188.675,
+            168.885
+          ]
+        },
+        "connectMs": {
+          "unit": "ms",
+          "median": 1.263,
+          "p95": 1.508,
+          "min": 1.075,
+          "max": 1.53,
+          "mean": 1.307,
+          "samples": [
+            1.075,
+            1.205,
+            1.53,
+            1.185,
+            1.275,
+            1.25,
+            1.385,
+            1.22,
+            1.46,
+            1.48
+          ]
+        },
+        "readyMs": {
+          "unit": "ms",
+          "median": 50.41,
+          "p95": 58.104,
+          "min": 40.795,
+          "max": 62.75,
+          "mean": 49.777,
+          "samples": [
+            40.795,
+            49.115,
+            52.32,
+            45.63,
+            52.425,
+            51.93,
+            44.15,
+            51.705,
+            62.75,
+            46.955
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-engine-ready",
+      "description": "Navigation start until DuckDB-wasm is running in its worker and has answered a first query (the blinkql:engine-ready mark), the bytes downloaded until then, and how long each start-up step took.",
+      "mode": "warm",
+      "metrics": {
+        "timeToEngineReady": {
+          "unit": "ms",
+          "median": 1362.675,
+          "p95": 1531.948,
+          "min": 1285,
+          "max": 1567.64,
+          "mean": 1379.378,
+          "samples": [
+            1294.43,
+            1285,
+            1387.96,
+            1488.325,
+            1388.555,
+            1311.935,
+            1322.11,
+            1567.64,
+            1337.39,
+            1410.43
+          ]
+        },
+        "bytesTransferred": {
+          "unit": "bytes",
+          "median": 0,
+          "p95": 0,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "samples": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "engineBootStartMs": {
+          "unit": "ms",
+          "median": 138.842,
+          "p95": 165.018,
+          "min": 127.44,
+          "max": 166.645,
+          "mean": 143.228,
+          "samples": [
+            132.515,
+            135.485,
+            166.645,
+            163.03,
+            139.17,
+            138.515,
+            127.44,
+            147.22,
+            136.295,
+            145.965
+          ]
+        },
+        "workerMs": {
+          "unit": "ms",
+          "median": 4.925,
+          "p95": 5.947,
+          "min": 4.14,
+          "max": 6.215,
+          "mean": 5.025,
+          "samples": [
+            6.215,
+            4.65,
+            5.05,
+            5.62,
+            4.965,
+            4.14,
+            5.45,
+            4.885,
+            4.825,
+            4.45
+          ]
+        },
+        "instantiateMs": {
+          "unit": "ms",
+          "median": 957.848,
+          "p95": 1096.304,
+          "min": 937.39,
+          "max": 1114.045,
+          "mean": 989.901,
+          "samples": [
+            942.215,
+            937.39,
+            955.915,
+            1074.62,
+            973.685,
+            951.875,
+            957.805,
+            1114.045,
+            957.89,
+            1033.565
+          ]
+        },
+        "openMs": {
+          "unit": "ms",
+          "median": 181.72,
+          "p95": 231.85,
+          "min": 164.505,
+          "max": 249.625,
+          "mean": 191.163,
+          "samples": [
+            171.375,
+            164.505,
+            210.125,
+            182.13,
+            205.065,
+            173.7,
+            181.31,
+            249.625,
+            192.71,
+            181.085
+          ]
+        },
+        "connectMs": {
+          "unit": "ms",
+          "median": 1.21,
+          "p95": 1.436,
+          "min": 1.125,
+          "max": 1.465,
+          "mean": 1.252,
+          "samples": [
+            1.4,
+            1.395,
+            1.125,
+            1.165,
+            1.465,
+            1.125,
+            1.235,
+            1.22,
+            1.2,
+            1.19
+          ]
+        },
+        "readyMs": {
+          "unit": "ms",
+          "median": 46.67,
+          "p95": 63.105,
+          "min": 40.71,
+          "max": 64.205,
+          "mean": 48.809,
+          "samples": [
+            40.71,
+            41.575,
+            49.1,
+            61.76,
+            64.205,
+            42.58,
+            48.87,
+            50.645,
+            44.47,
+            44.175
+          ]
+        }
+      }
+    }
+  ]
+}
