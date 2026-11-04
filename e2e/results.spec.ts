@@ -62,11 +62,11 @@ test.describe("Results table", () => {
           const [header, ...rows] = grid.querySelectorAll('[role="row"]');
           const below = header?.getBoundingClientRect().bottom ?? 0;
           const row = rows.find((row) => row.getBoundingClientRect().top >= below - 1);
-          return Number(row?.textContent) / 1_000_000;
+          return Number(row?.textContent?.replaceAll(",", "")) / 1_000_000;
         });
       await expect.poll(firstInView).toBeCloseTo(fraction, 2);
     }
-    await expect(results(page).getByRole("row").last()).toHaveText("999999");
+    await expect(results(page).getByRole("row").last()).toHaveText("999,999");
   });
 
   test("moves the active cell with the keyboard", async ({ page }) => {
@@ -111,7 +111,7 @@ test.describe("Results table", () => {
       "2026-10-16 05:47:17",
       "[1,2]",
       '{"a":"b"}',
-      "9007199254740993",
+      "9,007,199,254,740,993",
     ]);
   });
 
@@ -182,6 +182,50 @@ test.describe("Results table", () => {
     await page.keyboard.press("ControlOrMeta+c");
     const copied = () => page.evaluate(() => (window as unknown as { copied: string[] }).copied);
     await expect.poll(copied).toEqual(["0\trow 0\n1\trow 1"]);
+  });
+
+  test("says when a query returns no rows, and offers no empty file to export", async ({
+    page,
+    makeAxeBuilder,
+  }) => {
+    await runSql(page, "SELECT 1 AS x WHERE false");
+
+    await expect(results(page).getByRole("columnheader")).toHaveText(["x"]);
+    await expect(results(page).getByText("No rows match this query.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export as CSV" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Export as Parquet" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Export as HTML report" })).toBeDisabled();
+    await page.getByRole("button", { name: "Commands" }).click();
+    const palette = page.getByRole("dialog", { name: "Commands" });
+    for (const name of ["Export as CSV", "Export as Parquet", "Export as HTML report"]) {
+      await expect(palette.getByRole("option", { name })).toHaveAttribute("aria-disabled", "true");
+    }
+    await page.keyboard.press("Escape");
+
+    const scan = await makeAxeBuilder().include('[aria-label="Results"]').analyze();
+    expect(scan.violations).toEqual([]);
+  });
+
+  test("gives most of a laptop screen to the results, not the editor", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await runSql(page, "SELECT range AS n FROM range(100)");
+    await expect(results(page).getByRole("row").nth(1)).toHaveText("0");
+
+    for (const viewport of [
+      { width: 1024, height: 768 },
+      { width: 1280, height: 800 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const workspace = await page.getByRole("main", { name: "Workspace" }).boundingBox();
+      const query = await page.getByRole("region", { name: "Query" }).boundingBox();
+      const grid = await results(page).boundingBox();
+      const editor = await page.locator("[data-sql-editor]").boundingBox();
+      if (!workspace || !query || !grid || !editor) throw new Error("Workspace not shown");
+
+      expect(query.height).toBeLessThanOrEqual(workspace.height * 0.4);
+      expect(grid.height).toBeGreaterThanOrEqual(query.height * 1.4);
+      expect(editor.height).toBeGreaterThanOrEqual(120);
+    }
   });
 
   test("has no detectable accessibility issues", async ({ page, makeAxeBuilder }) => {

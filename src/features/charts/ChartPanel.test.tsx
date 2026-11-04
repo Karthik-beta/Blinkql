@@ -1,7 +1,15 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Float64, Table, Utf8, vectorFromArray } from "apache-arrow";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  type DataType,
+  Float64,
+  Int64,
+  Table,
+  TimestampMillisecond,
+  Utf8,
+  vectorFromArray,
+} from "apache-arrow";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChartPanel } from "./ChartPanel";
 import { setChartPreset } from "./chart-preset";
 import { getShownChart, getShownChartPicture } from "./chart-settings";
@@ -14,17 +22,19 @@ vi.mock("@/features/results/query-run", () => {
   const run = { state: "done", sql: "SELECT * FROM readings", rowCount: 9, durationMs: 1 };
   return { getQueryRun: () => run, subscribeToQueryRun: () => () => {} };
 });
-vi.mock("@/features/results/result-store", async () => {
-  const { Float64, TimestampMillisecond, Utf8 } = await import("apache-arrow");
-  const result = {
-    columns: [
-      { name: "ts", type: new TimestampMillisecond() },
-      { name: "weekday", type: new Utf8() },
-      { name: "v", type: new Float64() },
-    ],
-  };
-  return { getResult: () => result, subscribeToResult: () => () => {} };
-});
+const store = vi.hoisted(() => ({
+  result: null as unknown as { columns: { name: string; type: DataType }[]; rowCount: number },
+  cells: [] as (string | null)[][],
+}));
+vi.mock("@/features/results/result-store", () => ({
+  getResult: () => store.result,
+  subscribeToResult: () => () => {},
+  readCell: (row: number, column: number) => store.cells[row]?.[column] ?? null,
+}));
+function setResult(columns: { name: string; type: DataType }[], cells: (string | null)[][]) {
+  store.result = { columns, rowCount: cells.length };
+  store.cells = cells;
+}
 const draw = vi.hoisted(() => ({
   drawChart: vi.fn(() => () => {}),
   chartPng: vi.fn(
@@ -39,8 +49,115 @@ const chartRows = new Table({
 });
 
 describe("ChartPanel", () => {
+  beforeEach(() => {
+    setResult(
+      [
+        { name: "ts", type: new TimestampMillisecond() },
+        { name: "weekday", type: new Utf8() },
+        { name: "v", type: new Float64() },
+      ],
+      [
+        ["2026-01-05 09:00", "Mon", "1.5"],
+        ["2026-01-06 09:00", "Tue", "2"],
+        ["2026-01-12 09:00", "Mon", "3"],
+      ],
+    );
+  });
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("sums a number column when the result is already grouped by the chart's categories", async () => {
+    setResult(
+      [
+        { name: "defect_type", type: new Utf8() },
+        { name: "n", type: new Int64() },
+      ],
+      [
+        ["Scratch", "685"],
+        ["Dent", "154"],
+        ["Crack", "61"],
+      ],
+    );
+    engine.query.mockImplementation(async (sql: string) =>
+      sql.includes('sum("n")')
+        ? new Table({
+            x: vectorFromArray(["Scratch", "Dent", "Crack"], new Utf8()),
+            y: vectorFromArray([685, 154, 61], new Float64()),
+          })
+        : new Table({
+            x: vectorFromArray(["Crack", "Dent", "Scratch"], new Utf8()),
+            y: vectorFromArray([1, 1, 1], new Float64()),
+          }),
+    );
+    const user = userEvent.setup();
+    render(<ChartPanel />);
+    expect(screen.getByLabelText("Aggregate")).toHaveValue("sum");
+    expect(screen.getByLabelText("Y")).toHaveValue("n");
+
+    await user.click(screen.getByRole("button", { name: "View as table" }));
+    const table = await screen.findByRole("table", { name: "Bar chart of sum(n) by defect_type" });
+    expect(within(table).getAllByRole("row")[1]?.textContent).toBe("Scratch685");
+  });
+
+  it("starts as a line chart over time when there's no text column for categories", async () => {
+    setResult(
+      [
+        { name: "hour", type: new TimestampMillisecond() },
+        { name: "good", type: new Int64() },
+      ],
+      [
+        ["2026-01-05 09:00", "12"],
+        ["2026-01-05 10:00", "7"],
+      ],
+    );
+    engine.query.mockResolvedValue(chartRows);
+    const user = userEvent.setup();
+    render(<ChartPanel />);
+    expect(screen.getByLabelText("Chart type")).toHaveValue("line");
+    expect(screen.getByLabelText("X")).toHaveValue("hour");
+
+    await user.selectOptions(screen.getByLabelText("Chart type"), "bar");
+    expect(screen.getByLabelText("Chart type")).toHaveValue("bar");
+  });
+
+  it("counts rows in a result too long to check for repeated categories", () => {
+    engine.query.mockResolvedValue(chartRows);
+    setResult(
+      [
+        { name: "id", type: new Utf8() },
+        { name: "v", type: new Float64() },
+      ],
+      Array.from({ length: 10_001 }, (_, row) => [`id-${row}`, "1"]),
+    );
+    render(<ChartPanel />);
+    expect(screen.getByLabelText("Aggregate")).toHaveValue("count");
+  });
+
+  it("counts rows when the chart's categories repeat in the result", () => {
+    engine.query.mockResolvedValue(chartRows);
+    render(<ChartPanel />);
+    expect(screen.getByLabelText("Aggregate")).toHaveValue("count");
+    expect(screen.queryByLabelText("Y")).toBeNull();
+  });
+
+  it("keeps the aggregate picked for a result that's already grouped", async () => {
+    setResult(
+      [
+        { name: "defect_type", type: new Utf8() },
+        { name: "n", type: new Int64() },
+      ],
+      [
+        ["Scratch", "685"],
+        ["Dent", "154"],
+      ],
+    );
+    engine.query.mockResolvedValue(chartRows);
+    const user = userEvent.setup();
+    render(<ChartPanel />);
+    await user.selectOptions(screen.getByLabelText("Aggregate"), "count");
+    expect(screen.getByLabelText("Aggregate")).toHaveValue("count");
+    expect(screen.queryByLabelText("Y")).toBeNull();
   });
 
   it("names the chart with a summary of its data", async () => {
@@ -188,5 +305,16 @@ describe("ChartPanel", () => {
 
     unmount();
     expect(await getShownChartPicture()).toBeNull();
+  });
+
+  it("says in plain words why the chart's query failed", async () => {
+    const message = `{"exception_type":"Catalog","exception_message":"Table with name readings does not exist!\\nDid you mean \\"reading\\"?","name":"readings","type":"Table","error_subtype":"MISSING_ENTRY","candidates":"reading"}`;
+    engine.query.mockRejectedValue(new Error(message));
+    render(<ChartPanel />);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(`There's no table called "readings"`);
+    expect(alert).toHaveTextContent('Did you mean "reading"?');
+    expect(alert).not.toHaveTextContent("exception_type");
   });
 });

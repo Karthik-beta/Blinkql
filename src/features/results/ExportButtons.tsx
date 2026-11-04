@@ -27,7 +27,7 @@ export function ExportButtons({ ref }: { ref?: Ref<ExportHandle> }) {
   const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
   const [exporting, setExporting] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const sql = run.state === "done" ? run.sql : null;
+  const sql = run.state === "done" && run.rowCount > 0 ? run.sql : null;
 
   const exportAs = async (format: ExportKind) => {
     // Ignored rather than disabled while exporting, so the button keeps keyboard focus.

@@ -12,6 +12,8 @@ export default defineConfig({
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : [["list"]],
   use: {
     baseURL,
+    // The results table groups numbers in the browser's locale, and the tests expect 1,000.
+    locale: "en-US",
     trace: "on-first-retry",
   },
   projects: [

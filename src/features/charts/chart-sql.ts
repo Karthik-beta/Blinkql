@@ -20,7 +20,7 @@ export type ChartSpec = {
   aggregate: Aggregate;
 };
 
-/** The most categories a bar or Pareto chart shows: the largest ones. */
+/** The most categories a bar or Pareto chart shows: the largest ones, or the earliest dates or times. */
 export const BAR_LIMIT = 50;
 /** The most points a line chart shows. */
 export const LINE_POINTS = 1000;
@@ -142,7 +142,7 @@ export function chartSql(source: string, spec: ChartSpec): string {
       return `SELECT ${category(spec.x)} AS x, ${measure(spec, y)} AS y
 ${from}
 GROUP BY 1
-ORDER BY 2 DESC NULLS LAST, 1
+ORDER BY ${spec.x.kind === "temporal" ? "1" : "2 DESC NULLS LAST, 1"}
 LIMIT ${BAR_LIMIT}`;
     case "line":
       // LINE_POINTS buckets of equal width between the smallest and largest x; when every x is

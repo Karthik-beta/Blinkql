@@ -112,7 +112,7 @@ export function QueryPanel({ ref, onRestart }: Props) {
   useImperativeHandle(ref, () => ({ run: runEditor }));
 
   return (
-    <section aria-label="Query" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label="Query" className="flex min-h-0 flex-col">
       <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-b bg-chrome px-2">
         {running && (
           <Button variant="outline" aria-keyshortcuts="Escape" onClick={cancelQuery}>
@@ -149,9 +149,11 @@ export function QueryPanel({ ref, onRestart }: Props) {
         </Button>
       </div>
 
-      <Suspense fallback={<div className="min-h-0 flex-1" />}>
-        <SqlEditor ref={editor} onRun={runSql} />
-      </Suspense>
+      <div className="flex h-[clamp(8rem,22vh,18rem)] min-h-0 flex-col">
+        <Suspense fallback={<div className="min-h-0 flex-1" />}>
+          <SqlEditor ref={editor} onRun={runSql} />
+        </Suspense>
+      </div>
 
       <div className="flex h-10 shrink-0 items-center gap-2 border-t bg-chrome px-3 text-xs">
         <p aria-live="polite" className="text-muted-foreground tabular-nums">

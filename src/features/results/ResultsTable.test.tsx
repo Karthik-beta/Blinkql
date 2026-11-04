@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { Int32, Table, Utf8, vectorFromArray } from "apache-arrow";
+import { Float64, Int32, Int64, Table, Utf8, vectorFromArray } from "apache-arrow";
 import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetQueryRun, runQuery } from "./query-run";
@@ -21,6 +21,8 @@ vi.mock("./result-store", async (importOriginal) => {
   const store = await importOriginal<typeof import("./result-store")>();
   return { ...store, readCell: vi.fn(store.readCell) };
 });
+
+const { NumberFormat } = Intl;
 
 /** The grid's viewport: the header and 9 rows. jsdom has no layout, so it's given. */
 const VIEWPORT = { width: 800, height: 10 * ROW_HEIGHT };
@@ -78,6 +80,14 @@ describe("ResultsTable", () => {
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(VIEWPORT.width);
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(VIEWPORT.height);
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(VIEWPORT.height);
+    // Cells group digits in the reader's locale; these tests read as en-US whatever the machine's.
+    vi.spyOn(Intl, "NumberFormat").mockImplementation(
+      class extends NumberFormat {
+        constructor(locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions) {
+          super(locales ?? "en-US", options);
+        }
+      } as typeof Intl.NumberFormat,
+    );
   });
 
   afterEach(() => {
@@ -114,12 +124,46 @@ describe("ResultsTable", () => {
     expect(machine).toHaveClass("text-left");
   });
 
+  it("shows numbers grouped and rounded, with the full value in the cell's tooltip", async () => {
+    render(<ResultsTable />);
+    await run(
+      new Table({
+        total: vectorFromArray([2039741.1799999988, null], new Float64()),
+        n: vectorFromArray([10080n, 1234567n], new Int64()),
+      }),
+    );
+
+    expect(cellTexts()).toEqual([
+      ["total", "n"],
+      ["2,039,741.18", "10,080"],
+      ["NULL", "1,234,567"],
+    ]);
+    const [total, n] = within(grid()).getAllByRole("gridcell");
+    expect(total).toHaveAttribute("title", "2039741.1799999988");
+    expect(n).toHaveAttribute("title", "10080");
+    // Columns are fitted to what they show.
+    expect((grid().firstElementChild as HTMLElement).style.getPropertyValue("--columns")).toBe(
+      "calc(12ch + 17px) calc(9ch + 17px)",
+    );
+  });
+
   it("shows the headers of an empty result", async () => {
     render(<ResultsTable />);
     await run(new Table({ id: vectorFromArray([], new Int32()) }));
 
     expect(screen.getByRole("columnheader", { name: "id" })).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(1);
+  });
+
+  it("says so under the column headers when a query returns no rows", async () => {
+    render(<ResultsTable />);
+    await run(new Table({ id: vectorFromArray([], new Int32()) }));
+
+    expect(screen.getByRole("columnheader", { name: "id" })).toBeInTheDocument();
+    expect(screen.getByText("No rows match this query.")).toBeVisible();
+
+    await run(machines);
+    expect(screen.queryByText("No rows match this query.")).not.toBeInTheDocument();
   });
 
   it("renders only the rows in view and a few either side, numbered within the whole result", async () => {
@@ -324,6 +368,15 @@ describe("ResultsTable", () => {
       fireEvent.keyDown(grid(), { key: "c", metaKey: true });
       // NULL copies as an empty cell.
       expect(writeText).toHaveBeenLastCalledWith("");
+    });
+
+    it("copies a number's full value rather than what the cell shows", async () => {
+      render(<ResultsTable />);
+      await run(new Table({ total: vectorFromArray([2039741.1799999988], new Float64()) }));
+
+      fireEvent.click(screen.getByRole("gridcell", { name: "2,039,741.18" }));
+      fireEvent.keyDown(grid(), { key: "c", ctrlKey: true });
+      expect(writeText).toHaveBeenLastCalledWith("2039741.1799999988");
     });
 
     it("selects a block with Shift and the arrow keys, and copies it as tab-separated text", async () => {

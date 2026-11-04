@@ -44,6 +44,28 @@ test.describe("Onboarding tour", () => {
     await expect(page.getByRole("button", { name: "Take the tour" })).toBeHidden();
   });
 
+  test("is offered at the top left of the empty results, as a button like the others", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/app/");
+    const invite = page.getByRole("button", { name: "Take the tour" });
+    await expect(invite).toBeVisible();
+
+    const colour = (element: Element) => getComputedStyle(element).color;
+    expect(await invite.evaluate(colour)).toBe(
+      await page.getByRole("button", { name: "Templates" }).evaluate(colour),
+    );
+
+    const { text, area } = await page.getByText(/^New here\?/).evaluate((paragraph) => ({
+      text: paragraph.getBoundingClientRect().toJSON() as DOMRect,
+      // The invite is laid over the whole results area.
+      area: (paragraph as HTMLElement).offsetParent?.getBoundingClientRect().toJSON() as DOMRect,
+    }));
+    expect(text.left - area.left).toBeLessThanOrEqual(48);
+    expect(text.top - area.top).toBeLessThan(area.height / 3);
+  });
+
   test("can be followed with only the keyboard", async ({ page }) => {
     await page.goto("/app/");
     const invite = page.getByRole("button", { name: "Take the tour" });

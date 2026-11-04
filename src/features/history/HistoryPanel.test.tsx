@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setEditorContents } from "@/features/editor/insert";
@@ -163,5 +163,62 @@ describe("HistoryPanel", () => {
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Empty{Enter}");
     expect(getHistory().saved).toEqual([]);
     expect(screen.getByText("Write some SQL to save first.")).toBeInTheDocument();
+  });
+
+  it("clears a message when switching views", async () => {
+    const user = userEvent.setup();
+    render(<HistoryPanel />);
+    await user.click(screen.getByRole("button", { name: "Saved" }));
+
+    editor = "SELECT 42";
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Answer{Enter}");
+    expect(screen.getByText("Saved Answer.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "History" }));
+    expect(screen.queryByText("Saved Answer.")).not.toBeInTheDocument();
+  });
+
+  it("clears a message after a few seconds", () => {
+    vi.useFakeTimers();
+    try {
+      render(<HistoryPanel />);
+      fireEvent.click(screen.getByRole("button", { name: "Saved" }));
+      const save = screen.getByRole("button", { name: "Save" });
+
+      fireEvent.click(save);
+      expect(screen.getByText("Write some SQL to save first.")).toBeInTheDocument();
+
+      editor = "SELECT 42";
+      act(() => vi.advanceTimersByTime(1000));
+      fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+        target: { value: "Answer" },
+      });
+      fireEvent.click(save);
+      act(() => vi.advanceTimersByTime(3500));
+      expect(screen.getByText("Saved Answer.")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1500));
+      expect(screen.queryByText("Saved Answer.")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a repeated message for the full few seconds again", () => {
+    vi.useFakeTimers();
+    try {
+      render(<HistoryPanel />);
+      fireEvent.click(screen.getByRole("button", { name: "Saved" }));
+      const save = screen.getByRole("button", { name: "Save" });
+
+      fireEvent.click(save);
+      act(() => vi.advanceTimersByTime(3000));
+      fireEvent.click(save);
+      act(() => vi.advanceTimersByTime(3500));
+      expect(screen.getByText("Write some SQL to save first.")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(500));
+      expect(screen.queryByText("Write some SQL to save first.")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -5,13 +5,21 @@ import { ArrowLeft, LayoutTemplate } from "lucide-react";
 import {
   type FormEvent,
   type Ref,
+  useEffect,
   useId,
   useImperativeHandle,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getCatalog, subscribeToCatalog } from "@/features/catalog/catalog";
 import { setChartPreset } from "@/features/charts/chart-preset";
 import { replaceEditorContents } from "@/features/editor/insert";
@@ -33,17 +41,26 @@ import {
 const fieldClass =
   "h-7 min-w-0 rounded-md border border-input bg-background px-1.5 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive";
 
-function Gallery({ onChoose }: { onChoose: (template: Template) => void }) {
+function Gallery({
+  returnTo,
+  onChoose,
+}: {
+  returnTo: string | null;
+  onChoose: (template: Template) => void;
+}) {
+  const previous = useRef<HTMLButtonElement>(null);
+  useEffect(() => previous.current?.focus(), []);
   return (
     <>
       <DialogTitle>Templates</DialogTitle>
       <DialogDescription>
         Ready-made analyses. Choose one, then match its columns to your table's.
       </DialogDescription>
-      <ul className="flex flex-col gap-1">
+      <ul className="-m-1 flex min-h-0 flex-col gap-1 overflow-y-auto p-1">
         {templates.map((template) => (
           <li key={template.id}>
             <button
+              ref={template.id === returnTo ? previous : undefined}
               type="button"
               className="flex w-full flex-col gap-0.5 rounded-md border px-3 py-2 text-left outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
               onClick={() => onChoose(template)}
@@ -54,14 +71,28 @@ function Gallery({ onChoose }: { onChoose: (template: Template) => void }) {
           </li>
         ))}
       </ul>
+      <div className="flex justify-end">
+        <DialogClose render={<Button variant="outline" size="sm" />}>Close</DialogClose>
+      </div>
     </>
   );
 }
 
-/** A problem's message under the field it's about, which names it as its description. */
-function Problem({ id, problem }: { id: string; problem: MappingProblem | undefined }) {
+/**
+ * A problem's message under the field it's about, which names it as its description. Until
+ * something is chosen it's only a hint, not an error.
+ */
+function Problem({
+  id,
+  problem,
+  chosen,
+}: {
+  id: string;
+  problem: MappingProblem | undefined;
+  chosen: boolean;
+}) {
   return problem ? (
-    <p id={id} className="text-destructive">
+    <p id={id} className={chosen ? "text-destructive" : "text-muted-foreground"}>
       {problem.message}
     </p>
   ) : null;
@@ -72,12 +103,14 @@ function TableFields({
   mapped,
   tables,
   problems,
+  tableRef,
   onChange,
 }: {
   wanted: TemplateTable;
   mapped: Mapping[string] | undefined;
   tables: readonly CatalogTable[];
   problems: MappingProblem[];
+  tableRef?: Ref<HTMLSelectElement>;
   onChange: (mapped: Mapping[string] | undefined) => void;
 }) {
   const id = useId();
@@ -85,6 +118,7 @@ function TableFields({
   const [loadError, setLoadError] = useState<string | null>(null);
   const table = tables.find(({ name }) => name === mapped?.table);
   const tableProblem = problems.find(({ column }) => column === undefined);
+  const tableChosen = Boolean(mapped?.table);
 
   const choose = (name: string) => {
     const next = tables.find((candidate) => candidate.name === name);
@@ -111,10 +145,11 @@ function TableFields({
       <div className="grid grid-cols-[8rem_1fr] items-center gap-x-2 gap-y-1">
         <label htmlFor={`${id}-table`}>Table</label>
         <select
+          ref={tableRef}
           id={`${id}-table`}
           className={fieldClass}
           value={mapped?.table ?? ""}
-          aria-invalid={tableProblem !== undefined}
+          aria-invalid={tableProblem !== undefined && tableChosen}
           aria-describedby={tableProblem && `${id}-table-problem`}
           onChange={(event) => choose(event.target.value)}
         >
@@ -126,11 +161,12 @@ function TableFields({
           ))}
         </select>
         <div className="col-start-2">
-          <Problem id={`${id}-table-problem`} problem={tableProblem} />
+          <Problem id={`${id}-table-problem`} problem={tableProblem} chosen={tableChosen} />
         </div>
         {wanted.columns.map((column) => {
           const fieldId = `${id}-${column.key}`;
           const problem = problems.find((candidate) => candidate.column === column.key);
+          const chosen = Boolean(mapped?.columns[column.key]);
           return (
             <div key={column.key} className="col-span-2 grid grid-cols-subgrid items-center">
               <label htmlFor={fieldId}>
@@ -142,7 +178,7 @@ function TableFields({
                 className={fieldClass}
                 disabled={!table}
                 value={mapped?.columns[column.key] ?? ""}
-                aria-invalid={problem !== undefined}
+                aria-invalid={problem !== undefined && chosen}
                 aria-describedby={problem && `${fieldId}-problem`}
                 onChange={(event) => {
                   if (!mapped) return;
@@ -160,7 +196,7 @@ function TableFields({
                 ))}
               </select>
               <div className="col-start-2">
-                <Problem id={`${fieldId}-problem`} problem={problem} />
+                <Problem id={`${fieldId}-problem`} problem={problem} chosen={chosen} />
               </div>
             </div>
           );
@@ -199,6 +235,8 @@ function TemplateForm({
   onRun: () => void;
 }) {
   const id = useId();
+  const firstField = useRef<HTMLSelectElement>(null);
+  useEffect(() => firstField.current?.focus(), []);
   const catalog = useSyncExternalStore(subscribeToCatalog, getCatalog);
   const [mapping, setMapping] = useState(() => autoMap(template, getCatalog().tables));
   const [params, setParams] = useState(() =>
@@ -230,10 +268,11 @@ function TemplateForm({
       <DialogTitle>{template.title}</DialogTitle>
       <DialogDescription>{template.description}</DialogDescription>
       <form noValidate className="flex flex-col gap-3" onSubmit={run}>
-        {template.tables.map((wanted) => (
+        {template.tables.map((wanted, index) => (
           <TableFields
             key={wanted.key}
             wanted={wanted}
+            tableRef={index === 0 ? firstField : undefined}
             mapped={mapping[wanted.key]}
             tables={catalog.tables}
             problems={problems.filter(({ table }) => table === wanted.key)}
@@ -304,9 +343,11 @@ export type TemplatesHandle = {
 export function TemplatesDialog({ ref }: { ref?: Ref<TemplatesHandle> }) {
   const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState<Template | null>(null);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
   const show = () => {
     // Back to the gallery each time; not on close, so it doesn't flash while closing.
     setChosen(null);
+    setReturnTo(null);
     setOpen(true);
   };
   useImperativeHandle(ref, () => ({ open: show }));
@@ -321,11 +362,14 @@ export function TemplatesDialog({ ref }: { ref?: Ref<TemplatesHandle> }) {
           <TemplateForm
             key={chosen.id}
             template={chosen}
-            onBack={() => setChosen(null)}
+            onBack={() => {
+              setReturnTo(chosen.id);
+              setChosen(null);
+            }}
             onRun={() => setOpen(false)}
           />
         ) : (
-          <Gallery onChoose={setChosen} />
+          <Gallery returnTo={returnTo} onChoose={setChosen} />
         )}
       </DialogContent>
     </Dialog>

@@ -87,4 +87,20 @@ test.describe("Command palette", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
   });
+
+  test("keeps keyboard focus in the search box when Tab is pressed", async ({ page }) => {
+    await openWorkbench(page);
+
+    await pressPaletteShortcut(page);
+    await expect(search(page)).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(palette(page).getByRole("listbox", { name: "Commands" })).not.toBeFocused();
+    await expect(search(page)).toBeFocused();
+
+    await page.keyboard.type("keyboard shortcuts");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await expect(palette(page)).toBeHidden();
+    await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+  });
 });

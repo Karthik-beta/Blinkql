@@ -15,6 +15,8 @@ import {
   subscribeToHistory,
 } from "./history";
 
+const MESSAGE_MS = 4000;
+
 const time = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
 const inputClass =
@@ -248,16 +250,29 @@ function SavedList({ onMessage }: { onMessage: (message: string) => void }) {
 /** Past runs, to search, run again and copy, and saved queries, to open, run, rename and delete. */
 export function HistoryPanel() {
   const [view, setView] = useState<"history" | "saved">("history");
-  const [message, setMessage] = useState("");
+  // An object, so showing the same text again is a new message that restarts the timer.
+  const [message, setMessage] = useState<{ text: string } | null>(null);
+  const say = (text: string) => setMessage({ text });
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(null), MESSAGE_MS);
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  const show = (next: typeof view) => {
+    setView(next);
+    setMessage(null);
+  };
 
   return (
-    <section aria-label="Queries" className="flex min-h-0 flex-1 flex-col gap-2 border-t p-3">
+    <section aria-label="Queries" className="flex min-h-40 flex-1 flex-col gap-2 border-t p-3">
       <fieldset aria-label="Queries view" className="flex gap-1">
         <Button
           variant={view === "history" ? "secondary" : "ghost"}
           size="sm"
           aria-pressed={view === "history"}
-          onClick={() => setView("history")}
+          onClick={() => show("history")}
         >
           History
         </Button>
@@ -265,18 +280,14 @@ export function HistoryPanel() {
           variant={view === "saved" ? "secondary" : "ghost"}
           size="sm"
           aria-pressed={view === "saved"}
-          onClick={() => setView("saved")}
+          onClick={() => show("saved")}
         >
           Saved
         </Button>
       </fieldset>
-      {view === "history" ? (
-        <HistoryList onCopied={setMessage} />
-      ) : (
-        <SavedList onMessage={setMessage} />
-      )}
+      {view === "history" ? <HistoryList onCopied={say} /> : <SavedList onMessage={say} />}
       <p aria-live="polite" className="text-muted-foreground text-xs empty:hidden">
-        {message}
+        {message?.text}
       </p>
     </section>
   );

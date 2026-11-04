@@ -12,9 +12,19 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { query } from "@/engine/engine";
+import {
+  describeError,
+  type ErrorDescription,
+  parseEngineError,
+} from "@/features/results/engine-error";
 import { download, exportFileName } from "@/features/results/export";
 import { getQueryRun, subscribeToQueryRun } from "@/features/results/query-run";
-import { getResult, subscribeToResult } from "@/features/results/result-store";
+import {
+  getResult,
+  type Result,
+  readCell,
+  subscribeToResult,
+} from "@/features/results/result-store";
 import { getChartPreset, subscribeToChartPreset } from "./chart-preset";
 import { type ChartPicture, setShownChart, setShownChartPicture } from "./chart-settings";
 import {
@@ -107,6 +117,22 @@ async function pictureOf(
   const light = chartPng(container, "light");
   const dark = chartPng(container, "dark");
   return light && dark ? { light, dark, description: label } : null;
+}
+
+/** The longest result checked for repeats: a summary is short, and the check runs while rendering. */
+const GROUPED_ROWS = 10_000;
+
+/** Whether no two rows of `result`, the one on screen, have the same `name`: it's grouped by it. */
+function groupedBy(result: Result, name: string): boolean {
+  if (result.rowCount > GROUPED_ROWS) return false;
+  const index = result.columns.findIndex((column) => column.name === name);
+  const seen = new Set<string | null>();
+  for (let row = 0; row < result.rowCount; row++) {
+    const cell = readCell(row, index);
+    if (seen.has(cell)) return false;
+    seen.add(cell);
+  }
+  return true;
 }
 
 function column<T>(table: Table, name: string): T[] {
@@ -203,12 +229,12 @@ function ChartTable({ data: { spec, rows } }: { data: ChartData }) {
 export function ChartPanel() {
   const result = useSyncExternalStore(subscribeToResult, getResult);
   const run = useSyncExternalStore(subscribeToQueryRun, getQueryRun);
-  const [type, setType] = useState<ChartType>("bar");
+  const [chosenType, setType] = useState<ChartType | null>(null);
   const [xName, setXName] = useState("");
   const [yName, setYName] = useState("");
-  const [aggregate, setAggregate] = useState<Aggregate>("count");
+  const [aggregate, setAggregate] = useState<Aggregate | null>(null);
   const [chart, setChart] = useState<ChartData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorDescription | null>(null);
   const canvas = useRef<HTMLDivElement>(null);
   const [showTable, setShowTable] = useState(false);
   const preset = useSyncExternalStore(subscribeToChartPreset, getChartPreset);
@@ -228,6 +254,13 @@ export function ChartPanel() {
     () => resultColumns?.map(({ name, type }) => ({ name, kind: columnKind(type) })) ?? [],
     [resultColumns],
   );
+  // A result over time with nothing else to group by reads best as a line.
+  const type =
+    chosenType ??
+    (columns.some(({ kind }) => kind === "temporal") &&
+    !columns.some(({ kind }) => kind === "other")
+      ? "line"
+      : "bar");
   // Line and scatter charts need an x they can place on an axis; a histogram, a number.
   const xOptions = columns.filter(({ kind }) =>
     type === "histogram"
@@ -242,18 +275,36 @@ export function ChartPanel() {
   const x =
     xOptions.find(({ name }) => name === xName) ??
     (categorical ? xOptions.find(({ kind }) => kind === "other") : undefined) ??
+    (type === "line" ? xOptions.find(({ kind }) => kind === "temporal") : undefined) ??
     xOptions[0];
-  const y = yOptions.find(({ name }) => name === yName) ?? yOptions[0];
+  const xColumn = x?.name;
+  const y =
+    yOptions.find(({ name }) => name === yName) ??
+    yOptions.find(({ name }) => name !== xColumn) ??
+    yOptions[0];
   const aggregates = type === "pareto" ? PARETO_AGGREGATES : AGGREGATES;
   const usesAggregate = type === "bar" || type === "line" || type === "pareto";
-  const shownAggregate = usesAggregate && aggregates.includes(aggregate) ? aggregate : "count";
+  const source = run.state === "done" ? run.sql : null;
+  // A result with one row per x, such as a GROUP BY's, has its measure in a column: counting its
+  // rows would draw every bar at 1.
+  const summarised = useMemo(
+    () =>
+      aggregate === null &&
+      usesAggregate &&
+      source !== null &&
+      result !== null &&
+      xColumn !== undefined &&
+      groupedBy(result, xColumn),
+    [aggregate, usesAggregate, source, result, xColumn],
+  );
+  const chosen = aggregate ?? (summarised && y && y.name !== xColumn ? "sum" : "count");
+  const shownAggregate = usesAggregate && aggregates.includes(chosen) ? chosen : "count";
   const usesY = type === "scatter" || shownAggregate !== "count";
 
   const spec: ChartSpec | null =
     x && (!usesY || y)
       ? { type, x, y: usesY ? (y ?? null) : null, aggregate: shownAggregate }
       : null;
-  const source = run.state === "done" ? run.sql : null;
   const specKey = JSON.stringify(spec);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: specKey stands for spec, a new object on every render.
@@ -278,7 +329,8 @@ export function ChartPanel() {
       (failure: unknown) => {
         if (!current) return;
         setChart(null);
-        setError(failure instanceof Error ? failure.message : String(failure));
+        const problem = failure instanceof Error ? failure : new Error(String(failure));
+        setError(describeError(parseEngineError(problem, "")));
       },
     );
     return () => {
@@ -361,7 +413,8 @@ export function ChartPanel() {
       </p>
       {error ? (
         <p role="alert" className="p-3 text-xs text-destructive">
-          {error}
+          {error.title}
+          {error.hint && <span className="mt-1 block text-muted-foreground">{error.hint}</span>}
         </p>
       ) : !source ? (
         <p className="p-3 text-xs text-muted-foreground">Run a query to chart its result.</p>

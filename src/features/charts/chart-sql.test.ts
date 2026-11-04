@@ -128,6 +128,19 @@ describe("chartSql", () => {
       expect(result[0]).toEqual({ x: "9999", y: 9999 });
     });
 
+    it("keeps dates and times in time order", async () => {
+      const { rows: result } = await rows({
+        type: "bar",
+        x: { name: "at", kind: "temporal" },
+        y: { name: "n", kind: "number" },
+        aggregate: "max",
+      });
+      const xs = result.map((r) => r.x as string);
+      expect(xs).toHaveLength(BAR_LIMIT);
+      expect(xs).toEqual([...xs].sort());
+      expect(xs[0]).toBe("2026-01-01 00:00:00");
+    });
+
     it.each(["count", "sum", "avg", "min", "max"] as const)("runs with %s", async (aggregate) => {
       const { rows: result } = await rows({
         type: "bar",

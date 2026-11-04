@@ -219,9 +219,12 @@ describe("CatalogPanel", () => {
     await userEvent.click(button);
     expect(
       within(tree).getByRole("treeitem", {
-        name: "orders CSV · 2 columns · 1 B · orders.csv · Converting to Parquet…",
+        name: "orders CSV · 2 columns · 1 B · orders.csv Converting to Parquet…",
       }),
     ).toBeVisible();
+    // Its own line, so a long file name cut short in the details can't hide it.
+    expect(within(tree).getByText("CSV · 2 columns · 1 B · orders.csv")).toBeVisible();
+    expect(within(tree).getByText("Converting to Parquet…")).toBeVisible();
     expect(button).toBeDisabled();
 
     await act(async () => finish(new Uint8Array(2048)));

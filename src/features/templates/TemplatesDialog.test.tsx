@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -119,6 +119,28 @@ describe("TemplatesDialog", () => {
     expect(screen.getByLabelText("Machine")).toBeDisabled();
   });
 
+  it("hints at a field that's not chosen yet without marking it invalid", async () => {
+    catalog.setTables([userTable]);
+    const user = await openTemplate();
+    const rejected = screen.getByLabelText("Rejected");
+
+    expect(rejected).toHaveAccessibleDescription("Choose a column for Rejected.");
+    expect(rejected).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: "Run" })).toBeDisabled();
+
+    await user.selectOptions(rejected, "Scrap");
+    expect(rejected).toHaveAttribute("aria-invalid", "true");
+    expect(rejected).toHaveAccessibleDescription(
+      "Rejected needs a number column; Scrap is VARCHAR.",
+    );
+
+    await user.selectOptions(screen.getByLabelText("Table"), "");
+    expect(screen.getByLabelText("Table")).toHaveAccessibleDescription(
+      "Choose a table for Quality checks.",
+    );
+    expect(screen.getByLabelText("Table")).not.toHaveAttribute("aria-invalid", "true");
+  });
+
   it("disables Run while a number parameter isn't a number", async () => {
     catalog.setTables([sampleTable]);
     const user = await openTemplate();
@@ -155,6 +177,16 @@ describe("TemplatesDialog", () => {
     const user = await openTemplate();
     await user.click(screen.getByRole("button", { name: "All templates" }));
     expect(screen.getByRole("heading", { name: "Templates" })).toBeInTheDocument();
+  });
+
+  it("closes the gallery from its Close button", async () => {
+    const user = userEvent.setup();
+    render(<TemplatesDialog />);
+    await user.click(screen.getByRole("button", { name: "Templates" }));
+
+    const gallery = screen.getByRole("dialog", { name: "Templates" });
+    await user.click(within(gallery).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("opens the gallery through its handle, such as from the command palette", () => {

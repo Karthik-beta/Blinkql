@@ -109,6 +109,8 @@ export function CommandPalette({ commands }: Props) {
             id={`${id}-list`}
             role="listbox"
             aria-label="Commands"
+            // Chromium puts a scrollable box in the Tab order; focus belongs in the search box.
+            tabIndex={-1}
             className="flex max-h-[50dvh] flex-col overflow-y-auto"
           >
             {matches.map((command) => (

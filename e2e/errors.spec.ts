@@ -102,6 +102,42 @@ test.describe("Engine errors", () => {
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 
+  test("keeps the editor usable and the whole error reachable on a small screen", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await openWorkbench(page);
+    const sqlEditor = page.locator("[data-sql-editor]");
+    await expect(sqlEditor).toBeVisible();
+    const editorBefore = (await sqlEditor.boundingBox())?.height ?? 0;
+
+    await run(page, "SELECT * FROM no_such_table");
+    const alert = page.getByRole("alert");
+    await expect(alert).toContainText('There\'s no table called "no_such_table"');
+
+    const alertBox = await alert.boundingBox();
+    const resultsBar = await page
+      .getByRole("group", { name: "Results view" })
+      .locator("..")
+      .boundingBox();
+    expect((alertBox?.y ?? 0) + (alertBox?.height ?? 0)).toBeLessThanOrEqual(resultsBar?.y ?? 0);
+
+    const editorAfter = (await sqlEditor.boundingBox())?.height ?? 0;
+    expect(editorAfter).toBeGreaterThanOrEqual(120);
+    expect(editorAfter).toBeGreaterThanOrEqual(editorBefore / 2);
+
+    const disclosure = alert.getByText("DuckDB's message");
+    await disclosure.scrollIntoViewIfNeeded();
+    const disclosureBox = await disclosure.boundingBox();
+    expect(disclosureBox?.y ?? 0).toBeGreaterThanOrEqual(alertBox?.y ?? 0);
+    expect((disclosureBox?.y ?? 0) + (disclosureBox?.height ?? 0)).toBeLessThanOrEqual(
+      (alertBox?.y ?? 0) + (alertBox?.height ?? 0),
+    );
+    await disclosure.click();
+    await expect(alert.locator("details pre")).toBeVisible();
+    await expect(alert.locator("details pre")).toContainText("no_such_table");
+  });
+
   test("has no detectable accessibility issues", async ({ page, makeAxeBuilder }) => {
     await openWorkbench(page);
 
