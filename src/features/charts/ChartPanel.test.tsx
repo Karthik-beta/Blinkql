@@ -121,6 +121,19 @@ describe("ChartPanel", () => {
     expect(screen.getByLabelText("Chart type")).toHaveValue("bar");
   });
 
+  it("counts rows in a result too long to check for repeated categories", () => {
+    engine.query.mockResolvedValue(chartRows);
+    setResult(
+      [
+        { name: "id", type: new Utf8() },
+        { name: "v", type: new Float64() },
+      ],
+      Array.from({ length: 10_001 }, (_, row) => [`id-${row}`, "1"]),
+    );
+    render(<ChartPanel />);
+    expect(screen.getByLabelText("Aggregate")).toHaveValue("count");
+  });
+
   it("counts rows when the chart's categories repeat in the result", () => {
     engine.query.mockResolvedValue(chartRows);
     render(<ChartPanel />);

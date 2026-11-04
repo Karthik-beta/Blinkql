@@ -195,6 +195,12 @@ test.describe("Results table", () => {
     await expect(page.getByRole("button", { name: "Export as CSV" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Export as Parquet" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Export as HTML report" })).toBeDisabled();
+    await page.getByRole("button", { name: "Commands" }).click();
+    const palette = page.getByRole("dialog", { name: "Commands" });
+    for (const name of ["Export as CSV", "Export as Parquet", "Export as HTML report"]) {
+      await expect(palette.getByRole("option", { name })).toHaveAttribute("aria-disabled", "true");
+    }
+    await page.keyboard.press("Escape");
 
     const scan = await makeAxeBuilder().include('[aria-label="Results"]').analyze();
     expect(scan.violations).toEqual([]);

@@ -119,8 +119,12 @@ async function pictureOf(
   return light && dark ? { light, dark, description: label } : null;
 }
 
+/** The longest result checked for repeats: a summary is short, and the check runs while rendering. */
+const GROUPED_ROWS = 10_000;
+
 /** Whether no two rows of `result`, the one on screen, have the same `name`: it's grouped by it. */
 function groupedBy(result: Result, name: string): boolean {
+  if (result.rowCount > GROUPED_ROWS) return false;
   const index = result.columns.findIndex((column) => column.name === name);
   const seen = new Set<string | null>();
   for (let row = 0; row < result.rowCount; row++) {

@@ -105,7 +105,7 @@ function Commands({
     ...exportFormats.map(({ format, label }) => ({
       id: `export-${format}`,
       label: `Export as ${label}`,
-      disabled: queryRun.state !== "done",
+      disabled: queryRun.state !== "done" || queryRun.rowCount === 0,
       run: () => exportButtons.current?.exportAs(format),
     })),
     {
