@@ -8,6 +8,7 @@ import { offlineWorkbench } from "./src/app/vite-plugin.ts";
 import { docsInputs, docsSection } from "./src/docs/vite-plugin.ts";
 import { duckdbExtensions, duckdbWorkers } from "./src/engine/vite-plugin.ts";
 import { landingPage } from "./src/landing/vite-plugin.ts";
+import { siteFonts } from "./src/site/vite-plugin.ts";
 
 // `BLINKQL_REACT_PROFILING=1 pnpm bench` builds with React's profiling build, so <Profiler>s report
 // renders in production too (bench/README.md). It's slower, so its results aren't compared with
@@ -24,6 +25,7 @@ export default defineConfig({
     tailwindcss(),
     landingPage(),
     docsSection(),
+    siteFonts(),
     duckdbExtensions(),
     duckdbWorkers(),
     headersOnEveryResponse(),
