@@ -34,7 +34,7 @@
 <p>For a quicker look, show the table's columns with the arrow next to its name. Each column lists its type, the percentage of nulls and the number of distinct values, for example <strong>0% null · 8 distinct</strong>. A count with <strong>~</strong> in front is an estimate. Blinkql counts exactly when a column has up to about 1,000 distinct values.</p>
 
 <h2>Chart a result</h2>
-<p>To chart the last result, click <strong>Chart</strong> above the results. <strong>Table</strong> takes you back to the grid, which keeps its scroll position and selection. A chart is drawn from the whole result, not only the rows in view. Choose what to draw with the settings above the chart:</p>
+<p>To chart the last result, click <strong>Chart</strong> above the results. <strong>Table</strong> takes you back to the grid, which keeps its scroll position and selection. A chart is drawn from the whole result, not only the rows in view. To draw it, the workbench runs the query again, so a query whose result changes between runs, such as one that uses <code>random()</code>, can chart different numbers from the ones in the grid. Choose what to draw with the settings above the chart:</p>
 <ul>
 <li><strong>Chart type</strong> picks Bar, Line, Scatter, Histogram or Pareto.</li>
 <li><strong>X</strong> picks the column along the bottom.</li>
