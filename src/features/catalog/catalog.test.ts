@@ -97,7 +97,11 @@ vi.mock("./stored-datasets", () => storage);
 
 const csv = (name: string) => new File(["a,b,c\n1,2,3\n"], name);
 /** A table or view as the engine lists it: one row per column. */
-const madeInSql = (name: string, type: "BASE TABLE" | "VIEW", ...columns: [string, string][]) =>
+const madeInSql = (
+  name: string,
+  type: "BASE TABLE" | "LOCAL TEMPORARY" | "VIEW",
+  ...columns: [string, string][]
+) =>
   columns.map(([column_name, data_type]) => ({
     table_catalog: "memory",
     table_schema: "main",
@@ -106,6 +110,9 @@ const madeInSql = (name: string, type: "BASE TABLE" | "VIEW", ...columns: [strin
     column_name,
     data_type,
   }));
+/** The same rows in DuckDB's temporary database, where CREATE TEMP TABLE puts a table. */
+const inTemp = (rows: ReturnType<typeof madeInSql>) =>
+  rows.map((row) => ({ ...row, table_catalog: "temp" }));
 const timesAskedForTables = () =>
   engine.query.mock.calls.filter(([sql]) => sql.includes("information_schema")).length;
 const remote = new URL("https://example.com/data/Orders.parquet?token=abc");
@@ -635,6 +642,38 @@ describe("catalog", () => {
       );
       // The imported file's view is listed once, as the imported table it is.
       expect(getCatalog().tables.map((table) => table.name)).toEqual(["orders"]);
+    });
+
+    it("lists temporary tables too, in place of a table of the same name they hide", async () => {
+      // The engine lists a temporary table before the one it hides, as SQL finds it first.
+      engine.tables = [
+        ...inTemp(madeInSql("t", "LOCAL TEMPORARY", ["temp_one", "INTEGER"])),
+        ...madeInSql("t", "BASE TABLE", ["main_one", "INTEGER"]),
+        ...inTemp(madeInSql("v", "VIEW", ["x", "INTEGER"])),
+      ];
+
+      queryRun.finish("CREATE TEMP TABLE t AS SELECT 2 AS temp_one");
+
+      await vi.waitFor(() =>
+        expect(getCatalog().created).toEqual([
+          {
+            name: "t",
+            catalog: "temp",
+            schema: "main",
+            kind: "table",
+            columns: [{ name: "temp_one", type: "INTEGER" }],
+          },
+          {
+            name: "v",
+            catalog: "temp",
+            schema: "main",
+            kind: "view",
+            columns: [{ name: "x", type: "INTEGER" }],
+          },
+        ]),
+      );
+      const listing = engine.query.mock.calls.find(([sql]) => sql.includes("information_schema"));
+      expect(listing?.[0]).toContain("table_catalog = 'temp'");
     });
 
     it("takes a table off the list after the query that drops it, even a failed one", async () => {

@@ -368,14 +368,16 @@ export async function forgetTable(name: string): Promise<void> {
   takenNames.delete(name);
 }
 
-// The main schema's tables and views with their columns in order. Imported files' views are among
-// them; they're left out by name.
+// The main schema's tables and views, and the temporary ones CREATE TEMP TABLE makes, with their
+// columns in order. Imported files' views are among them; they're left out by name. A temporary
+// table comes before one of the same name it hides, as SQL finds it first.
 const CREATED_TABLES_SQL =
   "SELECT table_catalog, table_schema, table_name, table_type, column_name, data_type " +
   "FROM information_schema.tables JOIN information_schema.columns " +
   "USING (table_catalog, table_schema, table_name) " +
-  "WHERE table_catalog = current_database() AND table_schema = current_schema() " +
-  "ORDER BY table_name, ordinal_position";
+  "WHERE (table_catalog = current_database() AND table_schema = current_schema()) " +
+  "OR table_catalog = 'temp' " +
+  "ORDER BY table_name, table_catalog = 'temp' DESC, ordinal_position";
 
 /** Counts the times the tables made in SQL were asked for, so only the latest answer is kept. */
 let refreshes = 0;
@@ -396,6 +398,10 @@ async function refreshCreatedTables(): Promise<void> {
     const name = String(row.table_name);
     if (takenNames.has(name)) continue;
     let table = created.get(name);
+    // Hidden by a temporary table of the same name, so SQL can't read it by its name.
+    if (table && (table.catalog !== row.table_catalog || table.schema !== row.table_schema)) {
+      continue;
+    }
     if (!table) {
       table = {
         name,
