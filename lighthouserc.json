@@ -4,7 +4,12 @@
       "startServerCommand": "pnpm preview --port 4306",
       "startServerReadyTimeout": 60000,
       "startServerReadyPattern": "Local",
-      "url": ["http://localhost:4306/", "http://localhost:4306/app/"],
+      "url": [
+        "http://localhost:4306/",
+        "http://localhost:4306/app/",
+        "http://localhost:4306/docs/",
+        "http://localhost:4306/docs/get-started/"
+      ],
       "numberOfRuns": 3,
       "settings": {
         "preset": "desktop",

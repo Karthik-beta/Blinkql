@@ -1,6 +1,7 @@
 // The landing page's only script: it runs the hero's sample query live when asked, and keeps the
 // theme in step with the system setting. Everything else on the page is static HTML.
 import "./landing.css";
+import "../site/follow-system-theme.ts";
 import { createLiveRun } from "./live-run.ts";
 
 // The engine loads only on request, so it costs the page's first load nothing.
@@ -24,16 +25,4 @@ const liveRun = createLiveRun({
 
 document.querySelector("[data-run-live]")?.addEventListener("click", () => {
   void liveRun.start();
-});
-
-// public/theme-init.js applies the theme before first paint; this follows later system changes.
-const dark = matchMedia("(prefers-color-scheme: dark)");
-dark.addEventListener("change", () => {
-  let choice = "system";
-  try {
-    choice = localStorage.getItem("blinkql-theme") ?? "system";
-  } catch {
-    // Storage can be blocked; follow the system.
-  }
-  if (choice === "system") document.documentElement.classList.toggle("dark", dark.matches);
 });

@@ -1,0 +1,65 @@
+<h2>Formats Blinkql reads</h2>
+<p>Blinkql decides a file's format from its extension. Each file you open becomes one table.</p>
+<table>
+<thead>
+<tr><th scope="col">Format</th><th scope="col">Extensions</th><th scope="col">How it's read</th></tr>
+</thead>
+<tbody>
+<tr><td>CSV and TSV</td><td><code>.csv</code>, <code>.tsv</code></td><td>Blinkql detects the delimiter, the header row and each column's type.</td></tr>
+<tr><td>Excel</td><td><code>.xlsx</code></td><td>The first sheet becomes the table, with its header row detected.</td></tr>
+<tr><td>Parquet</td><td><code>.parquet</code></td><td>Columns and types come from the file.</td></tr>
+<tr><td>JSON</td><td><code>.json</code></td><td>Either an array of objects or one object per line.</td></tr>
+<tr><td>JSON Lines</td><td><code>.jsonl</code>, <code>.ndjson</code></td><td>One object per line.</td></tr>
+</tbody>
+</table>
+<p>Older Excel workbooks (<code>.xls</code>) can't be read. Open the file in Excel, save it as <code>.xlsx</code>, and import that copy.</p>
+
+<h2>Open a file from your computer</h2>
+<p>There are two ways to open files from your computer:</p>
+<ul>
+<li>Drag one or more files anywhere onto the workbench. While you drag, the window shows <strong>Drop files to import them as tables</strong>.</li>
+<li>Click <strong>Import files</strong> above the tables, or choose <strong>Import files</strong> in the command palette, and pick one or more files.</li>
+</ul>
+<p>While a file imports, the sidebar says <strong>Importing</strong> and the file's name. When it's done, the table appears under <strong>Tables</strong> with its format, number of columns, size and file name. If a file can't be read, the sidebar says <strong>Couldn't import</strong>, the file's name and the reason.</p>
+<p>Your files aren't uploaded. The browser reads each file where it is, a part at a time as queries need it.</p>
+
+<h2>Find a table's name</h2>
+<p>Blinkql names each table after its file, so you can usually type the name in SQL without quotes. It lowercases the name, drops the extension and replaces spaces and other punctuation with underscores. A name that would start with a digit gets <code>t_</code> in front, and a name already in use gets a number after it.</p>
+<table>
+<thead>
+<tr><th scope="col">File</th><th scope="col">Table</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Orders 2024.csv</code></td><td><code>orders_2024</code></td></tr>
+<tr><td><code>2026-09 shipments.parquet</code></td><td><code>t_2026_09_shipments</code></td></tr>
+<tr><td>a second <code>Orders 2024.csv</code></td><td><code>orders_2024_2</code></td></tr>
+</tbody>
+</table>
+<p>A long name is cut short in the sidebar. Hover over it to see it whole. To see the columns and their types, click the arrow next to the table, or select the table and press <kbd>→</kbd>.</p>
+
+<h2>Read another sheet of a workbook</h2>
+<p>An Excel table holds only the workbook's first sheet. When you show its columns, the sidebar shows the call that reads another sheet. For a workbook imported as <code>plants</code>, the file is called <code>plants.xlsx</code> in SQL:</p>
+<pre><code class="language-sql">SELECT * FROM read_xlsx('plants.xlsx', sheet = 'Sheet2')</code></pre>
+<p>A column's type comes from its first value. If a cell further down doesn't fit that type, such as <code>n/a</code> in a column of numbers, every query on the sheet fails with a message naming the cell. Fix the cell in Excel and import the workbook again, or read every column as text with <code>read_xlsx(…, all_varchar = true)</code>. A workbook with a password can't be read. Remove the password in Excel first.</p>
+
+<h2>Open a file from the web</h2>
+<p>To query a CSV, Parquet or JSON file on a web server without downloading it yourself:</p>
+<ol>
+<li>Click <strong>Add from URL</strong> above the tables.</li>
+<li>Enter the file's full address, starting with <code>https://</code>. The address must end in the file's name, such as <code>orders.parquet</code>, so Blinkql can tell its format.</li>
+<li>Click <strong>Add</strong>.</li>
+</ol>
+<p>Blinkql fetches only the parts of the file a query needs, which makes a large Parquet file quick to inspect. Two things depend on the server:</p>
+<ul>
+<li>It must let other websites read the file, which is called CORS. If it doesn't, Blinkql says so. Download the file and import it from your computer instead.</li>
+<li>It should send parts of a file on request. If it can't, Blinkql warns that the whole file is downloaded every time it's read.</li>
+</ul>
+<p>Blinkql doesn't keep a copy of a file from the web, so add it again after you reload the page.</p>
+
+<h2>Keep files between visits</h2>
+<p>Blinkql keeps a copy of each file you open from your computer in your browser, in storage that only Blinkql can read. When you come back, your tables are there under the same names. If the browser can't keep a file, for example in some private windows, the sidebar says <strong>This browser can't keep these files, so their tables will be gone after a reload.</strong></p>
+<p>To remove a table and its kept copy, select the table and press <kbd>Delete</kbd>, or click its <strong>Forget</strong> button, the bin next to its name. <a href="/docs/privacy-and-storage/">Privacy and storage</a> lists everything the browser keeps and how to clear it.</p>
+
+<h2>Convert a CSV table to Parquet</h2>
+<p>A CSV file is parsed again every time a query reads it. Parquet is stored by column, so queries on it are faster and the kept copy is smaller. To convert a table you opened from a CSV or TSV file on your computer, select it and press <kbd>C</kbd>, or click its <strong>Convert to Parquet</strong> button, the two arrows next to its name. The table keeps its name, and the sidebar shows <strong>Converting to Parquet…</strong> until it's done. The Parquet copy replaces the CSV copy in the browser.</p>
+<p>If a file is large for your computer's memory, Blinkql warns you when you import it: <strong>This file is large for this device's memory. If queries fail, add a LIMIT, select fewer columns or aggregate.</strong> <a href="/docs/browser-support/">Browser support and limits</a> has more on how large a file Blinkql handles.</p>

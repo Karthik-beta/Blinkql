@@ -26,8 +26,8 @@ test("caches the engine's hashed files as immutable, as vercel.json does", async
   expect(headersFor("/assets/duckdb-eh.wasm")["Cache-Control"]).toContain("immutable");
 });
 
-// Both pages: the landing page at / and the workbench at /app/.
-for (const path of ["/", "/app/"]) {
+// Every kind of page: the landing page, the workbench, the docs home and a docs page.
+for (const path of ["/", "/app/", "/docs/", "/docs/get-started/"]) {
   test.describe(path, () => {
     test("sends the production response headers from vercel.json", async ({ page }) => {
       const response = await page.goto(path);
