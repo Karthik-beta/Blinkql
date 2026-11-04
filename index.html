@@ -66,10 +66,10 @@
           </h1>
           <div class="hero-intro">
             <p class="lede">
-              Blinkql is a SQL workbench for engineers, analysts and supervisors with exports too
-              big for a spreadsheet: machine logs, ERP and MES extracts, sensor data of a million
-              rows or more. Open a CSV, Excel, Parquet or JSON file and query it in your browser.
-              Nothing is uploaded.
+              Blinkql is a SQL workbench for anyone with files too big for a spreadsheet or too
+              sensitive to upload: order exports, ledgers, logs, survey results and machine data,
+              a million rows or more. Open a CSV, Excel, Parquet or JSON file and query it in your
+              browser. Nothing is uploaded.
             </p>
             <div class="hero-actions">
               <a class="button button-primary" href="/app/">Open the workbench</a>
@@ -118,8 +118,8 @@
         </figure>
         <div class="demo-footer">
           <p id="demo-caption" class="caption">
-            A sample query over a synthetic factory log. Run it, and the real engine answers it
-            here, in your browser.
+            A sample query over <!--landing:order-count--> made-up orders from an online shop. Run
+            it, and the real engine answers it here, in your browser.
           </p>
           <button class="button button-outline" type="button" data-run-live>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -146,16 +146,16 @@
               <p class="catalog-head" aria-hidden="true">Tables</p>
               <ul>
                 <li>
-                  <span class="catalog-name">machine_log_october</span>
-                  <span class="catalog-meta">CSV · 9 columns · 412.6 MB · Machine log October.csv</span>
+                  <span class="catalog-name">orders</span>
+                  <span class="catalog-meta">CSV · 5 columns · 9.8 MB · Orders.csv</span>
                 </li>
                 <li>
-                  <span class="catalog-name">orders_2024</span>
-                  <span class="catalog-meta">Parquet · 14 columns · 88.1 MB · Orders 2024.parquet</span>
+                  <span class="catalog-name">general_ledger_2026</span>
+                  <span class="catalog-meta">Parquet · 12 columns · 64.3 MB · General ledger 2026.parquet</span>
                 </li>
                 <li>
-                  <span class="catalog-name">breakdowns</span>
-                  <span class="catalog-meta">Excel · 5 columns · 1.2 MB · Breakdowns.xlsx</span>
+                  <span class="catalog-name">survey_responses</span>
+                  <span class="catalog-meta">Excel · 18 columns · 2.4 MB · Survey responses.xlsx</span>
                 </li>
               </ul>
             </figure>
@@ -197,19 +197,19 @@
             <div class="artifact chart-shot">
               <img
                 class="shot-light"
-                src="/docs/screenshots/chart-light.png"
-                alt="A query's 48 rows drawn as a bar chart of rejected parts by machine, largest first, with the chart type, X, aggregate and Y controls above it"
-                width="1440"
-                height="900"
+                src="/src/landing/screenshots/chart-light.png"
+                alt="A query's 25,493 orders drawn as a bar chart of sales by region, largest first, with the chart type, X, aggregate and Y controls above it"
+                width="1214"
+                height="940"
                 loading="lazy"
                 decoding="async"
               />
               <img
                 class="shot-dark"
-                src="/docs/screenshots/chart-dark.png"
-                alt="A query's 48 rows drawn as a bar chart of rejected parts by machine, largest first, with the chart type, X, aggregate and Y controls above it"
-                width="1440"
-                height="900"
+                src="/src/landing/screenshots/chart-dark.png"
+                alt="A query's 25,493 orders drawn as a bar chart of sales by region, largest first, with the chart type, X, aggregate and Y controls above it"
+                width="1214"
+                height="940"
                 loading="lazy"
                 decoding="async"
               />
@@ -229,9 +229,9 @@
                 id="share-link"
                 class="share-field"
                 readonly
-                value="https://blinkql.karthik.nz/app/#share=1.eyJzcWwiOiJTRUxFQ1QgcmVhc29uLCBkYXRlX2RpZmYoJ21pbnV0ZScsIHN0YXJ0ZWRfYXQsIGVuZGVkX2F0KSBBUyBkb3dudGltZV9taW5cbkZST00gYnJlYWtkb3ducyIsImNoYXJ0Ijp7InR5cGUiOiJwYXJldG8iLCJ4IjoicmVhc29uIiwieSI6ImRvd250aW1lX21pbiIsImFnZ3JlZ2F0ZSI6InN1bSJ9fQ"
+                value="https://blinkql.karthik.nz/app/#share=1.eyJzcWwiOiJTRUxFQ1QgcmVnaW9uLCB0b3RhbFxuRlJPTSBvcmRlcnNcbldIRVJFIG9yZGVyZWRfYXQgPj0gJzIwMjYtMTAtMDEnIiwiY2hhcnQiOnsidHlwZSI6ImJhciIsIngiOiJyZWdpb24iLCJ5IjoidG90YWwiLCJhZ2dyZWdhdGUiOiJzdW0ifX0"
               />
-              <p>A downtime Pareto chart of the <code>breakdowns</code> table, and no rows.</p>
+              <p>A bar chart of October's sales by region from the <code>orders</code> table, and no rows.</p>
             </div>
             <a class="step-link" href="/docs/share-and-export/">Share and export</a>
           </li>
@@ -241,20 +241,18 @@
       <section class="section container" aria-labelledby="templates-title">
         <h2 id="templates-title" class="title">Ready-made analyses</h2>
         <p class="reading">
-          Templates are queries written for the files operations teams export. Each one matches
+          Templates are queries written for files that many teams have: two exports that should
+          agree, a file about to be imported, a shipments list, a production log. Each one matches
           itself to your columns, and each runs on built-in sample data, so you can try it before you
           open a file of your own.
         </p>
         <div class="template-groups">
           <div class="template-group">
-            <h3 class="subheading">Production</h3>
-            <p class="group-note">Machine logs, breakdowns, output reports and inspections</p>
+            <h3 class="subheading">Reconciliation and data quality</h3>
+            <p class="group-note">Two systems' exports of the same thing, and files about to be imported</p>
             <ul>
-              <li>OEE by machine</li>
-              <li>Downtime Pareto</li>
-              <li>MTTR and MTBF per machine</li>
-              <li>Output by production day and shift</li>
-              <li>Reject rate by machine</li>
+              <li>Two-file reconciliation</li>
+              <li>Data-quality checks for an import file</li>
             </ul>
           </div>
           <div class="template-group">
@@ -267,11 +265,14 @@
             </ul>
           </div>
           <div class="template-group">
-            <h3 class="subheading">Reconciliation and data quality</h3>
-            <p class="group-note">Two systems' exports of the same thing, and files about to be imported</p>
+            <h3 class="subheading">Production</h3>
+            <p class="group-note">Machine logs, breakdowns, output reports and inspections</p>
             <ul>
-              <li>Two-file reconciliation</li>
-              <li>Data-quality checks for an import file</li>
+              <li>OEE by machine</li>
+              <li>Downtime Pareto</li>
+              <li>MTTR and MTBF per machine</li>
+              <li>Output by production day and shift</li>
+              <li>Reject rate by machine</li>
             </ul>
           </div>
         </div>

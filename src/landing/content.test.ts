@@ -24,7 +24,7 @@ describe("the landing page", () => {
   });
 
   it("names each sample file's table the way the workbench does", () => {
-    for (const file of ["Machine log October.csv", "Orders 2024.parquet", "Breakdowns.xlsx"]) {
+    for (const file of ["Orders.csv", "General ledger 2026.parquet", "Survey responses.xlsx"]) {
       expect(text).toContain(`${tableNameFor(file, new Set())} `);
       expect(text).toContain(` ${file}`);
     }
@@ -45,10 +45,10 @@ describe("the landing page", () => {
     expect(html).toContain(`${" ".repeat(line.column)}^</span></pre>`);
   });
 
-  it("shows a share link the workbench would make for its downtime Pareto", () => {
+  it("shows a share link the workbench would make for its chart of sales by region", () => {
     const link = encodeShareLink({
-      sql: "SELECT reason, date_diff('minute', started_at, ended_at) AS downtime_min\nFROM breakdowns",
-      chart: { type: "pareto", x: "reason", y: "downtime_min", aggregate: "sum" },
+      sql: "SELECT region, total\nFROM orders\nWHERE ordered_at >= '2026-10-01'",
+      chart: { type: "bar", x: "region", y: "total", aggregate: "sum" },
     });
     expect(html).toContain(`value="https://blinkql.karthik.nz/app/${link}"`);
   });

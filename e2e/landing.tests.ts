@@ -1,10 +1,14 @@
 import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
+import { sampleQuery } from "../src/landing/sample.ts";
 import { expect, test } from "./fixtures";
 
 // The page shows the released version as major.minor, from package.json at build time.
 const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const shortVersion = version.split(".").slice(0, 2).join(".");
+
+/** The results bar's text for the static result, which the page ships before any run. */
+const STATIC_READOUT = `${sampleQuery.rowCount} rows in ${sampleQuery.elapsedMs} ms`;
 
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
@@ -85,8 +89,14 @@ export function landingTests(colorScheme: "light" | "dark") {
 
       const templates = page.locator("section", { has: page.locator("#templates-title") });
       await expect(templates.getByRole("listitem")).toHaveCount(10);
-      await expect(templates).toContainText("OEE by machine");
+      // General-purpose analyses first, production last.
+      await expect(templates.getByRole("heading", { level: 3 })).toHaveText([
+        "Reconciliation and data quality",
+        "Logistics",
+        "Production",
+      ]);
       await expect(templates).toContainText("Data-quality checks for an import file");
+      await expect(templates).toContainText("OEE by machine");
 
       const specs = page.getByRole("table", { name: "Blinkql's specifications" });
       await expect(specs.getByRole("rowheader")).toHaveText([
@@ -140,14 +150,16 @@ export function landingTests(colorScheme: "light" | "dark") {
       await page.goto("/");
 
       await expect(page.locator("body")).toHaveAttribute("data-phase", "idle");
-      await expect(page.getByText("56 rows in 212 ms")).toBeVisible();
-      await expect(sampleResults(page)).toContainText("PRS-03");
+      await expect(page.getByText(STATIC_READOUT)).toBeVisible();
+      await expect(sampleResults(page)).toContainText("North America");
       expect(await runningAnimations(page)).toBe(0);
     });
 
     test("runs the sample query on the real engine, then nothing moves", async ({ page }) => {
       test.slow();
       await page.goto("/");
+      const staticTable = await sampleResults(page).elementHandle();
+      const staticRows = await sampleResults(page).getByRole("row").allInnerTexts();
 
       await page.getByRole("button", { name: "Run it live" }).focus();
       await page.keyboard.press("Enter");
@@ -156,13 +168,12 @@ export function landingTests(colorScheme: "light" | "dark") {
         timeout: ENGINE_TIMEOUT,
       });
 
-      await expect(page.getByRole("status")).toHaveText(/^Query finished, 56 rows in \d+ ms$/);
-      const readout = page.locator(".readout");
-      await expect(readout).toContainText(/56 rows in\s+\d+ ms/);
-      await expect(readout).not.toContainText("212 ms");
-      // The live rows replace the static ones, whose WLD-02 row has a NULL quality.
-      await expect(sampleResults(page)).toContainText("2026-10-");
-      await expect(sampleResults(page)).not.toContainText("NULL");
+      await expect(page.getByRole("status")).toHaveText(/^Query finished, 70 rows in \d+ ms$/);
+      await expect(page.locator(".readout")).toContainText(/70 rows in\s+\d+ ms/);
+      // The engine's rows replace the static ones, and they're the same rows, NULL region included.
+      expect(await staticTable?.evaluate((table) => table.isConnected)).toBe(false);
+      expect(await sampleResults(page).getByRole("row").allInnerTexts()).toEqual(staticRows);
+      await expect(sampleResults(page)).toContainText("NULL");
       // The lamp flashes once when the query returns; after the 400 ms flash, nothing is left running.
       await expect.poll(() => runningAnimations(page)).toBe(0);
     });
@@ -207,8 +218,8 @@ export function landingTests(colorScheme: "light" | "dark") {
     test("still shows the results and every section", async ({ page }) => {
       await page.goto("/");
 
-      await expect(page.getByText("56 rows in 212 ms")).toBeVisible();
-      await expect(sampleResults(page)).toContainText("PRS-03");
+      await expect(page.getByText(STATIC_READOUT)).toBeVisible();
+      await expect(sampleResults(page)).toContainText("North America");
       await expect(page.getByRole("heading", { name: "Built in the open" })).toBeVisible();
       // Running the query needs JavaScript, so its button doesn't show.
       await expect(page.getByRole("button", { name: "Run it live" })).toBeHidden();

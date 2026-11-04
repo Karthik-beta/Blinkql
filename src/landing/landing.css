@@ -204,21 +204,13 @@ code {
   color: var(--destructive);
 }
 
-/* The screenshot cropped to the results bar, the chart controls and the four largest bars,
-   ending after the fourth bar and before the next control: 591 x 470 of the 1440 x 900 image,
-   from (256, 402), so the timing readout shows (Design Language 12). */
+/* The screenshot is captured already cropped to the results bar, the chart controls and the four
+   largest bars, so the timing readout shows (Design Language 12). */
 .chart-shot {
   max-width: 25rem; /* near the size the workbench draws it, and as wide as the sidebar above */
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 591 / 470;
 }
 .chart-shot img {
-  position: absolute;
-  top: calc(-402 / 470 * 100%);
-  left: calc(-256 / 591 * 100%);
-  width: calc(1440 / 591 * 100%);
-  max-width: none;
+  width: 100%;
   height: auto;
 }
 /* Both themes' images are in the page; the hidden one, lazy, is never fetched. */
@@ -655,7 +647,7 @@ code {
   visibility: hidden;
 }
 /* Columns drop out in stages so the grid always fits its pane: below 1024 px it keeps
-   machine_id, availability, quality and oee; below 480 px, machine_id, availability and oee. */
+   region, orders, revenue and return_rate; below 480 px, region and revenue. */
 @media (max-width: 1023px) {
   .grid .show-from-1024 {
     display: none;

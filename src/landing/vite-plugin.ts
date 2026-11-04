@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import type { Plugin } from "vite";
 import { renderFooter, renderHeader, siteHeadTags, wordmarkSvgUrl } from "../site/chrome.ts";
 import { renderGrid, renderSql, shortVersion } from "./render.ts";
-import { sampleQuery } from "./sample.ts";
+import { sampleOrderCount, sampleQuery } from "./sample.ts";
 
 /**
  * The headline's font: preloading it keeps the largest paint early. Mono (the hero's SQL) isn't
@@ -35,6 +35,7 @@ function fragments(): Record<string, string> {
     "landing:row-count": String(sampleQuery.rowCount),
     "landing:elapsed-ms": String(sampleQuery.elapsedMs),
     "landing:query-tab": sampleQuery.tab,
+    "landing:order-count": sampleOrderCount.toLocaleString("en-GB"),
   };
 }
 

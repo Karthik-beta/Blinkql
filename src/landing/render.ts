@@ -20,14 +20,13 @@ export function renderSql(lines: readonly string[] = sampleQuery.sql): string {
 }
 
 function columnClass(column: SampleColumn): string {
-  const classes = column.type === "DOUBLE" ? ["num"] : [];
+  const classes = column.type === "VARCHAR" || column.type === "DATE" ? [] : ["num"];
   if (column.showFrom) classes.push(`show-from-${column.showFrom}`);
   return classes.length > 0 ? ` class="${classes.join(" ")}"` : "";
 }
 
-function formatCell(value: string | number | null): string {
-  if (value === null) return '<span class="null">NULL</span>';
-  return escapeHtml(typeof value === "number" ? value.toFixed(3) : value);
+function formatCell(value: string | null): string {
+  return value === null ? '<span class="null">NULL</span>' : escapeHtml(value);
 }
 
 /**
