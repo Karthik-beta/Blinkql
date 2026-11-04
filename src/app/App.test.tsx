@@ -1,9 +1,10 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineStatus } from "@/engine/engine";
 import { setChartPreset } from "@/features/charts/chart-preset";
 import { findSqlEditor } from "@/features/editor/test-utils";
+import { resetQueryRun, runQuery } from "@/features/results/query-run";
 import { endTour } from "@/features/tour/tour-step";
 import { marks } from "@/lib/user-timing";
 import { App } from "./App";
@@ -192,5 +193,120 @@ describe("App shell", () => {
     await user.keyboard("{Control>}k{/Control}");
     await user.keyboard("shortcuts{Enter}");
     expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+  });
+
+  describe("on a screen too narrow for the sidebar", () => {
+    const screenWidth = { narrow: true, listeners: new Set<() => void>() };
+
+    /** Turns the screen, as a tablet does when rotated, and tells the media query listeners. */
+    const turnScreen = (narrow: boolean) =>
+      act(() => {
+        screenWidth.narrow = narrow;
+        for (const listener of screenWidth.listeners) listener();
+      });
+
+    beforeEach(() => {
+      screenWidth.narrow = true;
+      vi.stubGlobal("matchMedia", (media: string) => {
+        // Other queries, such as the editor's for printing, never change here.
+        const isWidth = media === "(width < 64rem)";
+        return {
+          get matches() {
+            return isWidth && screenWidth.narrow;
+          },
+          media,
+          addEventListener: (_type: string, listener: () => void) =>
+            isWidth && screenWidth.listeners.add(listener),
+          removeEventListener: (_type: string, listener: () => void) =>
+            screenWidth.listeners.delete(listener),
+        };
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      resetQueryRun();
+    });
+
+    it("keeps the sidebar in a sheet that the Tables button opens and Close closes", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      const open = screen.getByRole("button", { name: "Tables" });
+      expect(screen.queryByRole("complementary", { name: "Tables" })).not.toBeInTheDocument();
+
+      await user.click(open);
+      const sheet = await screen.findByRole("dialog", { name: "Tables and queries" });
+      expect(within(sheet).getByRole("complementary", { name: "Tables" })).toBeInTheDocument();
+      expect(within(sheet).getByRole("region", { name: "Queries" })).toBeInTheDocument();
+
+      await user.click(within(sheet).getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(open).toHaveFocus();
+    });
+
+    it("gives the focus back to Tables on closing, even if tapping it didn't focus it", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      const open = screen.getByRole("button", { name: "Tables" });
+
+      // Safari doesn't focus a button that's clicked or tapped, so focus stays on the page.
+      fireEvent.click(open);
+      const sheet = await screen.findByRole("dialog", { name: "Tables and queries" });
+      await user.click(within(sheet).getByRole("button", { name: "Close" }));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(open).toHaveFocus();
+    });
+
+    it("doesn't reopen the sheet when the screen turns wide and back", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("button", { name: "Tables" }));
+      await screen.findByRole("dialog", { name: "Tables and queries" });
+
+      turnScreen(false);
+      expect(screen.getByRole("complementary", { name: "Tables" })).toBeInTheDocument();
+      // The focus was in the sheet; it stays in the app rather than falling to the page.
+      await waitFor(() => expect(screen.getByRole("main", { name: "Workspace" })).toHaveFocus());
+      turnScreen(true);
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Tables" })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+    });
+
+    it("keeps the focus in the app when the screen turns wide and Tables goes", () => {
+      render(<App />);
+      screen.getByRole("button", { name: "Tables" }).focus();
+
+      turnScreen(false);
+
+      expect(screen.getByRole("main", { name: "Workspace" })).toHaveFocus();
+    });
+
+    it("leaves the focus alone when the screen turns wide with nothing focused", () => {
+      render(<App />);
+      // Focused once, then left without focusing anything else, as a tap can in Safari.
+      const tables = screen.getByRole("button", { name: "Tables" });
+      tables.focus();
+      tables.blur();
+
+      turnScreen(false);
+
+      expect(document.body).toHaveFocus();
+    });
+
+    it("closes the sheet when a query starts", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("button", { name: "Tables" }));
+      await screen.findByRole("dialog", { name: "Tables and queries" });
+
+      act(() => void runQuery("SELECT 1"));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    });
   });
 });
