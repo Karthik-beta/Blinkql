@@ -71,15 +71,25 @@ describe("DuckDB dialect", () => {
 describe("DuckDB autocomplete", () => {
   afterEach(() => resetCatalog());
 
+  /**
+   * Runs `f` while `Date.now` reads `now`. The parser stops when its time is up, so this decides
+   * how far it gets.
+   */
+  async function withClock<T>(now: () => number, f: () => T | Promise<T>): Promise<T> {
+    const clock = vi.spyOn(Date, "now").mockImplementation(now);
+    try {
+      return await f();
+    } finally {
+      clock.mockRestore();
+    }
+  }
+
   /** An editor's state with `doc`, less its `|`. */
   const stateOf = (doc: string) =>
     EditorState.create({ doc: doc.replace("|", ""), extensions: duckdbSql() });
 
-  /** What Ctrl+Space offers at the `|` in `doc`: each option's label and detail. */
-  async function complete(
-    doc: string,
-    state = stateOf(doc),
-  ): Promise<Map<string, string | undefined>> {
+  /** What Ctrl+Space offers in `state` at the `|` in `doc`: each option's label and detail. */
+  async function optionsAt(doc: string, state: EditorState) {
     const pos = doc.indexOf("|");
     const context = new CompletionContext(state, pos, true);
     const options = new Map<string, string | undefined>();
@@ -88,6 +98,18 @@ describe("DuckDB autocomplete", () => {
       for (const option of result?.options ?? []) options.set(option.label, option.detail);
     }
     return options;
+  }
+
+  /**
+   * What Ctrl+Space offers at the `|` in `doc`. The clock stands still meanwhile, so the parser
+   * never runs out of time, however busy the machine is.
+   */
+  function complete(doc: string) {
+    const time = Date.now();
+    return withClock(
+      () => time,
+      () => optionsAt(doc, stateOf(doc)),
+    );
   }
 
   const importOrders = () => importFiles([new File(["id,amount\n1,2.5\n"], "orders.csv")]);
@@ -113,15 +135,38 @@ describe("DuckDB autocomplete", () => {
 
   it("completes an aliased table's columns before the parser has reached the alias", async () => {
     await importOrders();
-    // The parser stops when its time is up, 20 ms for a new state. A clock that jumps a second
-    // each time it's read stops it after the first word, as a slow device can.
+    // A new state gets 20 ms of parsing. A clock that jumps a second each time it's read stops
+    // the parser after the first word, as a slow device can. Then the clock stands still.
     const doc = "SELECT o.| FROM orders AS o";
     let time = Date.now();
-    const clock = vi.spyOn(Date, "now").mockImplementation(() => (time += 1000));
-    const state = stateOf(doc);
-    clock.mockRestore();
+    const state = await withClock(
+      () => (time += 1000),
+      () => stateOf(doc),
+    );
     expect(syntaxTree(state).length).toBeLessThan(state.doc.length);
-    expect([...(await complete(doc, state)).keys()]).toEqual(["id", "amount"]);
+    const options = await withClock(
+      () => time,
+      () => optionsAt(doc, state),
+    );
+    expect([...options.keys()]).toEqual(["id", "amount"]);
+  });
+
+  it("parses for at most 50 ms in all for a completion", async () => {
+    await importOrders();
+    // A new state parses only the first 3000 characters. Then each step of the parser moves the
+    // clock on a millisecond, so the rest takes far longer than 50 ms.
+    const columns = Array.from({ length: 1000 }, (_, i) => `o.column_${i}`).join(", ");
+    const doc = `SELECT o.|, ${columns} FROM orders AS o`;
+    let time = 0;
+    const state = await withClock(
+      () => time,
+      () => stateOf(doc),
+    );
+    await withClock(
+      () => ++time,
+      () => optionsAt(doc, state),
+    );
+    expect(time).toBeLessThanOrEqual(52);
   });
 
   it("shows a DuckDB function's signature", async () => {

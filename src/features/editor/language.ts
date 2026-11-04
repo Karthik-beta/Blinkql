@@ -3,6 +3,7 @@
 import { CompletionContext, type CompletionSource } from "@codemirror/autocomplete";
 import { keywordCompletionSource, SQLDialect, schemaCompletionSource } from "@codemirror/lang-sql";
 import { ensureSyntaxTree, LanguageSupport, syntaxTree } from "@codemirror/language";
+import type { EditorState } from "@codemirror/state";
 import { type Catalog, getCatalog } from "@/features/catalog/catalog";
 import { functions, keywords, signatures, types } from "./duckdb-words";
 
@@ -56,19 +57,27 @@ const completeSchema: CompletionSource = (context) => {
   return schema.complete(context);
 };
 
+/** Each state the sources completed in, or a copy of it with the whole syntax tree. */
+const parsed = new WeakMap<EditorState, EditorState>();
+
 /**
  * lang-sql reads a table's alias, and whether the cursor follows a dot, from the syntax tree. The
  * parser stops when its time is up, so on a slow device or in a long query the tree can end
  * before the FROM clause that names the alias. So parse the rest first, for up to 50 ms, and
- * complete in a state that has the whole tree, as `forceParsing` does for a view.
+ * complete in a state that has the whole tree, as `forceParsing` does for a view. Both sources
+ * share that state, so a completion never parses for more than 50 ms in all.
  */
 function withWholeTree(source: CompletionSource): CompletionSource {
   return (context) => {
     const { state } = context;
-    const tree = ensureSyntaxTree(state, state.doc.length, 50);
-    if (!tree || tree === syntaxTree(state)) return source(context);
-    const parsed = state.update({}).state;
-    return source(new CompletionContext(parsed, context.pos, context.explicit, context.view));
+    let whole = parsed.get(state);
+    if (!whole) {
+      const tree = ensureSyntaxTree(state, state.doc.length, 50);
+      whole = tree && tree !== syntaxTree(state) ? state.update({}).state : state;
+      parsed.set(state, whole);
+    }
+    if (whole === state) return source(context);
+    return source(new CompletionContext(whole, context.pos, context.explicit, context.view));
   };
 }
 
