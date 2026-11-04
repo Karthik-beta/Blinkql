@@ -1,6 +1,7 @@
 import {
   Binary,
   Bool,
+  type Data,
   type DataType,
   DateDay,
   Decimal,
@@ -23,6 +24,8 @@ import {
   TimeMicrosecond,
   TimestampMicrosecond,
   TimestampMillisecond,
+  TimestampNanosecond,
+  TimestampSecond,
   Utf8,
   type Vector,
   vectorFromArray,
@@ -44,6 +47,15 @@ function firstCell(vector: Vector) {
 function cell(values: unknown[], type: DataType) {
   return firstCell(vectorFromArray(values, type));
 }
+
+/** The text of every cell of a one-column result holding `data`. */
+function cells(data: Data) {
+  const [column] = resultColumns(new Table({ value: makeVector(data) }));
+  return Array.from({ length: data.length }, (_, row) => column?.cell(row));
+}
+
+/** DuckDB's 'infinity' timestamp, stored as the largest int64 in every unit. */
+const INFINITY = 2n ** 63n - 1n;
 
 describe("resultColumns", () => {
   it("reads each column's cells by row, with null for SQL NULL", () => {
@@ -124,6 +136,61 @@ describe("cell formatting", () => {
     const fraction = BigInt64Array.of(19_637_120_000n);
     const time = makeData({ type: new TimeMicrosecond(), length: 1, data: fraction });
     expect(firstCell(makeVector(time))).toBe("05:27:17.12");
+  });
+
+  // Built from stored values as DuckDB returns them: days for a DATE and a count of the unit for a
+  // TIMESTAMP, with 'infinity' and '-infinity' at the ends of each range.
+  it("shows infinite dates and dates outside JavaScript's range the way DuckDB writes them", () => {
+    const dates = Int32Array.of(2_147_483_647, -2_147_483_647, 106_762_574, -2_147_483_646);
+    expect(cells(makeData({ type: new DateDay(), data: dates }))).toEqual([
+      "infinity",
+      "-infinity",
+      "294276-01-01",
+      "5877642-06-25 (BC)",
+    ]);
+    const fourDigitYearsAndBeyond = Int32Array.of(2_932_897, -719_163);
+    expect(cells(makeData({ type: new DateDay(), data: fourDigitYearsAndBeyond }))).toEqual([
+      "10000-01-01",
+      "0001-12-31 (BC)",
+    ]);
+  });
+
+  it("shows infinite timestamps and timestamps outside JavaScript's range the way DuckDB writes them", () => {
+    const types = [
+      new TimestampSecond(),
+      new TimestampMillisecond(),
+      new TimestampMicrosecond(),
+      new TimestampNanosecond(),
+      new TimestampMicrosecond("UTC"),
+    ];
+    for (const type of types) {
+      const data = BigInt64Array.of(INFINITY, -INFINITY);
+      expect(cells(makeData({ type, data }))).toEqual(["infinity", "-infinity"]);
+    }
+    const micros = BigInt64Array.of(9_223_339_708_800_000_000n);
+    expect(cells(makeData({ type: new TimestampMicrosecond(), data: micros }))).toEqual([
+      "294246-01-01 00:00:00",
+    ]);
+    const seconds = BigInt64Array.of(9_089_348_860_800n);
+    expect(cells(makeData({ type: new TimestampSecond(), data: seconds }))).toEqual([
+      "290000-01-01 00:00:00",
+    ]);
+  });
+
+  it("shows infinite dates and timestamps inside lists and structs", () => {
+    const day = makeData({ type: new DateDay(), data: Int32Array.of(2_147_483_647) });
+    const timestamp = makeData({
+      type: new TimestampMicrosecond(),
+      data: BigInt64Array.of(INFINITY),
+    });
+    const listOfOne = (child: Data) =>
+      makeData({ type: listOf(child.type), length: 1, valueOffsets: Int32Array.of(0, 1), child });
+    expect(cells(listOfOne(day))).toEqual(['["infinity"]']);
+    expect(cells(listOfOne(timestamp))).toEqual(['["infinity"]']);
+    const struct = new Struct([new Field("until", timestamp.type)]);
+    expect(
+      cells(makeData({ type: struct, length: 1, nullCount: 0, children: [timestamp] })),
+    ).toEqual(['{"until":"infinity"}']);
   });
 
   it("puts the decimal point where the column's scale says", () => {

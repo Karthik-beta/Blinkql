@@ -1,6 +1,6 @@
 // Reading cells straight from an Arrow result and turning them into text, for the results table.
 // Nothing is copied out of Arrow: a cell is read and formatted only when it's shown (ADR-004, P-02).
-import { DataType, type Table } from "apache-arrow";
+import { type Data, DataType, Int64, type Table, Vector } from "apache-arrow";
 
 /** One column of a result, read from its Arrow vector on demand. */
 export type ResultColumn = {
@@ -16,7 +16,8 @@ export type ResultColumn = {
  */
 export function resultColumns(table: Table): ResultColumn[] {
   return table.schema.fields.map((field, index) => {
-    const vector = table.getChildAt(index);
+    const column = table.getChildAt(index);
+    const vector = column && new Vector(column.data.map(storedTimestamps));
     const format = formatterFor(field.type);
     return {
       name: field.name,
@@ -34,12 +35,51 @@ export function isNumeric(type: DataType): boolean {
   return DataType.isInt(type) || DataType.isFloat(type) || DataType.isDecimal(type);
 }
 
-/** "2026-10-16 05:47:17", or with milliseconds when there are any, from milliseconds since 1970. */
-function formatTimestamp(ms: number): string {
-  return new Date(ms)
+/**
+ * `data` with its timestamps, at any depth, read as the int64 counts they're stored as. Arrow reads
+ * a timestamp as milliseconds in a number, which throws for values far from 1970 such as DuckDB's
+ * 'infinity'. The timestamp type stays in the column's schema, which picks the formatter.
+ */
+function storedTimestamps(data: Data): Data {
+  if (DataType.isTimestamp(data.type)) return data.clone(new Int64());
+  if (data.children.length === 0) return data;
+  const children = data.children.map(storedTimestamps);
+  return data.clone(data.type, data.offset, data.length, data.nullCount, undefined, children);
+}
+
+const msPerDay = 86_400_000;
+const daysPer400Years = 146_097;
+/** DuckDB's 'infinity' DATE, as days since 1970. '-infinity' is its negation. */
+const infiniteDays = 2 ** 31 - 1;
+/** DuckDB's 'infinity' TIMESTAMP in any unit. '-infinity' is its negation. */
+const infiniteTimestamp = 2n ** 63n - 1n;
+
+/** "2026-10-16", or "0001-12-31 (BC)", from days since 1970, for every date DuckDB holds. */
+function formatDate(days: number): string {
+  if (Math.abs(days) === infiniteDays) return days > 0 ? "infinity" : "-infinity";
+  // Date stops at the year 275760. The calendar repeats every 400 years, so move into range and back.
+  const cycles = Math.floor(days / daysPer400Years);
+  const date = new Date((days - cycles * daysPer400Years) * msPerDay);
+  const year = date.getUTCFullYear() + cycles * 400;
+  const monthAndDay = date.toISOString().slice(4, 10);
+  return year > 0
+    ? `${String(year).padStart(4, "0")}${monthAndDay}`
+    : `${String(1 - year).padStart(4, "0")}${monthAndDay} (BC)`;
+}
+
+/** "2026-10-16 05:47:17", or with milliseconds when there are any, from a count of units since 1970. */
+function formatTimestamp(stored: bigint, unitsPerSecond: number): string {
+  if (stored === infiniteTimestamp) return "infinity";
+  if (stored === -infiniteTimestamp) return "-infinity";
+  const perSecond = BigInt(unitsPerSecond);
+  const perDay = perSecond * 86_400n;
+  const sinceMidnight = ((stored % perDay) + perDay) % perDay;
+  const days = Number((stored - sinceMidnight) / perDay);
+  const clock = new Date(Number((sinceMidnight * 1000n) / perSecond))
     .toISOString()
-    .replace("T", " ")
-    .replace(/(\.000)?Z$/, "");
+    .slice(11, 23)
+    .replace(/\.000$/, "");
+  return `${formatDate(days)} ${clock}`;
 }
 
 /** "05:47:17", or with fractional seconds when there are any, from time since midnight. */
@@ -172,10 +212,12 @@ function formatterFor(type: DataType): Formatter {
   }
   if (DataType.isDate(type)) {
     return (value) =>
-      typeof value === "number" ? formatTimestamp(value).slice(0, 10) : formatAny(value);
+      typeof value === "number" ? formatDate(Math.floor(value / msPerDay)) : formatAny(value);
   }
   if (DataType.isTimestamp(type)) {
-    return (value) => (typeof value === "number" ? formatTimestamp(value) : formatAny(value));
+    const perSecond = unitsPerSecond[type.unit];
+    return (value) =>
+      typeof value === "bigint" ? formatTimestamp(value, perSecond) : formatAny(value);
   }
   if (DataType.isTime(type)) {
     const perSecond = unitsPerSecond[type.unit];
