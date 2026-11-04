@@ -52,10 +52,17 @@ const ChartPanel = lazy(() =>
 // sheet that slides over it (Design Language, "Smaller screens").
 const narrowScreen = "(width < 64rem)";
 
+/** What had the focus as the screen last changed width, before the layout changed with it. */
+let focusedAtWidthChange: Element | null = null;
+
 function subscribeToScreenWidth(listener: () => void): () => void {
   const query = matchMedia(narrowScreen);
-  query.addEventListener("change", listener);
-  return () => query.removeEventListener("change", listener);
+  const onChange = () => {
+    focusedAtWidthChange = document.activeElement;
+    listener();
+  };
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
 }
 
 const isNarrowScreen = () => matchMedia(narrowScreen).matches;
@@ -156,23 +163,14 @@ export function App() {
   const tablesButton = useRef<HTMLButtonElement>(null);
   const workspace = useRef<HTMLElement>(null);
 
-  const lastFocused = useRef<Element | null>(null);
-  useEffect(() => {
-    const onFocusIn = (event: FocusEvent) => {
-      lastFocused.current = event.target as Element;
-    };
-    document.addEventListener("focusin", onFocusIn);
-    return () => document.removeEventListener("focusin", onFocusIn);
-  }, []);
-
   // The sidebar is back beside the workspace, as when a tablet turns sideways, so the sheet is
   // closed for when the screen narrows again. If the focus was on something that went with the
   // narrow layout, such as Tables or the sheet, it's put in the workspace instead of being lost.
   useEffect(() => {
     if (narrow) return;
     setSidebarOpen(false);
-    const gone = lastFocused.current && !lastFocused.current.isConnected;
-    if (gone && document.activeElement === document.body) workspace.current?.focus();
+    if (focusedAtWidthChange?.isConnected === false) workspace.current?.focus();
+    focusedAtWidthChange = null;
   }, [narrow]);
 
   useEffect(() => {

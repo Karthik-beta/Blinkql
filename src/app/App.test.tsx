@@ -288,6 +288,10 @@ describe("App shell", () => {
 
     it("leaves the focus alone when the screen turns wide with nothing focused", () => {
       render(<App />);
+      // Focused once, then left without focusing anything else, as a tap can in Safari.
+      const tables = screen.getByRole("button", { name: "Tables" });
+      tables.focus();
+      tables.blur();
 
       turnScreen(false);
 
