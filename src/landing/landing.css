@@ -1,142 +1,6 @@
-/* The landing page. Same tokens as the workbench; see the Design Language, section 12. */
-@import "tailwindcss" source(none); /* preflight and @apply only: this page writes its own classes */
-@import "@fontsource-variable/atkinson-hyperlegible-next";
-@import "@fontsource-variable/atkinson-hyperlegible-mono";
-@import "../styles/tokens.css";
-
-/* ---------- Base ---------- */
-
-/* Local fonts scaled to Atkinson Hyperlegible Mono's advance width (0.632 em), so the hero's SQL
-   wraps the same before and after the web font arrives and nothing shifts. */
-@font-face {
-  font-family: "Mono fallback narrow";
-  src: local("Consolas");
-  size-adjust: 114.9%; /* Consolas: 0.550 em */
-}
-@font-face {
-  font-family: "Mono fallback wide";
-  src: local("Menlo"), local("DejaVu Sans Mono"), local("Liberation Mono"), local("Courier New");
-  size-adjust: 105.3%; /* about 0.600 em */
-}
-:root {
-  --font-code:
-    "Atkinson Hyperlegible Mono Variable", "Mono fallback narrow", "Mono fallback wide", monospace;
-}
-
-body {
-  font-size: 1rem; /* Reading 16 / 26 */
-  line-height: 1.625rem;
-}
-
-.container {
-  width: 100%;
-  max-width: 72rem;
-  margin-inline: auto;
-  padding-inline: 16px;
-}
-@media (min-width: 768px) {
-  .container {
-    padding-inline: 48px;
-  }
-}
-
-a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-  text-decoration-thickness: 1px;
-  transition: color var(--duration-fast) var(--ease-out);
-}
-a:hover {
-  text-decoration-thickness: 2px;
-}
-
-:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-
-.sr-only {
-  @apply sr-only;
-}
-
-.skip-link {
-  position: absolute;
-  left: 16px;
-  top: 8px;
-  z-index: 10;
-  padding: 4px 12px;
-  border-radius: var(--radius);
-  background: var(--popover);
-  color: var(--foreground);
-  transform: translateY(-200%);
-}
-.skip-link:focus {
-  transform: none;
-}
-
-.icon {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* ---------- Type roles (Design Language 5.3) ---------- */
-
-.display {
-  font-size: 2.25rem; /* Title 36 / 42 on phones */
-  line-height: 2.625rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
-}
-@media (min-width: 640px) {
-  .display {
-    font-size: 3rem; /* Display 48 / 52 */
-    line-height: 3.25rem;
-  }
-}
-@media (min-width: 1024px) {
-  .display {
-    /* The hero alone takes the next step of the scale (Bringhurst's 60), so it clearly outranks
-       the section titles at 36. */
-    font-size: 3.75rem;
-    line-height: 4rem;
-    letter-spacing: -0.015em;
-  }
-}
-
-.title {
-  font-size: 1.5rem; /* Heading 24 / 30 on phones */
-  line-height: 1.875rem;
-  font-weight: 700;
-  text-wrap: balance;
-}
-@media (min-width: 640px) {
-  .title {
-    font-size: 2.25rem; /* Title 36 / 42 */
-    line-height: 2.625rem;
-  }
-}
-
-.reading,
-.lede {
-  max-width: 72ch;
-  margin-top: 16px;
-  text-wrap: pretty; /* no one-word last lines */
-}
-
-.caption {
-  font-size: 0.75rem; /* Meta 12 / 16 */
-  line-height: 1rem;
-  color: var(--muted-foreground);
-  max-width: 72ch;
-}
+/* The landing page. Same tokens as the workbench; see the Design Language, section 12. What it
+   shares with the docs is in src/site/site.css. */
+@import "../site/site.css";
 
 /* The hero's headline and lede: stacked on phones, side by side on wide screens with the lede on
    the headline's last line, so the sample query starts higher. */
@@ -147,77 +11,24 @@ a:hover {
 .hero-head .lede {
   margin-top: 0;
 }
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  margin-top: 24px;
+}
+.release {
+  margin-top: 16px;
+  font-size: 0.875rem; /* Body 14 / 20 */
+  line-height: 1.25rem;
+  color: var(--muted-foreground);
+}
 @media (min-width: 1024px) {
   .hero-head {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
     align-items: end;
   }
-}
-
-/* ---------- Header and footer: machine-grey chrome, as in the product ---------- */
-
-.site-header,
-.site-footer {
-  background: var(--chrome);
-}
-.site-header {
-  border-bottom: 1px solid var(--border);
-}
-.site-header-inner {
-  display: flex;
-  height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.wordmark-link {
-  display: flex;
-  align-items: center;
-  color: var(--foreground);
-  border-radius: 4px;
-}
-.wordmark {
-  height: 20px;
-  width: auto;
-  overflow: visible; /* the lamp's halo grows past the viewBox */
-}
-
-.nav-list {
-  display: flex;
-  gap: 16px;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-}
-.nav-list a,
-.footer-links a {
-  color: var(--foreground);
-  text-decoration: none;
-}
-.nav-list a:hover,
-.footer-links a:hover {
-  text-decoration: underline;
-}
-
-.site-footer {
-  border-top: 1px solid var(--border);
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--muted-foreground);
-}
-.site-footer-inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 24px;
-  padding-block: 24px;
-}
-.site-footer-inner > :last-child {
-  margin-left: auto;
-}
-.footer-links {
-  display: flex;
-  gap: 16px;
 }
 
 /* ---------- Sections ---------- */
@@ -240,7 +51,7 @@ a:hover {
   }
 }
 
-/* Two columns on wide screens: the heading and its paragraph on the left, the facts on the right. */
+/* Two columns on wide screens: the heading and its paragraphs on the left, the claims on the right. */
 @media (min-width: 1024px) {
   .split {
     display: grid;
@@ -250,120 +61,296 @@ a:hover {
   }
 }
 
-/* The facts read like a spec sheet: one row per fact between hairlines, as in the grid. */
-.facts {
+.subheading {
+  font-size: 1.125rem; /* Subheading 18 / 26 */
+  line-height: 1.625rem;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+code {
+  font-family: var(--font-code);
+  font-size: 0.875em;
+}
+
+/* ---------- From file to answer: four docked panes, one per step ---------- */
+/* The list draws the top and left edges and each step its right and bottom, so every line is
+   exactly 1 px wherever the grid wraps. Steps side by side share their rows (subgrid), so their
+   artifacts start level. */
+
+.steps {
+  display: grid;
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  counter-reset: step;
+}
+/* Two a row at most, so each artifact is large enough to read at the workbench's own size. */
+@media (min-width: 768px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.step {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 16px;
+  padding: 16px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  counter-increment: step;
+}
+@media (min-width: 640px) {
+  .step {
+    padding: 24px;
+  }
+}
+.step-title {
+  display: flex;
+  gap: 12px;
+  font-size: 1.125rem; /* Subheading 18 / 26 */
+  line-height: 1.625rem;
+  font-weight: 600;
+}
+.step-title::before {
+  content: counter(step);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.step > p {
+  color: var(--muted-foreground);
+}
+.step kbd {
+  font: inherit;
+}
+.step-link {
+  align-self: end;
+  justify-self: start;
+}
+
+/* Each step's artifact is a piece of the workbench drawn with its tokens, worded as the app words it. */
+.artifact {
+  align-self: start;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--background);
+  font-size: 0.75rem; /* the workbench's compact 12 / 16 */
+  line-height: 1rem;
+}
+
+.catalog {
+  max-width: 25rem; /* the sidebar's widest */
+  padding: 8px 4px;
+  background: var(--sidebar);
+}
+.catalog-head {
+  padding: 0 4px 8px;
+  font-weight: 600;
+}
+.catalog li {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+.catalog-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-code);
+}
+.catalog-meta {
+  color: var(--muted-foreground);
+  overflow-wrap: break-word;
+}
+
+.error-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.error-title {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+}
+.error-name {
+  margin-right: 8px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: var(--destructive);
+}
+.error-icon {
+  margin-top: 2px;
+  color: var(--destructive);
+}
+.error-hint {
+  padding-left: 24px; /* under the title, past the icon, as in the app */
+}
+.error-label,
+.error-line {
+  color: var(--muted-foreground);
+}
+.error-panel pre {
+  overflow-x: auto;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: var(--muted);
+  font-family: var(--font-code);
+}
+.error-caret {
+  color: var(--destructive);
+}
+
+/* The screenshot is captured already cropped to the results bar, the chart controls and the four
+   largest bars, so the timing readout shows (Design Language 12). */
+.chart-shot {
+  max-width: 25rem; /* near the size the workbench draws it, and as wide as the sidebar above */
+}
+.chart-shot img {
+  width: 100%;
+  height: auto;
+}
+/* Both themes' images are in the page; the hidden one, lazy, is never fetched. */
+.shot-dark,
+.dark .shot-light {
+  display: none;
+}
+.dark .shot-dark {
+  display: block;
+}
+
+.share {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+}
+.share-field {
+  height: 28px;
+  min-width: 0;
+  padding-inline: 6px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  text-overflow: ellipsis;
+}
+.share p {
+  margin-top: 4px;
+  color: var(--muted-foreground);
+}
+
+/* ---------- Ready-made analyses ---------- */
+
+.template-groups {
+  display: grid;
+  gap: 32px 48px;
+  margin-top: 48px;
+}
+@media (min-width: 900px) {
+  .template-groups {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.template-group {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.group-note {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--muted-foreground);
+}
+.template-group ul {
+  margin-top: 16px;
+}
+.template-group li {
+  padding-block: 8px;
+  border-bottom: 1px solid var(--gridline);
+}
+.template-groups + .reading,
+.specs + .reading {
+  margin-top: 32px;
+}
+
+/* ---------- Privacy: each claim, and how to check it ---------- */
+
+.claims {
   margin-top: 48px;
   border-bottom: 1px solid var(--border);
 }
-.facts > div {
+.claims > div {
   display: grid;
   gap: 4px 24px;
   padding-block: 24px;
   border-top: 1px solid var(--border);
 }
 @media (min-width: 640px) {
-  .facts > div {
+  .claims > div {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   }
 }
 @media (min-width: 1024px) {
-  .facts {
+  .claims {
     margin-top: 0;
   }
-  .facts > div:first-child {
+  .claims > div:first-child {
     padding-top: 12px; /* the first row's text sits level with the section title */
     border-top: 0;
   }
 }
-
-.ways {
-  display: grid;
-  gap: 32px 48px;
-  margin-top: 48px;
-}
-@media (min-width: 768px) {
-  .ways {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1024px) {
-  .ways {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-.ways > div {
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.facts dt,
-.ways dt {
+.claims dt {
   font-size: 1.125rem; /* Subheading 18 / 26 */
   line-height: 1.625rem;
   font-weight: 600;
   text-wrap: balance;
 }
-.facts dd,
-.ways dd {
+.claims .check {
+  margin-top: 8px;
   color: var(--muted-foreground);
 }
-.ways dd {
-  margin-top: 4px;
-}
-.ways dd a {
-  display: inline-block;
-}
 
-/* The roadmap sits on a band of machine-grey chrome, like a control panel set into the page. */
-.band {
-  background: var(--chrome);
-  border-block: 1px solid var(--border);
-}
+/* ---------- Specifications: a datasheet ---------- */
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px 24px;
+.specs {
+  width: 100%;
+  max-width: 56rem;
   margin-top: 48px;
+  border-collapse: collapse;
+  text-align: left;
 }
-
-/* ---------- Buttons (Design Language 7.4) ---------- */
-
-.button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding-inline: 16px;
-  border: 1px solid transparent; /* visible in Windows contrast themes */
-  border-radius: var(--radius);
+.specs th,
+.specs td {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+.specs th {
+  width: 36%;
+  padding-top: 15px; /* Body 14 / 20 on the value's first line, which is Reading 16 / 26 */
+  background: var(--chrome);
   font-size: 0.875rem;
   line-height: 1.25rem;
   font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
 }
-.button-primary {
-  background: var(--primary);
-  color: var(--primary-foreground);
+@media (min-width: 640px) {
+  .specs th {
+    width: 16rem;
+  }
 }
-.button-primary:hover {
-  background: color-mix(in oklch, var(--primary) 88%, var(--foreground));
-}
-.button-outline {
-  border-color: var(--input);
-  background: transparent;
-  color: var(--foreground);
-}
-.button-outline:hover {
-  background: var(--accent);
-}
-.button:active {
-  transform: translateY(1px);
+
+/* ---------- Built in the open ---------- */
+
+.ways {
+  display: grid;
+  gap: 8px;
+  max-width: 72ch;
+  margin-top: 24px;
 }
 
 /* ---------- The lamp: one living signal (Design Language 8.3) ---------- */
@@ -371,8 +358,7 @@ a:hover {
    see. The `.js` class (public/theme-init.js) opts in to the live run's timed states. */
 
 .lamp-stop,
-.lamp-readout,
-.milestone-lamp {
+.lamp-readout {
   position: relative;
   display: inline-block;
   flex: none;
@@ -384,19 +370,9 @@ a:hover {
   height: 0.2em;
   margin-left: 0.06em;
 }
-.lamp-readout,
-.milestone-lamp {
+.lamp-readout {
   width: 10px;
   height: 10px;
-}
-.wordmark-lamp {
-  fill: var(--primary);
-}
-.wordmark-halo {
-  fill: var(--primary);
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
 }
 
 /* The halo for the done flash: a ring that grows and fades. Transform and opacity only. */
@@ -558,24 +534,6 @@ a:hover {
   color: var(--muted-foreground);
   user-select: none;
 }
-.sql-keyword {
-  color: var(--syntax-keyword);
-  font-weight: 600;
-}
-.sql-string {
-  color: var(--syntax-string);
-}
-.sql-number {
-  color: var(--syntax-number);
-}
-.sql-function {
-  color: var(--syntax-function);
-}
-.sql-comment {
-  color: var(--syntax-comment);
-  font-style: italic;
-}
-
 .results-bar {
   height: 40px;
 }
@@ -689,7 +647,7 @@ a:hover {
   visibility: hidden;
 }
 /* Columns drop out in stages so the grid always fits its pane: below 1024 px it keeps
-   machine_id, availability, quality and oee; below 480 px, machine_id, availability and oee. */
+   region, orders, revenue and return_rate; below 480 px, region and revenue. */
 @media (max-width: 1023px) {
   .grid .show-from-1024 {
     display: none;
@@ -714,96 +672,13 @@ a:hover {
   display: none;
 }
 
-/* ---------- The roadmap as a panel of indicator lamps ---------- */
-/* Eight docked cells sharing 1 px borders, like an annunciator panel on a control-room wall. The
-   container draws the top and left edges and each cell its right and bottom, so every line is
-   exactly 1 px wherever the grid wraps. Every cell's status sits on the same baseline. */
-
-.milestones {
-  display: grid;
-  margin-top: 48px;
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
-  background: var(--background);
-}
-@media (min-width: 560px) {
-  .milestones {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 900px) {
-  .milestones {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-.milestone {
-  display: grid;
-  grid-template-columns: 10px 1fr;
-  grid-template-rows: auto auto 1fr auto;
-  column-gap: 8px;
-  row-gap: 4px;
-  padding: 16px;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-}
-.milestone > :not(.milestone-lamp, .milestone-code) {
-  grid-column: 1 / -1;
-}
-.milestone-lamp {
-  align-self: center;
-}
-.milestone[data-status="planned"] .milestone-lamp {
-  background: var(--lamp-off);
-}
-.milestone[data-status="current"] {
-  box-shadow: inset 0 2px 0 var(--primary); /* the active tab's top edge, as in the hero */
-}
-.milestone[data-status="current"] .milestone-lamp {
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 30%, transparent);
-}
-.milestone-code,
-.milestone-status {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--muted-foreground);
-}
-.milestone-code {
-  font-variant-numeric: tabular-nums;
-}
-.milestone-name {
-  margin-top: 8px;
-  font-size: 1rem;
-  line-height: 1.5rem;
-  font-weight: 600;
-  text-wrap: balance;
-}
-.milestone-summary {
-  color: var(--muted-foreground);
-}
-.milestone-status {
-  margin-top: 12px;
-}
-.milestone[data-status="current"] .milestone-status {
-  color: var(--foreground);
-  font-weight: 600;
-}
-
 /* ---------- Windows contrast themes ---------- */
 
 @media (forced-colors: active) {
   .lamp-stop,
-  .lamp-readout,
-  .milestone-lamp {
+  .lamp-readout {
     forced-color-adjust: none;
     outline: 1px solid CanvasText;
-  }
-  .milestone[data-status="planned"] .milestone-lamp {
-    background: Canvas;
-  }
-  .wordmark-lamp {
-    fill: Highlight;
   }
   .query-tab {
     box-shadow: none;

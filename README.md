@@ -52,6 +52,8 @@ Your files are read by your browser and never leave your device. Blinkql has no 
 2. Click **Take the tour** to load sample data, query it and chart it in three steps, or drop a CSV, Excel, Parquet or JSON file onto the page.
 3. Write SQL in the editor and press Ctrl+Enter (⌘+Enter on a Mac) to run it.
 
+The [docs](https://blinkql.karthik.nz/docs/) show you how to open files, write queries, explore and chart the results, and share what you find.
+
 ### Develop it
 
 You need Node.js 26 and pnpm.

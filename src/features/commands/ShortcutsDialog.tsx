@@ -20,7 +20,7 @@ function keys(...parts: string[]): string {
     : parts.map((part) => (part === "Mod" ? "Ctrl" : part)).join("+");
 }
 
-const groups: { title: string; shortcuts: [action: string, keys: string][] }[] = [
+export const shortcutGroups: { title: string; shortcuts: [action: string, keys: string][] }[] = [
   {
     title: "Anywhere",
     shortcuts: [
@@ -84,7 +84,7 @@ export function ShortcutsDialog({ open, onOpenChange }: Props) {
         <DialogDescription>
           Shortcuts in the editor and the lists work while they have focus.
         </DialogDescription>
-        {groups.map(({ title, shortcuts }) => (
+        {shortcutGroups.map(({ title, shortcuts }) => (
           <table key={title} className="w-full">
             <caption className="pb-1 text-left font-medium">{title}</caption>
             <tbody>
