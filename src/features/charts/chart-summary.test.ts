@@ -79,6 +79,17 @@ describe("chartSummary", () => {
     expect(chartSummary(data(spec, short))).toBe("2 categories, together 40% of rows");
   });
 
+  it("names the column a Pareto chart sums", () => {
+    const spec: ChartSpec = { type: "pareto", x: weekday, y: v, aggregate: "sum" };
+    const rows = { x: ["a", "b", "c"], y: [6, 3, 1], cumulative: [60, 90, 100] };
+    expect(chartSummary(data(spec, rows))).toBe("3 categories, 2 make up 80% of v");
+    const short = { x: ["a", "b"], y: [2, 2], cumulative: [20, 40] };
+    expect(chartSummary(data(spec, short))).toBe("2 categories, together 40% of v");
+    expect(chartSummary(data({ ...spec, aggregate: "count" }, rows))).toBe(
+      "3 categories, 2 make up 80% of rows",
+    );
+  });
+
   it("uses the singular for one", () => {
     const spec: ChartSpec = { type: "bar", x: weekday, y: null, aggregate: "count" };
     expect(chartSummary(data(spec, { x: ["a"], y: [1] }))).toBe(

@@ -73,9 +73,14 @@ function measure(spec: ChartSpec, value: string): string {
   return counts(spec) ? "CAST(count(*) AS DOUBLE)" : `CAST(${spec.aggregate}(${value}) AS DOUBLE)`;
 }
 
+/** The column a Pareto chart sums, or null when it counts rows. */
+export function paretoSum(spec: ChartSpec): ChartColumn | null {
+  return spec.aggregate === "sum" ? spec.y : null;
+}
+
 /** A Pareto chart's spec as it's drawn: summing y, or else counting rows. */
 function pareto(spec: ChartSpec): ChartSpec {
-  return spec.aggregate === "sum" ? spec : { ...spec, aggregate: "count" };
+  return paretoSum(spec) ? spec : { ...spec, aggregate: "count" };
 }
 
 /** The measure's name, as in "avg(temperature)". */
