@@ -250,17 +250,19 @@ function SavedList({ onMessage }: { onMessage: (message: string) => void }) {
 /** Past runs, to search, run again and copy, and saved queries, to open, run, rename and delete. */
 export function HistoryPanel() {
   const [view, setView] = useState<"history" | "saved">("history");
-  const [message, setMessage] = useState("");
+  // An object, so showing the same text again is a new message that restarts the timer.
+  const [message, setMessage] = useState<{ text: string } | null>(null);
+  const say = (text: string) => setMessage({ text });
 
   useEffect(() => {
     if (!message) return;
-    const timer = setTimeout(() => setMessage(""), MESSAGE_MS);
+    const timer = setTimeout(() => setMessage(null), MESSAGE_MS);
     return () => clearTimeout(timer);
   }, [message]);
 
   const show = (next: typeof view) => {
     setView(next);
-    setMessage("");
+    setMessage(null);
   };
 
   return (
@@ -283,13 +285,9 @@ export function HistoryPanel() {
           Saved
         </Button>
       </fieldset>
-      {view === "history" ? (
-        <HistoryList onCopied={setMessage} />
-      ) : (
-        <SavedList onMessage={setMessage} />
-      )}
+      {view === "history" ? <HistoryList onCopied={say} /> : <SavedList onMessage={say} />}
       <p aria-live="polite" className="text-muted-foreground text-xs empty:hidden">
-        {message}
+        {message?.text}
       </p>
     </section>
   );

@@ -22,6 +22,8 @@ vi.mock("./result-store", async (importOriginal) => {
   return { ...store, readCell: vi.fn(store.readCell) };
 });
 
+const { NumberFormat } = Intl;
+
 /** The grid's viewport: the header and 9 rows. jsdom has no layout, so it's given. */
 const VIEWPORT = { width: 800, height: 10 * ROW_HEIGHT };
 
@@ -78,6 +80,14 @@ describe("ResultsTable", () => {
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(VIEWPORT.width);
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(VIEWPORT.height);
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(VIEWPORT.height);
+    // Cells group digits in the reader's locale; these tests read as en-US whatever the machine's.
+    vi.spyOn(Intl, "NumberFormat").mockImplementation(
+      class extends NumberFormat {
+        constructor(locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions) {
+          super(locales ?? "en-US", options);
+        }
+      } as typeof Intl.NumberFormat,
+    );
   });
 
   afterEach(() => {

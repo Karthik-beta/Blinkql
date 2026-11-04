@@ -62,7 +62,7 @@ test.describe("Results table", () => {
           const [header, ...rows] = grid.querySelectorAll('[role="row"]');
           const below = header?.getBoundingClientRect().bottom ?? 0;
           const row = rows.find((row) => row.getBoundingClientRect().top >= below - 1);
-          return Number(row?.querySelector("[title]")?.getAttribute("title")) / 1_000_000;
+          return Number(row?.textContent?.replaceAll(",", "")) / 1_000_000;
         });
       await expect.poll(firstInView).toBeCloseTo(fraction, 2);
     }

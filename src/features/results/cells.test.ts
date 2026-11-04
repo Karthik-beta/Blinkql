@@ -333,16 +333,20 @@ describe("cell formatting", () => {
 });
 
 describe("displayFor", () => {
-  /** What a one-column result's first cell of `type` shows in the table. */
-  function shown(values: unknown[], type: DataType) {
+  /** What a one-column result's first cell of `type` shows in the table, for a reader in `locale`. */
+  function shown(values: unknown[], type: DataType, locale = "en-US") {
     const text = cell(values, type);
-    return text == null ? text : displayFor(type)(text);
+    return text == null ? text : displayFor(type, locale)(text);
   }
 
   it("groups the thousands of integers", () => {
     expect(shown([10080n], new Int64())).toBe("10,080");
     expect(shown([9223372036854775807n], new Int64())).toBe("9,223,372,036,854,775,807");
     expect(shown([-1234], new Int32())).toBe("-1,234");
+  });
+
+  it("groups digits as the reader's locale does", () => {
+    expect(shown([1048576], new Int32(), "en-IN")).toBe("10,48,576");
   });
 
   it("shows floats to two decimal places or six significant digits, never rounding the whole part", () => {
@@ -364,7 +368,7 @@ describe("displayFor", () => {
     new BigInt64Array(words.buffer)[1] = -1n;
     const text = firstCell(makeVector(makeData({ type, length: 1, nullCount: 0, data: words })));
     expect(text).toBe("-1234567.50");
-    expect(displayFor(type)(text ?? "")).toBe("-1,234,567.50");
+    expect(displayFor(type, "en-US")(text ?? "")).toBe("-1,234,567.50");
   });
 
   it("leaves text that isn't a number alone", () => {

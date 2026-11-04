@@ -154,7 +154,6 @@ function TableItem({
     `${columns} ${columns === 1 ? "column" : "columns"}`,
     table.source instanceof File && formatSize(table.source.size),
     table.fileName,
-    converting && "Converting to Parquet…",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -195,6 +194,12 @@ function TableItem({
           <div className="truncate text-muted-foreground text-xs" title={details}>
             {details}
           </div>
+          {converting && (
+            <>
+              {" "}
+              <div className="text-muted-foreground text-xs">Converting to Parquet…</div>
+            </>
+          )}
         </div>
         {/* Out of the Tab order, like the chevron: from the keyboard, C converts a CSV table to
             Parquet, R shows the rows, P profiles the table and Delete forgets it. Rows and

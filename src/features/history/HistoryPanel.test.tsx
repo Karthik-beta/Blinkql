@@ -202,4 +202,23 @@ describe("HistoryPanel", () => {
       vi.useRealTimers();
     }
   });
+
+  it("keeps a repeated message for the full few seconds again", () => {
+    vi.useFakeTimers();
+    try {
+      render(<HistoryPanel />);
+      fireEvent.click(screen.getByRole("button", { name: "Saved" }));
+      const save = screen.getByRole("button", { name: "Save" });
+
+      fireEvent.click(save);
+      act(() => vi.advanceTimersByTime(3000));
+      fireEvent.click(save);
+      act(() => vi.advanceTimersByTime(3500));
+      expect(screen.getByText("Write some SQL to save first.")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(500));
+      expect(screen.queryByText("Write some SQL to save first.")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

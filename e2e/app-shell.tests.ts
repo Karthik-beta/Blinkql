@@ -47,13 +47,13 @@ export function appShellTests(colorScheme: "light" | "dark") {
       // The buttons show only icons, so each names itself on hover and on keyboard focus.
       const tooltip = page.getByRole("tooltip");
       await importButton.hover();
-      await expect(tooltip.filter({ hasText: "Import files" })).toBeVisible();
+      await expect(tooltip.filter({ hasText: /^Import files$/ })).toBeVisible();
       await page.mouse.move(edge.x + edge.width + 200, edge.y + edge.height / 2);
       await expect(tooltip).toHaveCount(0);
       await importButton.focus();
       await page.keyboard.press("Shift+Tab");
       await expect(addUrlButton).toBeFocused();
-      await expect(tooltip.filter({ hasText: "Add from URL" })).toBeVisible();
+      await expect(tooltip.filter({ hasText: /^Add from URL$/ })).toBeVisible();
     });
 
     test("has no detectable accessibility violations", async ({ page, makeAxeBuilder }) => {

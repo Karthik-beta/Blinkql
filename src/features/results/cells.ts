@@ -36,21 +36,22 @@ export function isNumeric(type: DataType): boolean {
 }
 
 /**
- * How a cell of `type` shows its text in the table: numbers grouped in the reader's locale, floats
- * to two decimal places or six significant digits, whichever keeps more, decimals at their scale.
- * Anything else, NaN and the infinities included, shows as it is. Copies and exports keep the text.
+ * How a cell of `type` shows its text in the table: numbers grouped in `locale`, by default the
+ * reader's, floats to two decimal places or six significant digits, whichever keeps more, decimals
+ * at their scale. Anything else, NaN and the infinities included, shows as it is. Copies and
+ * exports keep the text.
  */
-export function displayFor(type: DataType): (text: string) => string {
-  const format = numberFormatFor(type);
+export function displayFor(type: DataType, locale?: string): (text: string) => string {
+  const format = numberFormatFor(type, locale);
   if (!format) return (text) => text;
   // Formatted from the text, which Intl reads as an exact decimal, so 64-bit integers stay whole.
   return (text) => (Number.isFinite(Number(text)) ? format.format(text as `${number}`) : text);
 }
 
-function numberFormatFor(type: DataType): Intl.NumberFormat | null {
-  if (DataType.isInt(type)) return new Intl.NumberFormat(undefined);
+function numberFormatFor(type: DataType, locale?: string): Intl.NumberFormat | null {
+  if (DataType.isInt(type)) return new Intl.NumberFormat(locale);
   if (DataType.isFloat(type)) {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale, {
       maximumSignificantDigits: 6,
       maximumFractionDigits: 2,
       roundingPriority: "morePrecision",
@@ -58,7 +59,7 @@ function numberFormatFor(type: DataType): Intl.NumberFormat | null {
   }
   if (DataType.isDecimal(type)) {
     const { scale } = type;
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale, {
       minimumFractionDigits: scale,
       maximumFractionDigits: scale,
     });
