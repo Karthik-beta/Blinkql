@@ -12,6 +12,7 @@ import {
   type FocusEvent,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
   type Ref,
   useEffect,
   useId,
@@ -28,6 +29,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { insertIntoEditor } from "@/features/editor/insert";
 import { parseEngineError } from "@/features/results/engine-error";
 import { runQuery } from "@/features/results/query-run";
@@ -147,6 +149,15 @@ function TableItem({
   const labelId = useId();
   const sheetHintId = useId();
   const columns = table.columns.length;
+  const details = [
+    formatLabels[table.format],
+    `${columns} ${columns === 1 ? "column" : "columns"}`,
+    table.source instanceof File && formatSize(table.source.size),
+    table.fileName,
+    converting && "Converting to Parquet…",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const convertible = isConvertible(table);
   const sheetHint = expanded && table.format === "xlsx";
   const { tabIndex, ...handlers } = itemProps({ key: table.name, table });
@@ -161,7 +172,7 @@ function TableItem({
       tabIndex={tabIndex}
       {...handlers}
     >
-      <div className="flex items-center gap-1 rounded-md px-1 py-1 hover:bg-muted">
+      <div className="flex items-start gap-1 rounded-md px-1 py-1 hover:bg-muted">
         <button
           type="button"
           tabIndex={-1}
@@ -181,11 +192,8 @@ function TableItem({
             {table.name}
           </div>{" "}
           {/* The space keeps the lines apart as text, so "name format" isn't read as one word. */}
-          <div className="wrap-break-word text-muted-foreground text-xs">
-            {formatLabels[table.format]} · {columns} {columns === 1 ? "column" : "columns"}
-            {table.source instanceof File && ` · ${formatSize(table.source.size)}`}
-            {` · ${table.fileName}`}
-            {converting && " · Converting to Parquet…"}
+          <div className="truncate text-muted-foreground text-xs" title={details}>
+            {details}
           </div>
         </div>
         {/* Out of the Tab order, like the chevron: from the keyboard, C converts a CSV table to
@@ -312,6 +320,27 @@ function ColumnGroup({ table, itemProps }: { table: ImportedTable; itemProps: It
   );
 }
 
+/** An icon button that names itself in a tooltip, on hover and on keyboard focus. */
+function HeaderButton({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<Button variant="ghost" size="icon" onClick={onClick} />}>
+        {icon}
+        <span className="sr-only">{label}</span>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /** A button that opens a dialog asking for the URL of a file on the web to read as a table. */
 function AddUrlButton() {
   const [open, setOpen] = useState(false);
@@ -339,10 +368,11 @@ function AddUrlButton() {
         setError(null);
       }}
     >
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <Link data-icon="inline-start" aria-hidden />
-        Add from URL
-      </Button>
+      <HeaderButton
+        label="Add from URL"
+        icon={<Link aria-hidden />}
+        onClick={() => setOpen(true)}
+      />
       <DialogContent>
         <DialogTitle>Add a file from a URL</DialogTitle>
         <DialogDescription>
@@ -589,18 +619,24 @@ export function CatalogPanel({ ref }: { ref?: Ref<CatalogHandle> }) {
   });
 
   return (
-    <aside aria-labelledby="catalog-heading" className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-      <div className="flex items-center justify-between">
+    <aside
+      aria-labelledby="catalog-heading"
+      className="flex min-h-0 flex-initial flex-col gap-3 p-3"
+    >
+      <div className="flex items-center justify-between gap-2">
         <h2 id="catalog-heading" className="font-medium text-xs">
           Tables
         </h2>
-        <div className="flex gap-1">
-          <AddUrlButton />
-          <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
-            <FileUp data-icon="inline-start" aria-hidden />
-            Import files
-          </Button>
-        </div>
+        <TooltipProvider>
+          <div className="flex gap-1">
+            <AddUrlButton />
+            <HeaderButton
+              label="Import files"
+              icon={<FileUp aria-hidden />}
+              onClick={() => input.current?.click()}
+            />
+          </div>
+        </TooltipProvider>
         <input
           ref={input}
           type="file"
@@ -619,8 +655,8 @@ export function CatalogPanel({ ref }: { ref?: Ref<CatalogHandle> }) {
 
       {catalog.tables.length === 0 && catalog.importing.length === 0 && (
         <p className="text-muted-foreground text-xs">
-          No tables yet. Drop a CSV, Excel, Parquet or JSON file anywhere, use Import files, or load
-          sample data to try things out.
+          No tables yet. Drop a CSV, Excel, Parquet or JSON file anywhere, pick one with the import
+          button above, or load sample data to try things out.
         </p>
       )}
       {catalog.tables.length > 0 && (

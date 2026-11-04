@@ -37,6 +37,44 @@ test.describe("Templates", () => {
     ).toBeVisible();
   });
 
+  test("moves focus to the form's first field and back to the chosen template", async ({
+    page,
+  }) => {
+    await page.goto("/app/");
+
+    await page.getByRole("button", { name: "Templates" }).click();
+    const chosen = page.getByRole("button", { name: /^Cost per kg by lane and carrier/ });
+    await chosen.focus();
+    await page.keyboard.press("Enter");
+
+    const form = page.getByRole("dialog", { name: "Cost per kg by lane and carrier" });
+    await expect(form.getByLabel("Table")).toBeFocused();
+
+    await form.getByRole("button", { name: "All templates" }).press("Enter");
+    await expect(chosen).toBeFocused();
+  });
+
+  test("keeps Close in view and scrolls the gallery to its last template", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/app/");
+
+    await page.getByRole("button", { name: "Templates" }).click();
+    const dialog = page.getByRole("dialog", { name: "Templates" });
+    const close = dialog.getByRole("button", { name: "Close" });
+    await expect(close).toBeInViewport({ ratio: 1 });
+
+    const last = dialog.getByRole("button", { name: /^Two-file reconciliation/ });
+    await last.scrollIntoViewIfNeeded();
+    const box = await dialog.boundingBox();
+    const card = await last.boundingBox();
+    const closeBox = await close.boundingBox();
+    if (!box || !card || !closeBox) throw new Error("Templates gallery not shown");
+
+    expect(card.y).toBeGreaterThanOrEqual(box.y);
+    expect(card.y + card.height).toBeLessThanOrEqual(closeBox.y);
+    expect(closeBox.y + closeBox.height).toBeLessThanOrEqual(box.y + box.height);
+  });
+
   for (const { title, chart } of [
     { title: "On-time delivery by carrier", chart: /^Bar chart of avg\(on_time_pct\) by carrier/ },
     { title: "Delivery lead time by lane", chart: /^Bar chart of avg\(p90_days\) by lane/ },

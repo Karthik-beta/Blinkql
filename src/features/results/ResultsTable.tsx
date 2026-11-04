@@ -16,7 +16,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { afterNextPaint, measureSince, measures } from "@/lib/user-timing";
-import { isNumeric } from "./cells";
+import { displayFor, isNumeric } from "./cells";
 import { getQueryRun, subscribeToQueryRun } from "./query-run";
 import { getResult, type Result, readCell, subscribeToResult } from "./result-store";
 import { type Cell, selectionBounds, selectionText } from "./selection";
@@ -55,22 +55,35 @@ function alignment(type: DataType): string {
   return isNumeric(type) ? "text-right" : "text-left";
 }
 
+/** How each column's cells show their text, from `displayFor`. */
+type Displays = ((text: string) => string)[];
+
 /**
  * Each column's width, fitted to its name and the values of its first `sampled` rows. Every row
  * has the same widths, so the columns don't shift as rows are scrolled in; the font is monospaced,
  * so a character count is enough.
  */
-function columnWidths(columns: Result["columns"], sampled: number): string[] {
+function columnWidths(columns: Result["columns"], displays: Displays, sampled: number): string[] {
   const rows = Array.from({ length: sampled }, (_, row) => row);
   return columns.map((column, columnIndex) =>
-    fittedWidth(column.name, columnIndex, rows, MAX_COLUMN_CHARS),
+    fittedWidth(column.name, columnIndex, displays, rows, MAX_COLUMN_CHARS),
   );
 }
 
-/** A column's width fitted to its name and its values in `rows`, at most `maxChars` wide. */
-function fittedWidth(name: string, column: number, rows: number[], maxChars: number): string {
+/** A column's width fitted to its name and its values shown in `rows`, at most `maxChars` wide. */
+function fittedWidth(
+  name: string,
+  column: number,
+  displays: Displays,
+  rows: number[],
+  maxChars: number,
+): string {
+  const display = displays[column] ?? String;
   let chars = name.length;
-  for (const row of rows) chars = Math.max(chars, (readCell(row, column) ?? "NULL").length);
+  for (const row of rows) {
+    const text = readCell(row, column);
+    chars = Math.max(chars, text === null ? "NULL".length : display(text).length);
+  }
   return `calc(${Math.min(chars, maxChars)}ch + ${CELL_CHROME_PX}px)`;
 }
 
@@ -111,6 +124,7 @@ const isSelected = (column: number, from: number | undefined, to: number | undef
 type RowProps = {
   index: number;
   columns: Result["columns"];
+  displays: Displays;
   gridId: string;
   /** The active cell's column, if it's in this row. */
   activeColumn: number | undefined;
@@ -126,6 +140,7 @@ type RowProps = {
 const RowCells = memo(function RowCells({
   index,
   columns,
+  displays,
   gridId,
   activeColumn,
   selectedFrom,
@@ -133,6 +148,7 @@ const RowCells = memo(function RowCells({
 }: RowProps) {
   return columns.map((column, columnIndex) => {
     const text = readCell(index, columnIndex);
+    const display = displays[columnIndex] ?? String;
     return (
       <div
         // Columns can share a name, so the position is the key.
@@ -148,7 +164,7 @@ const RowCells = memo(function RowCells({
         title={text ?? undefined}
         className={`truncate border-r px-2 leading-[23px] outline-ring ${alignment(column.type)} ${activeCell}`}
       >
-        {text ?? <span className="text-muted-foreground">NULL</span>}
+        {text === null ? <span className="text-muted-foreground">NULL</span> : display(text)}
       </div>
     );
   });
@@ -168,7 +184,7 @@ const Row = memo(function Row({ top, ...props }: RowProps & { top: number }) {
   );
 });
 
-type HeaderRowProps = Omit<RowProps, "index"> & {
+type HeaderRowProps = Omit<RowProps, "index" | "displays"> & {
   /** The id of the text that tells screen readers how to resize a column. */
   resizeHintId: string;
   onResizeStart: (event: ReactPointerEvent, column: number) => void;
@@ -337,8 +353,15 @@ export const ResultsTable = memo(function ResultsTable() {
 
   // Sized again only while the rows they're sized by are still arriving.
   const columns = results?.columns;
+  const displays = useMemo(
+    () => columns?.map((column) => displayFor(column.type)) ?? [],
+    [columns],
+  );
   const sampled = Math.min(rowCount, SIZING_ROWS);
-  const widths = useMemo(() => (columns ? columnWidths(columns, sampled) : []), [columns, sampled]);
+  const widths = useMemo(
+    () => (columns ? columnWidths(columns, displays, sampled) : []),
+    [columns, displays, sampled],
+  );
 
   const id = results?.id;
   useEffect(() => {
@@ -435,7 +458,7 @@ export const ResultsTable = memo(function ResultsTable() {
   /** Fits a column to its name and the values of the rows in the page. */
   const onFit = (column: number) => {
     const name = results?.columns[column]?.name ?? "";
-    resize(column, fittedWidth(name, column, rows, MAX_FIT_CHARS));
+    resize(column, fittedWidth(name, column, displays, rows, MAX_FIT_CHARS));
   };
 
   /** Copies the selected cells as tab-separated text, the header's as the columns' names. */
@@ -517,12 +540,18 @@ export const ResultsTable = memo(function ResultsTable() {
                 index={row}
                 top={Math.round(scrolled + row * ROW_HEIGHT - offset)}
                 columns={results.columns}
+                displays={displays}
                 gridId={gridId}
                 activeColumn={active?.row === row ? active.column : undefined}
                 {...selectedIn(row)}
               />
             ))}
           </div>
+          {rowCount === 0 && (
+            <div className="sticky left-0 w-fit px-2 py-2 font-sans text-muted-foreground">
+              No rows match this query.
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -31,7 +31,7 @@ import {
   vectorFromArray,
 } from "apache-arrow";
 import { describe, expect, it } from "vitest";
-import { resultColumns } from "./cells";
+import { displayFor, resultColumns } from "./cells";
 
 function listOf<T extends DataType>(type: T) {
   return new List(new Field("item", type));
@@ -329,5 +329,49 @@ describe("cell formatting", () => {
     const vector = vectorFromArray(["RUN", "IDLE"], new Dictionary(new Utf8(), new Int32()));
     const [status] = resultColumns(new Table({ status: vector }));
     expect(status?.cell(1)).toBe("IDLE");
+  });
+});
+
+describe("displayFor", () => {
+  /** What a one-column result's first cell of `type` shows in the table. */
+  function shown(values: unknown[], type: DataType) {
+    const text = cell(values, type);
+    return text == null ? text : displayFor(type)(text);
+  }
+
+  it("groups the thousands of integers", () => {
+    expect(shown([10080n], new Int64())).toBe("10,080");
+    expect(shown([9223372036854775807n], new Int64())).toBe("9,223,372,036,854,775,807");
+    expect(shown([-1234], new Int32())).toBe("-1,234");
+  });
+
+  it("shows floats to two decimal places or six significant digits, never rounding the whole part", () => {
+    expect(shown([2039741.1799999988], new Float64())).toBe("2,039,741.18");
+    expect(shown([0.000123456789], new Float64())).toBe("0.000123457");
+    expect(shown([1.5], new Float64())).toBe("1.5");
+  });
+
+  it("leaves NaN and infinities alone", () => {
+    expect(shown([Number.NaN], new Float64())).toBe("NaN");
+    expect(shown([Number.POSITIVE_INFINITY], new Float64())).toBe("Infinity");
+    expect(shown([Number.NEGATIVE_INFINITY], new Float64())).toBe("-Infinity");
+  });
+
+  it("groups a decimal's whole part and keeps its scale", () => {
+    const type = new Decimal(2, 18, 128);
+    const words = new Uint32Array(4);
+    new BigInt64Array(words.buffer)[0] = -123456750n;
+    new BigInt64Array(words.buffer)[1] = -1n;
+    const text = firstCell(makeVector(makeData({ type, length: 1, nullCount: 0, data: words })));
+    expect(text).toBe("-1234567.50");
+    expect(displayFor(type)(text ?? "")).toBe("-1,234,567.50");
+  });
+
+  it("leaves text that isn't a number alone", () => {
+    expect(shown(["10080"], new Utf8())).toBe("10080");
+  });
+
+  it("leaves the cell's own text in full, for copying and exporting", () => {
+    expect(cell([2039741.1799999988], new Float64())).toBe("2039741.1799999988");
   });
 });

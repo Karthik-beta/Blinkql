@@ -36,6 +36,37 @@ export function isNumeric(type: DataType): boolean {
 }
 
 /**
+ * How a cell of `type` shows its text in the table: numbers grouped in the reader's locale, floats
+ * to two decimal places or six significant digits, whichever keeps more, decimals at their scale.
+ * Anything else, NaN and the infinities included, shows as it is. Copies and exports keep the text.
+ */
+export function displayFor(type: DataType): (text: string) => string {
+  const format = numberFormatFor(type);
+  if (!format) return (text) => text;
+  // Formatted from the text, which Intl reads as an exact decimal, so 64-bit integers stay whole.
+  return (text) => (Number.isFinite(Number(text)) ? format.format(text as `${number}`) : text);
+}
+
+function numberFormatFor(type: DataType): Intl.NumberFormat | null {
+  if (DataType.isInt(type)) return new Intl.NumberFormat(undefined);
+  if (DataType.isFloat(type)) {
+    return new Intl.NumberFormat(undefined, {
+      maximumSignificantDigits: 6,
+      maximumFractionDigits: 2,
+      roundingPriority: "morePrecision",
+    });
+  }
+  if (DataType.isDecimal(type)) {
+    const { scale } = type;
+    return new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: scale,
+      maximumFractionDigits: scale,
+    });
+  }
+  return null;
+}
+
+/**
  * `data` with its timestamps, at any depth, read as the int64 counts they're stored as. Arrow reads
  * a timestamp as milliseconds in a number, which throws for values far from 1970 such as DuckDB's
  * 'infinity'. The timestamp type stays in the column's schema, which picks the formatter.

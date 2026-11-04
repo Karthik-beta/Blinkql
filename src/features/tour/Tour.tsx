@@ -205,10 +205,12 @@ export function TourInvite() {
   const empty = useSyncExternalStore(subscribeToResult, noResult);
   if (step !== null || seen || !idle || !empty) return null;
   return (
-    // Centred over the empty results without taking the clicks around it.
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
-      <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-2 text-center text-muted-foreground text-xs">
-        <p>New here? A three-step tour loads sample data, runs a query on it and charts it.</p>
+    // Over the empty results without taking the clicks around it.
+    <div className="pointer-events-none absolute inset-0 flex items-start justify-start p-6">
+      <div className="pointer-events-auto flex max-w-xs flex-col items-start gap-2 text-left text-xs">
+        <p className="text-muted-foreground">
+          New here? A three-step tour loads sample data, runs a query on it and charts it.
+        </p>
         <Button variant="outline" size="sm" onClick={startTour}>
           Take the tour
         </Button>

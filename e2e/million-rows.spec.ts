@@ -54,11 +54,17 @@ async function generate(format: Format): Promise<string> {
   return path;
 }
 
+/** A value as the results table shows it in an en-US browser: numbers grouped by thousands. */
+const shown = (value: unknown) =>
+  typeof value === "number" || typeof value === "bigint"
+    ? value.toLocaleString("en-US")
+    : String(value);
+
 /** The rows native DuckDB returns for `sql` over the file at `path`, as the results table shows them. */
 async function nativeRows(sql: string, path: string): Promise<string[]> {
   await connection.run(`CREATE OR REPLACE VIEW telemetry_m_narrow AS FROM '${path}'`);
   const reader = await connection.runAndReadAll(sql);
-  return reader.getRows().map((row) => row.map(String).join(""));
+  return reader.getRows().map((row) => row.map(shown).join(""));
 }
 
 const results = (page: Page) => page.getByRole("grid", { name: "Results" });
@@ -102,7 +108,7 @@ for (const format of ["parquet", "csv"] as const) {
     await expect(page.getByRole("alert")).toHaveCount(0);
 
     await run(page, COUNT_SQL);
-    await expect(results(page).getByRole("row")).toHaveText(["row_count", String(ROWS)], {
+    await expect(results(page).getByRole("row")).toHaveText(["row_count", shown(ROWS)], {
       timeout: QUERY_TIMEOUT,
     });
 

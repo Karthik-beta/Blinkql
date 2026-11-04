@@ -15,6 +15,8 @@ import {
   subscribeToHistory,
 } from "./history";
 
+const MESSAGE_MS = 4000;
+
 const time = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
 const inputClass =
@@ -250,14 +252,25 @@ export function HistoryPanel() {
   const [view, setView] = useState<"history" | "saved">("history");
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(""), MESSAGE_MS);
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  const show = (next: typeof view) => {
+    setView(next);
+    setMessage("");
+  };
+
   return (
-    <section aria-label="Queries" className="flex min-h-0 flex-1 flex-col gap-2 border-t p-3">
+    <section aria-label="Queries" className="flex min-h-40 flex-1 flex-col gap-2 border-t p-3">
       <fieldset aria-label="Queries view" className="flex gap-1">
         <Button
           variant={view === "history" ? "secondary" : "ghost"}
           size="sm"
           aria-pressed={view === "history"}
-          onClick={() => setView("history")}
+          onClick={() => show("history")}
         >
           History
         </Button>
@@ -265,7 +278,7 @@ export function HistoryPanel() {
           variant={view === "saved" ? "secondary" : "ghost"}
           size="sm"
           aria-pressed={view === "saved"}
-          onClick={() => setView("saved")}
+          onClick={() => show("saved")}
         >
           Saved
         </Button>

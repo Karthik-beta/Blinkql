@@ -46,6 +46,21 @@ test.describe("Charts", () => {
     expect(await longWorkDuringQueries()).toEqual([]);
   });
 
+  test("charts an hourly result as a line over time", async ({ page }) => {
+    await page.goto("/app/");
+    await expect(page.getByRole("status")).toHaveText(/^Engine ready/, { timeout: ENGINE_TIMEOUT });
+    await page.getByRole("textbox", { name: "SQL editor" }).click();
+    await page.keyboard.type(
+      "SELECT TIMESTAMP '2026-01-01' + to_hours(range) AS hour, range % 24 AS good FROM range(168) ORDER BY 1",
+    );
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await page.getByRole("button", { name: "Chart" }).click();
+    await expect(page.getByLabel("Chart type")).toHaveValue("line");
+    await expect(
+      page.getByRole("img", { name: /^Line chart of sum\(good\) by hour/ }),
+    ).toBeVisible();
+  });
+
   test("describes a chart and shows its data as a table", async ({ page, makeAxeBuilder }) => {
     await page.goto("/app/");
     await expect(page.getByRole("status")).toHaveText(/^Engine ready/, { timeout: ENGINE_TIMEOUT });

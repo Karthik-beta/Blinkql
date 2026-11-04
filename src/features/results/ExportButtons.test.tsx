@@ -18,8 +18,8 @@ const engine = vi.hoisted(() => ({
 }));
 vi.mock("@/engine/engine", () => engine);
 
-async function finishQuery(sql: string) {
-  engine.streamQuery.mockResolvedValueOnce(streamOf(tableFromArrays({ a: Int32Array.of(1) })));
+async function finishQuery(sql: string, a = Int32Array.of(1)) {
+  engine.streamQuery.mockResolvedValueOnce(streamOf(tableFromArrays({ a })));
   await act(() => runQuery(sql));
 }
 
@@ -31,6 +31,20 @@ describe("ExportButtons", () => {
 
   it("is disabled until a query has finished", async () => {
     render(<ExportButtons />);
+    expect(screen.getByRole("button", { name: "Export as CSV" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export as Parquet" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export as HTML report" })).toBeDisabled();
+
+    await finishQuery("SELECT 1 AS a");
+    expect(screen.getByRole("button", { name: "Export as CSV" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export as Parquet" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export as HTML report" })).toBeEnabled();
+  });
+
+  it("is disabled when the query returned no rows, as there's nothing to download", async () => {
+    render(<ExportButtons />);
+    await finishQuery("SELECT 1 AS a WHERE false", Int32Array.of());
+
     expect(screen.getByRole("button", { name: "Export as CSV" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export as Parquet" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Export as HTML report" })).toBeDisabled();
@@ -101,5 +115,15 @@ describe("ExportButtons", () => {
 
     expect(exporter.exportReport).toHaveBeenCalledWith("SELECT 1 AS a");
     expect(await screen.findByText("Downloaded blinkql-report.html")).toBeInTheDocument();
+  });
+
+  it("ignores an export through its handle when the query returned no rows", async () => {
+    const buttons = createRef<ExportHandle>();
+    render(<ExportButtons ref={buttons} />);
+    await finishQuery("SELECT 1 AS a WHERE false", Int32Array.of());
+
+    act(() => buttons.current?.exportAs("csv"));
+
+    expect(exporter.exportResult).not.toHaveBeenCalled();
   });
 });

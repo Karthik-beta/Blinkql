@@ -45,7 +45,7 @@ export function ErrorPanel({ error, sql, onGoTo, onRestart }: Props) {
     <div
       role="alert"
       aria-labelledby="query-error-title"
-      className="flex max-h-[40%] shrink-0 flex-col gap-2 overflow-y-auto border-t bg-background px-3 py-2 text-xs"
+      className="flex max-h-[33dvh] shrink-0 flex-col gap-2 overflow-y-auto border-t bg-background px-3 py-2 text-xs"
     >
       <div className="flex items-start gap-2">
         <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
