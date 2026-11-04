@@ -118,6 +118,13 @@ describe("Data-quality checks for an import file", () => {
     expect(rows).toEqual([firstA1, secondA1, missingKey]);
   });
 
+  it("needs no reference table while Reference is None", async () => {
+    const { rows } = await runTemplate(connection, dataQuality, {
+      mapping: { items: { table: "item_import", columns: { key: "item_code" } } },
+    });
+    expect(rows).toEqual([firstA1, secondA1, missingKey]);
+  });
+
   it("charts a column of its result", async () => {
     const { columns } = await runTemplate(connection, dataQuality);
     expect(columns).toContain(dataQuality.chart?.x);

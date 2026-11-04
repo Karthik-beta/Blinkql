@@ -35,6 +35,32 @@ const downtime: Template = {
 FROM ${t.table("stops")} WHERE ${t.col("stops", "minutes")} >= ${t.param("min")}`,
 };
 
+// Stops, and the codes a stop's reason is checked against, which are read only when it's mapped.
+const withReasons: Template = {
+  id: "reasons",
+  title: "Stops with unknown reasons",
+  description: "",
+  tables: [
+    {
+      key: "stops",
+      label: "Stops",
+      sample: "machine_stops",
+      columns: [
+        { key: "machine", label: "Machine", type: "text" },
+        { key: "reason", label: "Reason", type: "text", optional: true },
+      ],
+    },
+    {
+      key: "reasons",
+      label: "Reason codes",
+      sample: "stop_reasons",
+      neededFor: { table: "stops", column: "reason" },
+      columns: [{ key: "code", label: "Code", type: "text" }],
+    },
+  ],
+  sql: () => "",
+};
+
 const sample: CatalogTable = {
   name: "machine_stops",
   columns: [
@@ -139,6 +165,20 @@ describe("mappingProblems", () => {
     ]);
     expect(mappingProblems(downtime, { stops: { table: "gone", columns: {} } }, [mine])).toEqual([
       { table: "stops", message: "There's no table named gone." },
+    ]);
+  });
+
+  it("asks for a table needed only for an optional column once that column is mapped", () => {
+    const stops = { table: "machine_stops", columns: { machine: "machine" } };
+    expect(mappingProblems(withReasons, { stops }, [sample])).toEqual([]);
+    expect(
+      mappingProblems(withReasons, { stops, reasons: { table: "machine_stops", columns: {} } }, [
+        sample,
+      ]),
+    ).toEqual([]);
+    const withReason = { ...stops, columns: { ...stops.columns, reason: "machine" } };
+    expect(mappingProblems(withReasons, { stops: withReason }, [sample])).toEqual([
+      { table: "reasons", message: "Choose a table for Reason codes." },
     ]);
   });
 });
