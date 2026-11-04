@@ -95,6 +95,7 @@ export const dataQuality: Template = {
       key: "refs",
       label: "Reference table",
       sample: "plants",
+      neededFor: { table: "items", column: "reference" },
       columns: [
         {
           key: "key",

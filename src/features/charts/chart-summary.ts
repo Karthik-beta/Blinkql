@@ -1,7 +1,7 @@
 // What a chart's data says, in words: the end of its accessible name, for screen reader users who
 // can't see the canvas.
 import type { ChartData } from "./ChartPanel";
-import { type ColumnKind, SCATTER_POINTS } from "./chart-sql";
+import { type ColumnKind, paretoSum, SCATTER_POINTS } from "./chart-sql";
 
 const formatNumber = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4 }).format;
 
@@ -62,11 +62,12 @@ export function chartSummary({ spec, rows }: Pick<ChartData, "spec" | "rows">): 
     }
     case "pareto": {
       const categories = count(n, "category", "categories");
+      const of = paretoSum(spec)?.name ?? "rows";
       const within = rows.cumulative.findIndex((pct) => pct !== null && pct >= 80);
       if (within >= 0)
-        return `${categories}, ${within + 1} ${within === 0 ? "makes" : "make"} up 80% of rows`;
+        return `${categories}, ${within + 1} ${within === 0 ? "makes" : "make"} up 80% of ${of}`;
       const total = rows.cumulative[n - 1] ?? 0;
-      return `${categories}, together ${formatNumber(total)}% of rows`;
+      return `${categories}, together ${formatNumber(total)}% of ${of}`;
     }
   }
 }

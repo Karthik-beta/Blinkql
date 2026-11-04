@@ -24,6 +24,12 @@ export type TemplateTable = {
   /** The sample table it runs on out of the box. */
   sample: string;
   columns: readonly TemplateColumn[];
+  /**
+   * The optional column of another table that this one is read for, such as the references a
+   * lookup table checks. While that column is unmapped, this table needn't be mapped, and its
+   * mapping isn't checked.
+   */
+  neededFor?: { table: string; column: string };
 };
 
 export type TemplateParam = {
@@ -159,6 +165,8 @@ export function mappingProblems(
 ): MappingProblem[] {
   const problems: MappingProblem[] = [];
   for (const wanted of template.tables) {
+    const { neededFor } = wanted;
+    if (neededFor && !mapping[neededFor.table]?.columns[neededFor.column]) continue;
     const mapped = mapping[wanted.key];
     const table = mapped && tables.find(({ name }) => name === mapped.table);
     if (!mapped?.table) {
