@@ -14,6 +14,29 @@ async function openWorkbench(page: Page) {
   await expect(page.getByRole("status")).toHaveText(/^Engine ready/, { timeout: ENGINE_TIMEOUT });
 }
 
+/**
+ * The names of the saved queries in the browser's IndexedDB, which a reload reads back. The list
+ * on screen changes before they're written, and a reload aborts a write that hasn't finished.
+ */
+function storedNames(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      new Promise<string[]>((resolve, reject) => {
+        const open = indexedDB.open("blinkql");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const request = db.transaction("saved").objectStore("saved").getAll();
+          request.onsuccess = () => {
+            db.close();
+            resolve(request.result.map(({ name }: { name: string }) => name));
+          };
+          request.onerror = () => reject(request.error);
+        };
+      }),
+  );
+}
+
 async function run(page: Page, sql: string) {
   await editor(page).click();
   await page.keyboard.press("ControlOrMeta+A");
@@ -48,6 +71,7 @@ test.describe("query history and saved queries", () => {
     await page.getByRole("textbox", { name: "Name" }).fill("Answer");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(saved(page).getByRole("listitem")).toHaveCount(1);
+    await expect.poll(() => storedNames(page)).toEqual(["Answer"]);
 
     await openWorkbench(page);
     await page.getByRole("button", { name: "Saved" }).click();
@@ -59,11 +83,13 @@ test.describe("query history and saved queries", () => {
     await page.getByRole("textbox", { name: "New name for Answer" }).fill("The answer");
     await page.keyboard.press("Enter");
     await expect(page.getByRole("button", { name: "Rename The answer" })).toBeFocused();
+    await expect.poll(() => storedNames(page)).toEqual(["The answer"]);
 
     await page.reload();
     await page.getByRole("button", { name: "Saved" }).click();
     await page.getByRole("button", { name: "Delete The answer" }).click();
     await expect(page.getByText("No saved queries yet.")).toBeVisible();
+    await expect.poll(() => storedNames(page)).toEqual([]);
     await page.reload();
     await page.getByRole("button", { name: "Saved" }).click();
     await expect(page.getByText("No saved queries yet.")).toBeVisible();
