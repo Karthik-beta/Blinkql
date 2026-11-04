@@ -10,7 +10,7 @@ Reports are acknowledged as quickly as possible. We'll keep you updated while th
 
 ## Supported versions
 
-Only the latest release, deployed from `main` to https://blinkql.karthik.nz, receives security fixes.
+Only the latest version, deployed from `main` to https://blinkql.karthik.nz, receives security fixes.
 
 ## Scope
 
