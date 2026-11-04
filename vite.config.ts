@@ -5,8 +5,10 @@ import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vitest/config";
 import { headersOnEveryResponse } from "./scripts/headers.ts";
 import { offlineWorkbench } from "./src/app/vite-plugin.ts";
+import { docsInputs, docsSection } from "./src/docs/vite-plugin.ts";
 import { duckdbExtensions, duckdbWorkers } from "./src/engine/vite-plugin.ts";
 import { landingPage } from "./src/landing/vite-plugin.ts";
+import { siteFonts } from "./src/site/vite-plugin.ts";
 
 // `BLINKQL_REACT_PROFILING=1 pnpm bench` builds with React's profiling build, so <Profiler>s report
 // renders in production too (bench/README.md). It's slower, so its results aren't compared with
@@ -22,18 +24,22 @@ export default defineConfig({
     react(),
     tailwindcss(),
     landingPage(),
+    docsSection(),
+    siteFonts(),
     duckdbExtensions(),
     duckdbWorkers(),
     headersOnEveryResponse(),
     offlineWorkbench(),
     analyze && visualizer({ filename: "bench/bundle/stats.html", gzipSize: true }),
   ],
-  // Two pages: the landing page at / and the workbench at /app/. The landing page loads no React.
+  // The landing page at /, the workbench at /app/, and the docs at /docs/ (one page per entry in
+  // src/docs/pages.ts). Only the workbench loads React.
   build: {
     rolldownOptions: {
       input: {
         landing: fileURLToPath(new URL("./index.html", import.meta.url)),
         app: fileURLToPath(new URL("./app/index.html", import.meta.url)),
+        ...docsInputs(new URL("./", import.meta.url)),
       },
     },
   },

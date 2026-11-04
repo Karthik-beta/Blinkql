@@ -3,7 +3,10 @@
   "git": {
     "deploymentEnabled": false
   },
-  "redirects": [{ "source": "/app", "destination": "/app/", "permanent": true }],
+  "redirects": [
+    { "source": "/app", "destination": "/app/", "permanent": true },
+    { "source": "/docs", "destination": "/docs/", "permanent": true }
+  ],
   "headers": [
     {
       "source": "/(.*)",
