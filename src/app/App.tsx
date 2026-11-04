@@ -156,14 +156,24 @@ export function App() {
   const tablesButton = useRef<HTMLButtonElement>(null);
   const workspace = useRef<HTMLElement>(null);
 
-  // The sidebar is back beside the workspace, as when a tablet turns sideways, so the sheet is
-  // closed for when the screen narrows again. The sheet went without closing, so the focus it held
-  // is put in the workspace instead of being lost.
+  const lastFocused = useRef<Element | null>(null);
   useEffect(() => {
-    if (narrow || !sidebarOpen) return;
+    const onFocusIn = (event: FocusEvent) => {
+      lastFocused.current = event.target as Element;
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
+
+  // The sidebar is back beside the workspace, as when a tablet turns sideways, so the sheet is
+  // closed for when the screen narrows again. If the focus was on something that went with the
+  // narrow layout, such as Tables or the sheet, it's put in the workspace instead of being lost.
+  useEffect(() => {
+    if (narrow) return;
     setSidebarOpen(false);
-    if (document.activeElement === document.body) workspace.current?.focus();
-  }, [narrow, sidebarOpen]);
+    const gone = lastFocused.current && !lastFocused.current.isConnected;
+    if (gone && document.activeElement === document.body) workspace.current?.focus();
+  }, [narrow]);
 
   useEffect(() => {
     if (chartPreset) setShowChart(true);

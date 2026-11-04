@@ -277,6 +277,23 @@ describe("App shell", () => {
       );
     });
 
+    it("keeps the focus in the app when the screen turns wide and Tables goes", () => {
+      render(<App />);
+      screen.getByRole("button", { name: "Tables" }).focus();
+
+      turnScreen(false);
+
+      expect(screen.getByRole("main", { name: "Workspace" })).toHaveFocus();
+    });
+
+    it("leaves the focus alone when the screen turns wide with nothing focused", () => {
+      render(<App />);
+
+      turnScreen(false);
+
+      expect(document.body).toHaveFocus();
+    });
+
     it("closes the sheet when a query starts", async () => {
       const user = userEvent.setup();
       render(<App />);
