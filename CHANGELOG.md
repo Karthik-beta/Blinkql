@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.1.0](https://github.com/Karthik-beta/Blinkql/compare/blinkql-v1.0.0...blinkql-v1.1.0) (2026-11-04)
+
+
+### Features
+
+* **app:** export an analysis as a self-contained HTML report ([#174](https://github.com/Karthik-beta/Blinkql/issues/174)) ([6791311](https://github.com/Karthik-beta/Blinkql/commit/679131144638fcd72d18e339da45209f07be963b)), closes [#168](https://github.com/Karthik-beta/Blinkql/issues/168)
+* **catalog:** import Excel (.xlsx) workbooks from their first sheet ([#173](https://github.com/Karthik-beta/Blinkql/issues/173)) ([89964cf](https://github.com/Karthik-beta/Blinkql/commit/89964cff8516b6c5de8f545c5ed776d6d26569a1)), closes [#167](https://github.com/Karthik-beta/Blinkql/issues/167)
+* **catalog:** show a table's full name in its tooltip and its file name below it ([#181](https://github.com/Karthik-beta/Blinkql/issues/181)) ([c30bf0d](https://github.com/Karthik-beta/Blinkql/commit/c30bf0d4171bac112b815806847d9b6a42f7edc8))
+* **catalog:** show how to read a workbook's other sheets and explain mixed cells ([#179](https://github.com/Karthik-beta/Blinkql/issues/179)) ([a5d838b](https://github.com/Karthik-beta/Blinkql/commit/a5d838b779fc97b99ed4936e8fb75509c2cc379a))
+* **docs:** add a docs section with guides and reference pages ([#185](https://github.com/Karthik-beta/Blinkql/issues/185)) ([cb181cc](https://github.com/Karthik-beta/Blinkql/commit/cb181ccfd518f98ff181943fa4c69447444192f1))
+* **landing:** credit the author and link to karthik.nz ([#183](https://github.com/Karthik-beta/Blinkql/issues/183)) ([c976866](https://github.com/Karthik-beta/Blinkql/commit/c976866b105d55091e2e14087c02aa305ba96c41))
+* **landing:** present the finished workbench instead of the build plan ([#186](https://github.com/Karthik-beta/Blinkql/issues/186)) ([71c5193](https://github.com/Karthik-beta/Blinkql/commit/71c51932ba2cb33452614064028913e993ee108b))
+* **templates:** add a shipments sample and logistics templates for delivery and cost ([#171](https://github.com/Karthik-beta/Blinkql/issues/171)) ([eef7a1c](https://github.com/Karthik-beta/Blinkql/commit/eef7a1cbd83f9daa5b5d1cefd4eaeb6cf397d22e)), closes [#169](https://github.com/Karthik-beta/Blinkql/issues/169)
+
+
+### Bug fixes
+
+* **app:** show the report's chart in the colours of the page it's on ([#180](https://github.com/Karthik-beta/Blinkql/issues/180)) ([c5e20a4](https://github.com/Karthik-beta/Blinkql/commit/c5e20a48518f14a3cc29e75df0372e45f492a08e))
+* **catalog:** keep a column's keys from forgetting, profiling or converting its table ([#195](https://github.com/Karthik-beta/Blinkql/issues/195)) ([df2dbeb](https://github.com/Karthik-beta/Blinkql/commit/df2dbeb8686228881d535df4eb1d2baa8578bedf))
+* **charts:** name the summed column in a Pareto chart's summary ([#188](https://github.com/Karthik-beta/Blinkql/issues/188)) ([5d2389f](https://github.com/Karthik-beta/Blinkql/commit/5d2389ffc5b34c966ef605de2a21c4895332b3eb))
+* **commands:** list Home and End for the tables list in the shortcuts dialog ([#189](https://github.com/Karthik-beta/Blinkql/issues/189)) ([1683342](https://github.com/Karthik-beta/Blinkql/commit/168334234245ec57c3b7808d26858ed19e3a2af6))
+* **editor:** complete an aliased table's columns before the parser reaches the alias ([#190](https://github.com/Karthik-beta/Blinkql/issues/190)) ([1e887a5](https://github.com/Karthik-beta/Blinkql/commit/1e887a553dc38bfb9ea90fb30eea3bee884d5a7c))
+* **engine:** free the connection when a query's results are dropped before the first read ([#198](https://github.com/Karthik-beta/Blinkql/issues/198)) ([0e79c65](https://github.com/Karthik-beta/Blinkql/commit/0e79c65c3bc6104d0585eba350324e0b8d871d79))
+* **history:** stop keeping error messages that can quote file values in query history ([#199](https://github.com/Karthik-beta/Blinkql/issues/199)) ([908ff29](https://github.com/Karthik-beta/Blinkql/commit/908ff2948ccfe5fde454dbdbfaefffa0fa696d6e))
+* **results:** show infinite and far-off dates and timestamps instead of breaking the results table ([#196](https://github.com/Karthik-beta/Blinkql/issues/196)) ([947c9d9](https://github.com/Karthik-beta/Blinkql/commit/947c9d9ca94eb2e7b5fd5c573664c2cfb72b4cc6))
+* **samples:** report a sample that fails to load instead of carrying on without it ([#197](https://github.com/Karthik-beta/Blinkql/issues/197)) ([694c401](https://github.com/Karthik-beta/Blinkql/commit/694c401e80bf8fb822cf77e5fe2006cc51f9f49e))
+* **templates:** let data-quality checks run without a reference table ([#187](https://github.com/Karthik-beta/Blinkql/issues/187)) ([b2fcf94](https://github.com/Karthik-beta/Blinkql/commit/b2fcf9463e471d1a7b5da22443c46b25590b2888))
+* **workbench:** tidy layout, feedback and keyboard use across the app ([#202](https://github.com/Karthik-beta/Blinkql/issues/202)) ([fa6d8f8](https://github.com/Karthik-beta/Blinkql/commit/fa6d8f8cd3476454dbcc9f6604792de8831d4337))
+
+
+### Documentation
+
+* list every package script in CONTRIBUTING and recommend the test-runner extensions ([#182](https://github.com/Karthik-beta/Blinkql/issues/182)) ([c643cba](https://github.com/Karthik-beta/Blinkql/commit/c643cbaf7e4cc87be61636c180b070add991c12f))
+* **security:** drop the claim that Blinkql has no release yet ([#193](https://github.com/Karthik-beta/Blinkql/issues/193)) ([824fed1](https://github.com/Karthik-beta/Blinkql/commit/824fed10877739d3cf54569fba76196b8f553c55))
+
 ## 1.0.0 (2026-10-29)
 
 
