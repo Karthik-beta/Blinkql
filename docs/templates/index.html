@@ -43,7 +43,7 @@
 </table>
 
 <h3>Data-quality checks for an import file</h3>
-<p>Duplicate keys, missing mandatory fields and references to codes that don't exist, one row per issue, so you can fix a file before it's migrated. The <code>issue</code> column says <code>Duplicate key</code>, <code>Missing</code> followed by the column's name, or <code>Broken reference</code>, and <code>row_number</code> counts from 1 in file order. Map up to three mandatory fields. To check references, map <strong>Reference</strong> to the column that holds a code and choose the table that lists the valid codes. The form asks for a reference table even if you leave <strong>Reference</strong> at <strong>None</strong>. Runs on <code>item_import</code> and <code>plants</code>.</p>
+<p>Duplicate keys, missing mandatory fields and references to codes that don't exist, one row per issue, so you can fix a file before it's migrated. The <code>issue</code> column says <code>Duplicate key</code>, <code>Missing</code> followed by the column's name, or <code>Broken reference</code>, and <code>row_number</code> counts from 1 in file order. Map up to three mandatory fields. To check references, map <strong>Reference</strong> to the column that holds a code and choose the table that lists the valid codes. If you leave <strong>Reference</strong> at <strong>None</strong>, the template runs without a reference table. Runs on <code>item_import</code> and <code>plants</code>.</p>
 <table>
   <thead><tr><th scope="col">Table and field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
   <tbody>
