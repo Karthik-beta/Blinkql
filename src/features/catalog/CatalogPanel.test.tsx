@@ -35,7 +35,12 @@ const engine = vi.hoisted(() => {
       data_type: string;
     }[],
     query: vi.fn(async (sql: string): Promise<unknown> => {
-      if (sql.includes("information_schema")) return { toArray: () => engine.made };
+      if (sql.includes("information_schema")) {
+        return {
+          toArray: () =>
+            engine.made.map((row) => ({ table_catalog: "memory", table_schema: "main", ...row })),
+        };
+      }
       if (sql.startsWith("DESCRIBE")) {
         const rows = columns[sql.slice('DESCRIBE "'.length, -1)] ?? [];
         return {
@@ -356,7 +361,7 @@ describe("CatalogPanel", () => {
     const drop = within(totals).getByRole("button", { name: "Drop totals" });
     expect(drop).toHaveAttribute("title", "Drop (Delete): remove the table from the engine");
     await userEvent.click(drop);
-    expect(engine.query).toHaveBeenCalledWith('DROP TABLE IF EXISTS "totals"');
+    expect(engine.query).toHaveBeenCalledWith('DROP TABLE IF EXISTS "memory"."main"."totals"');
     expect(totals).not.toBeInTheDocument();
 
     engine.made = [];
@@ -366,7 +371,7 @@ describe("CatalogPanel", () => {
         .focus(),
     );
     await userEvent.keyboard("{Delete}");
-    expect(engine.query).toHaveBeenCalledWith('DROP VIEW IF EXISTS "recent"');
+    expect(engine.query).toHaveBeenCalledWith('DROP VIEW IF EXISTS "memory"."main"."recent"');
     expect(within(tree).getAllByRole("treeitem")).toHaveLength(1);
     expect(storage.removeDataset).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();

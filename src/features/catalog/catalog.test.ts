@@ -19,6 +19,8 @@ import type { StoredDataset } from "./stored-datasets";
 // "converts" every file to four bytes of Parquet and lists `engine.tables`' columns as its own.
 const engine = vi.hoisted(() => ({
   tables: [] as {
+    table_catalog: string;
+    table_schema: string;
     table_name: string;
     table_type: string;
     column_name: string;
@@ -97,6 +99,8 @@ const csv = (name: string) => new File(["a,b,c\n1,2,3\n"], name);
 /** A table or view as the engine lists it: one row per column. */
 const madeInSql = (name: string, type: "BASE TABLE" | "VIEW", ...columns: [string, string][]) =>
   columns.map(([column_name, data_type]) => ({
+    table_catalog: "memory",
+    table_schema: "main",
     table_name: name,
     table_type: type,
     column_name,
@@ -612,13 +616,21 @@ describe("catalog", () => {
         expect(getCatalog().created).toEqual([
           {
             name: "big_orders",
+            catalog: "memory",
+            schema: "main",
             kind: "table",
             columns: [
               { name: "id", type: "BIGINT" },
               { name: "amount", type: "DECIMAL(18,3)" },
             ],
           },
-          { name: "recent", kind: "view", columns: [{ name: "id", type: "BIGINT" }] },
+          {
+            name: "recent",
+            catalog: "memory",
+            schema: "main",
+            kind: "view",
+            columns: [{ name: "id", type: "BIGINT" }],
+          },
         ]),
       );
       // The imported file's view is listed once, as the imported table it is.
@@ -697,8 +709,11 @@ describe("catalog", () => {
       engine.tables = [];
       await dropTable('odd "view"');
 
-      expect(engine.query).toHaveBeenCalledWith('DROP TABLE IF EXISTS "t"');
-      expect(engine.query).toHaveBeenCalledWith('DROP VIEW IF EXISTS "odd ""view"""');
+      // Named in full, so a temporary table of the same name, found first, isn't dropped instead.
+      expect(engine.query).toHaveBeenCalledWith('DROP TABLE IF EXISTS "memory"."main"."t"');
+      expect(engine.query).toHaveBeenCalledWith(
+        'DROP VIEW IF EXISTS "memory"."main"."odd ""view"""',
+      );
       expect(getCatalog().created).toEqual([]);
     });
 

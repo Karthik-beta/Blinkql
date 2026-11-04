@@ -35,6 +35,9 @@ export type ImportedTable = {
 /** A table or view made in SQL, such as with CREATE TABLE … AS SELECT. */
 export type CreatedTable = {
   name: string;
+  /** The database and schema it's in, so it can be named in full. */
+  catalog: string;
+  schema: string;
   kind: "table" | "view";
   columns: readonly TableColumn[];
 };
@@ -368,7 +371,7 @@ export async function forgetTable(name: string): Promise<void> {
 // The main schema's tables and views with their columns in order. Imported files' views are among
 // them; they're left out by name.
 const CREATED_TABLES_SQL =
-  "SELECT table_name, table_type, column_name, data_type " +
+  "SELECT table_catalog, table_schema, table_name, table_type, column_name, data_type " +
   "FROM information_schema.tables JOIN information_schema.columns " +
   "USING (table_catalog, table_schema, table_name) " +
   "WHERE table_catalog = current_database() AND table_schema = current_schema() " +
@@ -394,7 +397,13 @@ async function refreshCreatedTables(): Promise<void> {
     if (takenNames.has(name)) continue;
     let table = created.get(name);
     if (!table) {
-      table = { name, kind: row.table_type === "VIEW" ? "view" : "table", columns: [] };
+      table = {
+        name,
+        catalog: String(row.table_catalog),
+        schema: String(row.table_schema),
+        kind: row.table_type === "VIEW" ? "view" : "table",
+        columns: [],
+      };
       created.set(name, table);
     }
     table.columns.push({ name: String(row.column_name), type: String(row.data_type) });
@@ -441,7 +450,9 @@ export async function dropTable(name: string): Promise<void> {
   const table = catalog.created.find((other) => other.name === name);
   if (!table) return;
   const kind = table.kind === "view" ? "VIEW" : "TABLE";
-  await query(`DROP ${kind} IF EXISTS ${quoteIdentifier(name)}`).catch(() => {});
+  // Named in full: a temporary table of the same name would be found first otherwise.
+  const target = [table.catalog, table.schema, name].map(quoteIdentifier).join(".");
+  await query(`DROP ${kind} IF EXISTS ${target}`).catch(() => {});
   await refreshCreatedTables();
 }
 
