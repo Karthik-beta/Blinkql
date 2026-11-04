@@ -17,7 +17,12 @@ import {
   subscribeToEngineStatus,
 } from "@/engine/engine";
 import { type CatalogHandle, CatalogPanel } from "@/features/catalog/CatalogPanel";
-import { getCatalog, restoreDatasets, subscribeToCatalog } from "@/features/catalog/catalog";
+import {
+  followQueries,
+  getCatalog,
+  restoreDatasets,
+  subscribeToCatalog,
+} from "@/features/catalog/catalog";
 import { FileDropOverlay } from "@/features/catalog/FileDropOverlay";
 import { getChartPreset, subscribeToChartPreset } from "@/features/charts/chart-preset";
 import { CommandPalette } from "@/features/commands/CommandPalette";
@@ -156,10 +161,15 @@ export function App() {
     markOnce(marks.appShell);
     void restoreDatasets();
     void startHistory();
+    const unfollow = followQueries();
     // Start the engine while the user is still looking around, so the first query doesn't wait,
     // but only once the shell is on screen, so creating the worker doesn't delay the first paint.
     // A query sent before then starts it straight away.
-    return afterNextPaint(startEngine);
+    const cancelStart = afterNextPaint(startEngine);
+    return () => {
+      unfollow();
+      cancelStart();
+    };
   }, []);
 
   return (

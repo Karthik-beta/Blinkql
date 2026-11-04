@@ -4,10 +4,11 @@ import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setEditorInserter } from "@/features/editor/insert";
 import { type CatalogHandle, CatalogPanel } from "./CatalogPanel";
-import { importFiles, resetCatalog } from "./catalog";
+import { followQueries, importFiles, resetCatalog } from "./catalog";
 
-// The engine is replaced by a fake that knows two tables' columns. Column statistics wait until
-// the test settles them; exact distinct counts come back at once.
+// The engine is replaced by a fake that knows two tables' columns and lists `engine.made` as
+// the tables made in SQL. Column statistics wait until the test settles them; exact distinct
+// counts come back at once.
 const engine = vi.hoisted(() => {
   const columns: Record<string, [string, string][]> = {
     orders: [
@@ -26,8 +27,15 @@ const engine = vi.hoisted(() => {
     ],
   };
   let settle: { resolve: (value: unknown) => void; reject: (error: Error) => void } | null = null;
-  return {
+  const engine = {
+    made: [] as {
+      table_name: string;
+      table_type: string;
+      column_name: string;
+      data_type: string;
+    }[],
     query: vi.fn(async (sql: string): Promise<unknown> => {
+      if (sql.includes("information_schema")) return { toArray: () => engine.made };
       if (sql.startsWith("DESCRIBE")) {
         const rows = columns[sql.slice('DESCRIBE "'.length, -1)] ?? [];
         return {
@@ -52,9 +60,26 @@ const engine = vi.hoisted(() => {
     finish: (rows: object[]) => settle?.resolve({ toArray: () => rows }),
     fail: (error: Error) => settle?.reject(error),
   };
+  return engine;
 });
 vi.mock("@/engine/engine", () => engine);
-const queryRun = vi.hoisted(() => ({ runQuery: vi.fn(async (_sql: string) => {}) }));
+// A query "runs" when a test finishes it.
+const queryRun = vi.hoisted(() => {
+  let run: { state: string; sql?: string } = { state: "idle" };
+  const listeners = new Set<() => void>();
+  return {
+    runQuery: vi.fn(async (_sql: string) => {}),
+    getQueryRun: () => run,
+    subscribeToQueryRun: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    finish(sql: string) {
+      run = { state: "done", sql };
+      for (const listener of listeners) listener();
+    },
+  };
+});
 vi.mock("@/features/results/query-run", () => queryRun);
 // Remote servers answer the first-byte check with a range unless a test says otherwise.
 const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response("P", { status: 206 }));
@@ -80,6 +105,7 @@ describe("CatalogPanel", () => {
   beforeEach(() => setEditorInserter(insert));
   afterEach(() => {
     act(() => resetCatalog());
+    engine.made = [];
     setEditorInserter(null);
     vi.clearAllMocks();
   });
@@ -292,6 +318,59 @@ describe("CatalogPanel", () => {
     expect(storage.removeDataset).toHaveBeenLastCalledWith("machines");
     expect(screen.queryByRole("tree")).not.toBeInTheDocument();
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("lists tables made in SQL after the imported ones, and drops one with its button or Delete", async () => {
+    const unfollow = followQueries();
+    await importFiles([new File(["x"], "orders.csv")]);
+    const recent = {
+      table_name: "recent",
+      table_type: "VIEW",
+      column_name: "id",
+      data_type: "BIGINT",
+    };
+    engine.made = [
+      recent,
+      { table_name: "totals", table_type: "BASE TABLE", column_name: "day", data_type: "DATE" },
+      { table_name: "totals", table_type: "BASE TABLE", column_name: "n", data_type: "BIGINT" },
+    ];
+    render(<CatalogPanel />);
+    act(() => queryRun.finish("CREATE TABLE totals AS SELECT …; CREATE VIEW recent AS SELECT …"));
+
+    const tree = screen.getByRole("tree", { name: "Tables" });
+    const totals = await within(tree).findByRole("treeitem", {
+      name: "totals SQL table · 2 columns · gone after a reload",
+    });
+    expect(
+      within(tree)
+        .getAllByRole("treeitem")
+        .map((item) => item.getAttribute("aria-keyshortcuts")),
+    ).toEqual(["C P R Delete", "P R Delete", "P R Delete"]);
+    expect(within(tree).getAllByRole("treeitem")[2]).toBe(totals);
+    expect(within(totals).queryByRole("button", { name: /^Convert/ })).not.toBeInTheDocument();
+
+    await userEvent.click(within(totals).getByRole("button", { name: "Show rows of totals" }));
+    expect(queryRun.runQuery).toHaveBeenLastCalledWith('SELECT * FROM "totals"');
+
+    engine.made = [recent];
+    const drop = within(totals).getByRole("button", { name: "Drop totals" });
+    expect(drop).toHaveAttribute("title", "Drop (Delete): remove the table from the engine");
+    await userEvent.click(drop);
+    expect(engine.query).toHaveBeenCalledWith('DROP TABLE IF EXISTS "totals"');
+    expect(totals).not.toBeInTheDocument();
+
+    engine.made = [];
+    act(() =>
+      within(tree)
+        .getByRole("treeitem", { name: "recent SQL view · 1 column · gone after a reload" })
+        .focus(),
+    );
+    await userEvent.keyboard("{Delete}");
+    expect(engine.query).toHaveBeenCalledWith('DROP VIEW IF EXISTS "recent"');
+    expect(within(tree).getAllByRole("treeitem")).toHaveLength(1);
+    expect(storage.removeDataset).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+    unfollow();
   });
 
   it("leaves a column's table alone on C, P, R or Delete", async () => {

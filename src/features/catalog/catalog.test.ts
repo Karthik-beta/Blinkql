@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   convertTable,
+  dropTable,
+  followQueries,
   forgetTable,
   getCatalog,
   importFiles,
@@ -13,9 +15,15 @@ import {
 import { NO_CORS_MESSAGE, NO_RANGE_WARNING } from "./remote";
 import type { StoredDataset } from "./stored-datasets";
 
-// The engine is replaced by a fake that "describes" every view as having three columns and
-// "converts" every file to four bytes of Parquet.
+// The engine is replaced by a fake that "describes" every view as having three columns,
+// "converts" every file to four bytes of Parquet and lists `engine.tables`' columns as its own.
 const engine = vi.hoisted(() => ({
+  tables: [] as {
+    table_name: string;
+    table_type: string;
+    column_name: string;
+    data_type: string;
+  }[],
   query: vi.fn(async (sql: string): Promise<unknown> => {
     if (sql.startsWith("DESCRIBE")) {
       return {
@@ -23,6 +31,7 @@ const engine = vi.hoisted(() => ({
           ["a", "b", "c"].map((column_name) => ({ column_name, column_type: "BIGINT" })),
       };
     }
+    if (sql.includes("information_schema")) return { toArray: () => engine.tables };
     return {};
   }),
   registerFile: vi.fn(async (_name: string, _file: File) => {}),
@@ -31,6 +40,28 @@ const engine = vi.hoisted(() => ({
   exportQuery: vi.fn(async (_sql: string, _format: string) => new Uint8Array(4)),
 }));
 vi.mock("@/engine/engine", () => engine);
+
+// A query "runs" when a test finishes it.
+const queryRun = vi.hoisted(() => {
+  let run: { state: string; sql?: string } = { state: "idle" };
+  const listeners = new Set<() => void>();
+  const set = (next: typeof run) => {
+    run = next;
+    for (const listener of listeners) listener();
+  };
+  return {
+    getQueryRun: () => run,
+    subscribeToQueryRun: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    finish(sql: string, state = "done") {
+      set({ state: "running", sql });
+      if (state !== "running") set({ state, sql });
+    },
+  };
+});
+vi.mock("@/features/results/query-run", () => queryRun);
 
 // Remote servers answer the first-byte check with a range unless a test says otherwise.
 const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response("P", { status: 206 }));
@@ -62,11 +93,22 @@ const storage = vi.hoisted(() => {
 vi.mock("./stored-datasets", () => storage);
 
 const csv = (name: string) => new File(["a,b,c\n1,2,3\n"], name);
+/** A table or view as the engine lists it: one row per column. */
+const madeInSql = (name: string, type: "BASE TABLE" | "VIEW", ...columns: [string, string][]) =>
+  columns.map(([column_name, data_type]) => ({
+    table_name: name,
+    table_type: type,
+    column_name,
+    data_type,
+  }));
+const timesAskedForTables = () =>
+  engine.query.mock.calls.filter(([sql]) => sql.includes("information_schema")).length;
 const remote = new URL("https://example.com/data/Orders.parquet?token=abc");
 
 describe("catalog", () => {
   afterEach(() => {
     resetCatalog();
+    engine.tables = [];
     storage.files.clear();
     storage.datasets.clear();
     vi.clearAllMocks();
@@ -543,5 +585,116 @@ describe("catalog", () => {
   it("profiles a table with SUMMARIZE, quoting its name", () => {
     expect(profileSql("orders")).toBe('SUMMARIZE "orders"');
     expect(profileSql('odd "name"')).toBe('SUMMARIZE "odd ""name"""');
+  });
+
+  describe("tables made in SQL", () => {
+    let unfollow = () => {};
+    beforeEach(() => {
+      unfollow = followQueries();
+    });
+    afterEach(() => unfollow());
+
+    it("lists tables and views made in SQL after the query that makes them", async () => {
+      await importFiles([csv("orders.csv")]);
+      engine.tables = [
+        ...madeInSql("big_orders", "BASE TABLE", ["id", "BIGINT"], ["amount", "DECIMAL(18,3)"]),
+        ...madeInSql("orders", "VIEW", ["a", "BIGINT"], ["b", "BIGINT"], ["c", "BIGINT"]),
+        ...madeInSql("recent", "VIEW", ["id", "BIGINT"]),
+      ];
+
+      queryRun.finish(
+        "CREATE TABLE big_orders AS SELECT 1 AS id, 2.5 AS amount; CREATE VIEW recent AS SELECT 1 AS id",
+      );
+
+      await vi.waitFor(() =>
+        expect(getCatalog().created).toEqual([
+          {
+            name: "big_orders",
+            kind: "table",
+            columns: [
+              { name: "id", type: "BIGINT" },
+              { name: "amount", type: "DECIMAL(18,3)" },
+            ],
+          },
+          { name: "recent", kind: "view", columns: [{ name: "id", type: "BIGINT" }] },
+        ]),
+      );
+      // The imported file's view is listed once, as the imported table it is.
+      expect(getCatalog().tables.map((table) => table.name)).toEqual(["orders"]);
+    });
+
+    it("takes a table off the list after the query that drops it, even a failed one", async () => {
+      engine.tables = madeInSql("scratch", "BASE TABLE", ["id", "INTEGER"]);
+      queryRun.finish("CREATE TABLE scratch (id INTEGER)");
+      await vi.waitFor(() => expect(getCatalog().created).toHaveLength(1));
+
+      engine.tables = [];
+      queryRun.finish("DROP TABLE scratch; SELEC 1", "failed");
+
+      await vi.waitFor(() => expect(getCatalog().created).toEqual([]));
+    });
+
+    it("doesn't ask the engine again after a query that only reads, or before one finishes", async () => {
+      queryRun.finish("SELECT * FROM range(3)");
+      queryRun.finish("CREATE TABLE t AS SELECT 1", "running");
+
+      await Promise.resolve();
+      expect(timesAskedForTables()).toBe(0);
+    });
+
+    it("keeps only the latest answer when queries finish one after another", async () => {
+      let answerFirst = (_result: unknown) => {};
+      engine.query.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            answerFirst = resolve;
+          }),
+      );
+      queryRun.finish("CREATE TABLE t AS SELECT 1 AS one");
+      queryRun.finish("DROP TABLE t");
+      await vi.waitFor(() => expect(timesAskedForTables()).toBe(2));
+
+      answerFirst({ toArray: () => madeInSql("t", "BASE TABLE", ["one", "INTEGER"]) });
+
+      await new Promise((resolve) => setTimeout(resolve));
+      expect(getCatalog().created).toEqual([]);
+    });
+
+    it("drops a table or view made in SQL, then lists the engine's tables again", async () => {
+      const view = madeInSql('odd "view"', "VIEW", ["one", "INTEGER"]);
+      engine.tables = [...madeInSql("t", "BASE TABLE", ["one", "INTEGER"]), ...view];
+      queryRun.finish("CREATE TABLE t AS SELECT 1 AS one");
+      await vi.waitFor(() => expect(getCatalog().created).toHaveLength(2));
+
+      engine.tables = view;
+      await dropTable("t");
+      expect(getCatalog().created.map((table) => table.name)).toEqual(['odd "view"']);
+      engine.tables = [];
+      await dropTable('odd "view"');
+
+      expect(engine.query).toHaveBeenCalledWith('DROP TABLE IF EXISTS "t"');
+      expect(engine.query).toHaveBeenCalledWith('DROP VIEW IF EXISTS "odd ""view"""');
+      expect(getCatalog().created).toEqual([]);
+    });
+
+    it("names an imported file's table apart from the tables made in SQL", async () => {
+      engine.tables = madeInSql("Orders", "BASE TABLE", ["id", "INTEGER"]);
+      queryRun.finish("CREATE TABLE Orders (id INTEGER)");
+      await vi.waitFor(() => expect(getCatalog().created).toHaveLength(1));
+
+      await importFiles([csv("orders.csv")]);
+
+      expect(getCatalog().tables.map((table) => table.name)).toEqual(["orders_2"]);
+    });
+
+    it("forgets the tables made in SQL when the engine restarts, which loses them", async () => {
+      engine.tables = madeInSql("t", "BASE TABLE", ["one", "INTEGER"]);
+      queryRun.finish("CREATE TABLE t AS SELECT 1 AS one");
+      await vi.waitFor(() => expect(getCatalog().created).toHaveLength(1));
+
+      await reimportTables();
+
+      expect(getCatalog().created).toEqual([]);
+    });
   });
 });
