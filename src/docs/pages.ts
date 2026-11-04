@@ -53,7 +53,7 @@ export const docsPages: readonly DocsPage[] = [
     slug: "templates",
     title: "Analysis templates",
     description:
-      "Run ready-made analyses such as OEE and downtime Pareto on sample data or your own files.",
+      "Run ready-made analyses such as two-file reconciliation, on-time delivery and OEE on sample data or your own files.",
   },
   {
     section: "Guides",
