@@ -5,7 +5,7 @@
 #   CI passes on main   -> production (a push to main deploys only after CI succeeds)
 #   pull request        -> preview (same-repo branches only; forks and Dependabot
 #                          get no secrets)
-#   manual run          -> production
+#   manual run on main  -> production (a run started from another branch is skipped)
 #
 # workflow_run always uses this file as it is on main, so changes to the
 # production trigger take effect only after they're merged.
@@ -36,12 +36,12 @@ env:
 
 jobs:
   deploy:
-    # Previews: same-repo PRs, except Dependabot's. Production: CI succeeded for a push to main, or a manual run.
+    # Previews: same-repo PRs, except Dependabot's. Production: CI succeeded for a push to main, or a manual run from main.
     if: >-
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.user.login != 'dependabot[bot]') ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') ||
-      github.event_name == 'workflow_dispatch'
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -58,20 +58,21 @@ jobs:
           fi
 
       # For workflow_run, deploy exactly the commit CI tested, not whatever main points to now.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
 
       # Installs the pnpm version pinned in package.json's packageManager field,
       # so `vercel build` installs with the same pnpm as local development.
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           cache: true
 
       # Development and CI use Node 26 (.nvmrc), but Vercel does not accept Node 26
       # deployments yet. The site is static, so Node only runs the build. Switch
       # back to .nvmrc once Vercel supports Node 26.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
 
