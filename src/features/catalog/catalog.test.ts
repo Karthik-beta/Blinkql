@@ -676,6 +676,24 @@ describe("catalog", () => {
       expect(listing?.[0]).toContain("table_catalog = 'temp'");
     });
 
+    it("lists a temporary table in place of one it hides that's spelled in other case", async () => {
+      // DuckDB's names ignore case, so the engine sorts them that way, temporary first.
+      engine.tables = [
+        ...inTemp(madeInSql("orders", "LOCAL TEMPORARY", ["temp_one", "INTEGER"])),
+        ...madeInSql("Orders", "BASE TABLE", ["main_one", "INTEGER"]),
+      ];
+
+      queryRun.finish("CREATE TEMP TABLE orders AS SELECT 2 AS temp_one");
+
+      await vi.waitFor(() =>
+        expect(getCatalog().created.map(({ name, catalog }) => [name, catalog])).toEqual([
+          ["orders", "temp"],
+        ]),
+      );
+      const listing = engine.query.mock.calls.find(([sql]) => sql.includes("information_schema"));
+      expect(listing?.[0]).toContain("ORDER BY lower(table_name), ");
+    });
+
     it("takes a table off the list after the query that drops it, even a failed one", async () => {
       engine.tables = madeInSql("scratch", "BASE TABLE", ["id", "INTEGER"]);
       queryRun.finish("CREATE TABLE scratch (id INTEGER)");

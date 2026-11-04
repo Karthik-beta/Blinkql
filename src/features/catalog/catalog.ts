@@ -370,14 +370,15 @@ export async function forgetTable(name: string): Promise<void> {
 
 // The main schema's tables and views, and the temporary ones CREATE TEMP TABLE makes, with their
 // columns in order. Imported files' views are among them; they're left out by name. A temporary
-// table comes before one of the same name it hides, as SQL finds it first.
+// table comes before one of the same name it hides, as SQL finds it first. DuckDB's names ignore
+// case, so "Orders" and "orders" are the same name.
 const CREATED_TABLES_SQL =
   "SELECT table_catalog, table_schema, table_name, table_type, column_name, data_type " +
   "FROM information_schema.tables JOIN information_schema.columns " +
   "USING (table_catalog, table_schema, table_name) " +
   "WHERE (table_catalog = current_database() AND table_schema = current_schema()) " +
   "OR table_catalog = 'temp' " +
-  "ORDER BY table_name, table_catalog = 'temp' DESC, ordinal_position";
+  "ORDER BY lower(table_name), table_catalog = 'temp' DESC, ordinal_position";
 
 /** Counts the times the tables made in SQL were asked for, so only the latest answer is kept. */
 let refreshes = 0;
@@ -396,8 +397,9 @@ async function refreshCreatedTables(): Promise<void> {
   const created = new Map<string, CreatedTable & { columns: TableColumn[] }>();
   for (const row of rows) {
     const name = String(row.table_name);
-    if (takenNames.has(name)) continue;
-    let table = created.get(name);
+    const key = name.toLowerCase();
+    if (takenNames.has(key)) continue;
+    let table = created.get(key);
     // Hidden by a temporary table of the same name, so SQL can't read it by its name.
     if (table && (table.catalog !== row.table_catalog || table.schema !== row.table_schema)) {
       continue;
@@ -410,7 +412,7 @@ async function refreshCreatedTables(): Promise<void> {
         kind: row.table_type === "VIEW" ? "view" : "table",
         columns: [],
       };
-      created.set(name, table);
+      created.set(key, table);
     }
     table.columns.push({ name: String(row.column_name), type: String(row.data_type) });
   }
