@@ -1,7 +1,6 @@
 // Renders the landing page's data-driven parts to HTML at build time (see ./vite-plugin.ts), so
 // the page ships as static HTML: it works without JavaScript and makes no requests for content.
 import { escapeHtml, highlightSql } from "../site/html.ts";
-import { type Milestone, statusLabels } from "./milestones.ts";
 import {
   type SampleColumn,
   type SampleRow,
@@ -21,14 +20,13 @@ export function renderSql(lines: readonly string[] = sampleQuery.sql): string {
 }
 
 function columnClass(column: SampleColumn): string {
-  const classes = column.type === "DOUBLE" ? ["num"] : [];
+  const classes = column.type === "VARCHAR" || column.type === "DATE" ? [] : ["num"];
   if (column.showFrom) classes.push(`show-from-${column.showFrom}`);
   return classes.length > 0 ? ` class="${classes.join(" ")}"` : "";
 }
 
-function formatCell(value: string | number | null): string {
-  if (value === null) return '<span class="null">NULL</span>';
-  return escapeHtml(typeof value === "number" ? value.toFixed(3) : value);
+function formatCell(value: string | null): string {
+  return value === null ? '<span class="null">NULL</span>' : escapeHtml(value);
 }
 
 /**
@@ -60,13 +58,9 @@ export function renderGrid(
   return `<table class="grid"><caption class="sr-only">${caption}</caption><thead><tr><th scope="col" class="row-number"><span class="sr-only">Row</span></th>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-/** The roadmap as a row of indicator lamps: lit when done, marked when current, unlit when planned. */
-export function renderMilestones(list: readonly Milestone[]): string {
-  const items = list
-    .map(
-      (m) =>
-        `<li class="milestone" data-status="${m.status}"${m.status === "current" ? ' aria-current="step"' : ""}><span class="milestone-lamp" aria-hidden="true"></span><span class="milestone-code">${escapeHtml(m.code)}</span><span class="milestone-name">${escapeHtml(m.name)}</span><span class="milestone-summary">${escapeHtml(m.summary)}</span><span class="milestone-status">${statusLabels[m.status]}</span></li>`,
-    )
-    .join("");
-  return `<ol class="milestones">${items}</ol>`;
+/** The version the page shows, major.minor: "1.0" for 1.0.3, so a patch release reads the same. */
+export function shortVersion(version: string): string {
+  const match = /^(\d+)\.(\d+)\.\d+/.exec(version);
+  if (!match) throw new Error(`Not a semantic version: ${version}`);
+  return `${match[1]}.${match[2]}`;
 }

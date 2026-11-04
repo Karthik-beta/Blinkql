@@ -11,6 +11,19 @@
 .hero-head .lede {
   margin-top: 0;
 }
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  margin-top: 24px;
+}
+.release {
+  margin-top: 16px;
+  font-size: 0.875rem; /* Body 14 / 20 */
+  line-height: 1.25rem;
+  color: var(--muted-foreground);
+}
 @media (min-width: 1024px) {
   .hero-head {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
@@ -38,7 +51,7 @@
   }
 }
 
-/* Two columns on wide screens: the heading and its paragraph on the left, the facts on the right. */
+/* Two columns on wide screens: the heading and its paragraphs on the left, the claims on the right. */
 @media (min-width: 1024px) {
   .split {
     display: grid;
@@ -48,82 +61,296 @@
   }
 }
 
-/* The facts read like a spec sheet: one row per fact between hairlines, as in the grid. */
-.facts {
+.subheading {
+  font-size: 1.125rem; /* Subheading 18 / 26 */
+  line-height: 1.625rem;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+code {
+  font-family: var(--font-code);
+  font-size: 0.875em;
+}
+
+/* ---------- From file to answer: four docked panes, one per step ---------- */
+/* The list draws the top and left edges and each step its right and bottom, so every line is
+   exactly 1 px wherever the grid wraps. Steps side by side share their rows (subgrid), so their
+   artifacts start level. */
+
+.steps {
+  display: grid;
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  counter-reset: step;
+}
+/* Two a row at most, so each artifact is large enough to read at the workbench's own size. */
+@media (min-width: 768px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.step {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 16px;
+  padding: 16px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  counter-increment: step;
+}
+@media (min-width: 640px) {
+  .step {
+    padding: 24px;
+  }
+}
+.step-title {
+  display: flex;
+  gap: 12px;
+  font-size: 1.125rem; /* Subheading 18 / 26 */
+  line-height: 1.625rem;
+  font-weight: 600;
+}
+.step-title::before {
+  content: counter(step);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.step > p {
+  color: var(--muted-foreground);
+}
+.step kbd {
+  font: inherit;
+}
+.step-link {
+  align-self: end;
+  justify-self: start;
+}
+
+/* Each step's artifact is a piece of the workbench drawn with its tokens, worded as the app words it. */
+.artifact {
+  align-self: start;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--background);
+  font-size: 0.75rem; /* the workbench's compact 12 / 16 */
+  line-height: 1rem;
+}
+
+.catalog {
+  max-width: 25rem; /* the sidebar's widest */
+  padding: 8px 4px;
+  background: var(--sidebar);
+}
+.catalog-head {
+  padding: 0 4px 8px;
+  font-weight: 600;
+}
+.catalog li {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+.catalog-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-code);
+}
+.catalog-meta {
+  color: var(--muted-foreground);
+  overflow-wrap: break-word;
+}
+
+.error-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.error-title {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+}
+.error-name {
+  margin-right: 8px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: var(--destructive);
+}
+.error-icon {
+  margin-top: 2px;
+  color: var(--destructive);
+}
+.error-hint {
+  padding-left: 24px; /* under the title, past the icon, as in the app */
+}
+.error-label,
+.error-line {
+  color: var(--muted-foreground);
+}
+.error-panel pre {
+  overflow-x: auto;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: var(--muted);
+  font-family: var(--font-code);
+}
+.error-caret {
+  color: var(--destructive);
+}
+
+/* The screenshot is captured already cropped to the results bar, the chart controls and the four
+   largest bars, so the timing readout shows (Design Language 12). */
+.chart-shot {
+  max-width: 25rem; /* near the size the workbench draws it, and as wide as the sidebar above */
+}
+.chart-shot img {
+  width: 100%;
+  height: auto;
+}
+/* Both themes' images are in the page; the hidden one, lazy, is never fetched. */
+.shot-dark,
+.dark .shot-light {
+  display: none;
+}
+.dark .shot-dark {
+  display: block;
+}
+
+.share {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+}
+.share-field {
+  height: 28px;
+  min-width: 0;
+  padding-inline: 6px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  text-overflow: ellipsis;
+}
+.share p {
+  margin-top: 4px;
+  color: var(--muted-foreground);
+}
+
+/* ---------- Ready-made analyses ---------- */
+
+.template-groups {
+  display: grid;
+  gap: 32px 48px;
+  margin-top: 48px;
+}
+@media (min-width: 900px) {
+  .template-groups {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.template-group {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.group-note {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--muted-foreground);
+}
+.template-group ul {
+  margin-top: 16px;
+}
+.template-group li {
+  padding-block: 8px;
+  border-bottom: 1px solid var(--gridline);
+}
+.template-groups + .reading,
+.specs + .reading {
+  margin-top: 32px;
+}
+
+/* ---------- Privacy: each claim, and how to check it ---------- */
+
+.claims {
   margin-top: 48px;
   border-bottom: 1px solid var(--border);
 }
-.facts > div {
+.claims > div {
   display: grid;
   gap: 4px 24px;
   padding-block: 24px;
   border-top: 1px solid var(--border);
 }
 @media (min-width: 640px) {
-  .facts > div {
+  .claims > div {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   }
 }
 @media (min-width: 1024px) {
-  .facts {
+  .claims {
     margin-top: 0;
   }
-  .facts > div:first-child {
+  .claims > div:first-child {
     padding-top: 12px; /* the first row's text sits level with the section title */
     border-top: 0;
   }
 }
-
-.ways {
-  display: grid;
-  gap: 32px 48px;
-  margin-top: 48px;
-}
-@media (min-width: 768px) {
-  .ways {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1024px) {
-  .ways {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-.ways > div {
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.facts dt,
-.ways dt {
+.claims dt {
   font-size: 1.125rem; /* Subheading 18 / 26 */
   line-height: 1.625rem;
   font-weight: 600;
   text-wrap: balance;
 }
-.facts dd,
-.ways dd {
+.claims .check {
+  margin-top: 8px;
   color: var(--muted-foreground);
 }
-.ways dd {
-  margin-top: 4px;
-}
-.ways dd a {
-  display: inline-block;
-}
 
-/* The roadmap sits on a band of machine-grey chrome, like a control panel set into the page. */
-.band {
-  background: var(--chrome);
-  border-block: 1px solid var(--border);
-}
+/* ---------- Specifications: a datasheet ---------- */
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px 24px;
+.specs {
+  width: 100%;
+  max-width: 56rem;
   margin-top: 48px;
+  border-collapse: collapse;
+  text-align: left;
+}
+.specs th,
+.specs td {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+.specs th {
+  width: 36%;
+  padding-top: 15px; /* Body 14 / 20 on the value's first line, which is Reading 16 / 26 */
+  background: var(--chrome);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+@media (min-width: 640px) {
+  .specs th {
+    width: 16rem;
+  }
+}
+
+/* ---------- Built in the open ---------- */
+
+.ways {
+  display: grid;
+  gap: 8px;
+  max-width: 72ch;
+  margin-top: 24px;
 }
 
 /* ---------- The lamp: one living signal (Design Language 8.3) ---------- */
@@ -131,8 +358,7 @@
    see. The `.js` class (public/theme-init.js) opts in to the live run's timed states. */
 
 .lamp-stop,
-.lamp-readout,
-.milestone-lamp {
+.lamp-readout {
   position: relative;
   display: inline-block;
   flex: none;
@@ -144,8 +370,7 @@
   height: 0.2em;
   margin-left: 0.06em;
 }
-.lamp-readout,
-.milestone-lamp {
+.lamp-readout {
   width: 10px;
   height: 10px;
 }
@@ -422,7 +647,7 @@
   visibility: hidden;
 }
 /* Columns drop out in stages so the grid always fits its pane: below 1024 px it keeps
-   machine_id, availability, quality and oee; below 480 px, machine_id, availability and oee. */
+   region, orders, revenue and return_rate; below 480 px, region and revenue. */
 @media (max-width: 1023px) {
   .grid .show-from-1024 {
     display: none;
@@ -447,93 +672,13 @@
   display: none;
 }
 
-/* ---------- The roadmap as a panel of indicator lamps ---------- */
-/* Eight docked cells sharing 1 px borders, like an annunciator panel on a control-room wall. The
-   container draws the top and left edges and each cell its right and bottom, so every line is
-   exactly 1 px wherever the grid wraps. Every cell's status sits on the same baseline. */
-
-.milestones {
-  display: grid;
-  margin-top: 48px;
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
-  background: var(--background);
-}
-@media (min-width: 560px) {
-  .milestones {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 900px) {
-  .milestones {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-.milestone {
-  display: grid;
-  grid-template-columns: 10px 1fr;
-  grid-template-rows: auto auto 1fr auto;
-  column-gap: 8px;
-  row-gap: 4px;
-  padding: 16px;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-}
-.milestone > :not(.milestone-lamp, .milestone-code) {
-  grid-column: 1 / -1;
-}
-.milestone-lamp {
-  align-self: center;
-}
-.milestone[data-status="planned"] .milestone-lamp {
-  background: var(--lamp-off);
-}
-.milestone[data-status="current"] {
-  box-shadow: inset 0 2px 0 var(--primary); /* the active tab's top edge, as in the hero */
-}
-.milestone[data-status="current"] .milestone-lamp {
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 30%, transparent);
-}
-.milestone-code,
-.milestone-status {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--muted-foreground);
-}
-.milestone-code {
-  font-variant-numeric: tabular-nums;
-}
-.milestone-name {
-  margin-top: 8px;
-  font-size: 1rem;
-  line-height: 1.5rem;
-  font-weight: 600;
-  text-wrap: balance;
-}
-.milestone-summary {
-  color: var(--muted-foreground);
-}
-.milestone-status {
-  margin-top: 12px;
-}
-.milestone[data-status="current"] .milestone-status {
-  color: var(--foreground);
-  font-weight: 600;
-}
-
 /* ---------- Windows contrast themes ---------- */
 
 @media (forced-colors: active) {
   .lamp-stop,
-  .lamp-readout,
-  .milestone-lamp {
+  .lamp-readout {
     forced-color-adjust: none;
     outline: 1px solid CanvasText;
-  }
-  .milestone[data-status="planned"] .milestone-lamp {
-    background: Canvas;
   }
   .query-tab {
     box-shadow: none;
