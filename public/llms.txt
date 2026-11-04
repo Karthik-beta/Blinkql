@@ -6,9 +6,23 @@ The workbench is at https://blinkql.karthik.nz/app/. Licensed under MIT. Built b
 
 ## Docs
 
+How to use the workbench, at https://blinkql.karthik.nz/docs/.
+
+- [Get started](https://blinkql.karthik.nz/docs/get-started/): Open the workbench, load sample data or your own file, and run your first query.
+- [Open files](https://blinkql.karthik.nz/docs/open-files/): Open CSV, TSV, Excel, Parquet and JSON files from your computer or a web address, and keep them between visits.
+- [Write queries](https://blinkql.karthik.nz/docs/write-queries/): Write SQL with autocomplete, run all or part of a query, cancel it, fix errors and find past queries.
+- [Explore results](https://blinkql.karthik.nz/docs/explore-results/): Scroll through results, profile a table's columns and chart what a query returns.
+- [Analysis templates](https://blinkql.karthik.nz/docs/templates/): Run ready-made analyses such as two-file reconciliation, on-time delivery and OEE on sample data or your own files.
+- [Share and export](https://blinkql.karthik.nz/docs/share-and-export/): Export results and charts, save an analysis as an HTML report, and share a query as a link.
+- [Keyboard shortcuts](https://blinkql.karthik.nz/docs/keyboard-shortcuts/): Every keyboard shortcut in the workbench, grouped by where it works.
+- [Privacy and storage](https://blinkql.karthik.nz/docs/privacy-and-storage/): What stays on your computer, what the browser keeps between visits, and how to remove it.
+- [Browser support and limits](https://blinkql.karthik.nz/docs/browser-support/): Which browsers Blinkql supports, how large a file it handles, and what to do when something doesn't work.
+
+## Project
+
 - [README](https://github.com/Karthik-beta/Blinkql/blob/main/README.md): what Blinkql does and how to start
 - [Roadmap and milestones](https://github.com/Karthik-beta/Blinkql/wiki/Roadmap-and-Milestones): the eight milestones from M0 to version 1.0
-- [Use cases](https://github.com/Karthik-beta/Blinkql/wiki/Use-Cases): who it's for, with examples from factories and operations
+- [Use cases](https://github.com/Karthik-beta/Blinkql/wiki/Use-Cases): who it's for, with examples from operations, logistics and finance teams
 - [Privacy and security](https://github.com/Karthik-beta/Blinkql/wiki/Privacy-and-Security): why no data leaves the browser
 - [Architecture](https://github.com/Karthik-beta/Blinkql/wiki/Architecture): how the browser-based engine fits together
 

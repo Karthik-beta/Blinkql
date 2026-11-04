@@ -28,6 +28,8 @@
     "scripts",
     "src/app/vite-plugin.ts",
     "src/landing/vite-plugin.ts",
+    "src/docs/vite-plugin.ts",
+    "src/site/vite-plugin.ts",
     "src/engine/vite-plugin.ts"
   ]
 }

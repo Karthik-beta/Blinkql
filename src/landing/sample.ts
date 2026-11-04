@@ -1,85 +1,84 @@
-// The hero's sample: a synthetic factory log, one query over it, and the first rows a run of that
-// query returned. The machines, dates and ratios are made up; they follow the shape of a real MES
-// export. The page ships those rows as static HTML, and a live run replaces them (issue #88).
+// The hero's sample: a synthetic online shop's orders export, one query over it, and the first rows
+// a run of that query returned. The orders, regions and amounts are made up. The page ships those
+// rows as static HTML, and a live run replaces them (issue #88).
+
+/** How many orders the sample "file" holds. */
+export const sampleOrderCount = 250_000;
 
 /**
- * Creates the sample "file": an hour-by-hour production log of 8 machines over 17 days, generated
- * in SQL so nothing is downloaded. `hash()` makes it the same on every run.
+ * Creates the sample "file": orders from January to October 2026, generated in SQL so nothing
+ * is downloaded. `hash()` makes it the same on every run. One order in fifty has no region, as
+ * exports often do, so the result has a real NULL to show.
  */
-export const sampleTableSql = `CREATE OR REPLACE TABLE production_log AS
-WITH hours AS (
-  SELECT i, hash(i) % 1000 / 1000 AS u, hash(-1 - i) % 1000 / 1000 AS v
-  FROM range(3264) t(i)
-),
-logged AS (
-  SELECT i, u, v, CAST(56 - 2 * (i % 8) - 16 * u AS INTEGER) AS run_min FROM hours
+export const sampleTableSql = `CREATE OR REPLACE TABLE orders AS
+WITH draws AS (
+  SELECT i, hash(i) AS h,
+    h % 1000 / 1000 AS u, h // 1000 % 1000 / 1000 AS v, h // 1000000 % 1000 / 1000 AS w
+  FROM range(${sampleOrderCount}) t(i)
 )
 SELECT
-  ['PRS-01', 'PRS-03', 'CNC-04', 'CNC-07', 'CNC-12', 'WLD-02', 'WLD-05', 'LTH-05'][i % 8 + 1]
-    AS machine_id,
-  DATE '2026-09-21' + CAST(i // 192 AS INTEGER) AS shift_date,
-  60 AS planned_min,
-  run_min,
-  30 AS ideal_cycle_s,
-  CAST(2 * run_min * (0.84 + 0.14 * v) AS INTEGER) AS total_count,
-  total_count - CAST(total_count * 0.05 * u AS INTEGER) AS good_count
-FROM logged`;
+  100001 + i AS order_id,
+  DATE '2026-01-01' + CAST(i * 304 // ${sampleOrderCount} AS INTEGER) AS ordered_at,
+  CASE
+    WHEN u < 0.32 THEN 'Europe'
+    WHEN u < 0.60 THEN 'North America'
+    WHEN u < 0.79 THEN 'Asia Pacific'
+    WHEN u < 0.88 THEN 'Latin America'
+    WHEN u < 0.94 THEN 'Middle East'
+    WHEN u < 0.98 THEN 'Africa'
+  END AS region,
+  CAST(9.5 + 140 * v * v + 25 * w AS DECIMAL(10, 2)) AS total,
+  w < 0.02 + 0.07 * v + 0.04 * u AS returned
+FROM draws`;
 
 export const sampleQuery = {
-  tab: "OEE by machine",
+  tab: "Sales by region",
   sql: [
-    "SELECT machine_id, shift_date,",
-    "  SUM(run_min) / SUM(planned_min) AS availability,",
-    "  SUM(ideal_cycle_s * total_count) / 60 / SUM(run_min) AS performance,",
-    "  SUM(good_count) / SUM(total_count) AS quality,",
-    "  availability * performance * quality AS oee",
-    "FROM production_log",
-    "WHERE shift_date >= '2026-10-01' -- this month",
+    "SELECT region,",
+    "  date_trunc('month', ordered_at)::DATE AS month,",
+    "  count(*) AS orders,",
+    "  sum(total) AS revenue,",
+    "  round(avg(total), 2) AS avg_order,",
+    "  round(avg(returned::INT), 3) AS return_rate",
+    "FROM orders",
     "GROUP BY ALL",
-    "ORDER BY availability;",
+    "ORDER BY month DESC, revenue DESC;",
   ],
   /** The static result's size and time, as the results bar reports them. */
-  rowCount: 56,
-  elapsedMs: 212,
+  rowCount: 70,
+  elapsedMs: 506,
 };
 
 export interface SampleColumn {
   name: string;
   /** The type name exactly as the engine reports it. */
-  type: "VARCHAR" | "DATE" | "DOUBLE";
+  type: "VARCHAR" | "DATE" | "BIGINT" | "DECIMAL(38,2)" | "DOUBLE";
   /** The narrowest screen, in px, that shows this column, so the grid always fits its pane. */
   showFrom?: 480 | 1024;
 }
 
 export const sampleColumns: readonly SampleColumn[] = [
-  { name: "machine_id", type: "VARCHAR" },
-  { name: "shift_date", type: "DATE", showFrom: 1024 },
-  { name: "availability", type: "DOUBLE" },
-  { name: "performance", type: "DOUBLE", showFrom: 1024 },
-  { name: "quality", type: "DOUBLE", showFrom: 480 },
-  { name: "oee", type: "DOUBLE" },
+  { name: "region", type: "VARCHAR" },
+  { name: "month", type: "DATE", showFrom: 1024 },
+  { name: "orders", type: "BIGINT", showFrom: 480 },
+  { name: "revenue", type: "DECIMAL(38,2)" },
+  { name: "avg_order", type: "DOUBLE", showFrom: 1024 },
+  { name: "return_rate", type: "DOUBLE", showFrom: 480 },
 ];
 
-export type SampleRow = readonly [
-  machineId: string,
-  shiftDate: string,
-  availability: number,
-  performance: number,
-  quality: number | null,
-  oee: number | null,
-];
+/** One row's cells as the workbench's grid writes them, `null` for SQL NULL. */
+export type SampleRow = readonly (string | null)[];
 
 /**
- * The first rows of the static result. `null` is a real NULL, shown the way the grid will show
- * it: a missing quality makes the OEE NULL too, as it would in SQL.
+ * The first rows of the static result, exactly as a run returns them (see sample.test.ts): the
+ * latest month's, so no region repeats where the month column is hidden.
  */
 export const sampleRows: readonly SampleRow[] = [
-  ["PRS-03", "2026-10-06", 0.612, 0.874, 0.951, 0.509],
-  ["CNC-12", "2026-10-05", 0.688, 0.902, 0.968, 0.601],
-  ["CNC-07", "2026-10-07", 0.701, 0.913, 0.982, 0.628],
-  ["WLD-02", "2026-10-06", 0.734, 0.887, null, null],
-  ["LTH-05", "2026-10-05", 0.756, 0.921, 0.973, 0.677],
-  ["PRS-01", "2026-10-07", 0.781, 0.896, 0.977, 0.684],
-  ["CNC-04", "2026-10-06", 0.802, 0.934, 0.985, 0.738],
-  ["WLD-05", "2026-10-07", 0.823, 0.908, 0.989, 0.739],
+  ["Europe", "2026-10-01", "8172", "564053.39", "69.02", "0.061"],
+  ["North America", "2026-10-01", "7075", "486544.68", "68.77", "0.071"],
+  ["Asia Pacific", "2026-10-01", "4925", "338432.06", "68.72", "0.081"],
+  ["Latin America", "2026-10-01", "2288", "154561.79", "67.55", "0.078"],
+  ["Middle East", "2026-10-01", "1564", "104912.66", "67.08", "0.082"],
+  ["Africa", "2026-10-01", "966", "64345.68", "66.61", "0.086"],
+  [null, "2026-10-01", "503", "33545.40", "66.69", "0.101"],
 ];

@@ -1,8 +1,9 @@
 // The service worker that opens the workbench without a network. Imported by vite.config.ts, so it
 // runs in Node: no DOM here. Only the workbench registers it (UpdatePrompt.tsx); the landing page
-// stays a plain page.
+// and the docs stay plain pages, and their navigations go to the network.
 import type { Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { screenshots } from "../docs/render.ts";
 
 export function offlineWorkbench(): Plugin[] {
   return VitePWA({
@@ -29,6 +30,11 @@ export function offlineWorkbench(): Plugin[] {
         "assets/landing-*",
         "assets/sample-run-*",
         "og-image.png",
+        // The docs pages' styles and screenshots, and the theme script they share with the landing
+        // page.
+        "assets/docs-*",
+        "assets/follow-system-theme-*",
+        ...Object.keys(screenshots).map((name) => `assets/${name}-*.png`),
         // The mvp engine build, cached when first used instead.
         "assets/duckdb-mvp-*",
         "assets/duckdb-browser-mvp.worker-*",

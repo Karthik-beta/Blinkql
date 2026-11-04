@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { renderFooter } from "./site/chrome.ts";
 
 const SITE = "https://blinkql.karthik.nz";
 const read = (path: string) => readFileSync(path, "utf8");
@@ -22,7 +23,8 @@ describe("site address", () => {
 
   it("credits the author and links to karthik.nz", () => {
     const html = read("index.html");
-    expect(html).toContain(`<a href="https://karthik.nz/">Karthik Parameshwara</a>`);
+    expect(html).toContain("<!--site:footer-->");
+    expect(renderFooter()).toContain(`<a href="https://karthik.nz/">Karthik Parameshwara</a>`);
     expect(html).toContain(`"author": {`);
     expect(html).toContain(`"name": "Karthik Parameshwara"`);
     expect(html).toContain(`"url": "https://karthik.nz/"`);
