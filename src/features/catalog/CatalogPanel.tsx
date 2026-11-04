@@ -516,8 +516,10 @@ export function CatalogPanel({ ref }: { ref?: Ref<CatalogHandle> }) {
     insertIntoEditor(sqlName(node.column?.name ?? node.table.name));
 
   const onKeyDown = (event: KeyboardEvent, node: TreeNode) => {
-    // Key events bubble too, so a column's keys mustn't act on its table.
-    if (event.target !== event.currentTarget) return;
+    // Key events bubble too, so a column's keys mustn't act on its table. A clicked button inside
+    // the item keeps focus, and its keys still belong to the item.
+    const item = (event.target as Element).closest('[role="treeitem"]');
+    if (item !== event.currentTarget) return;
     const index = nodes.findIndex((other) => other.key === node.key);
     const isOpen = !node.column && expanded.has(node.table.name);
     switch (event.key) {
