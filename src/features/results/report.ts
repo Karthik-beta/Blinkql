@@ -81,6 +81,11 @@ pre {
 }
 figure { margin: 0; }
 img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); }
+img.dark { display: none; }
+@media screen and (prefers-color-scheme: dark) {
+  img.light { display: none; }
+  img.dark { display: block; }
+}
 .table { overflow-x: auto; }
 table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
 caption { padding-bottom: 0.25rem; text-align: left; font-family: system-ui, sans-serif; }
@@ -140,9 +145,13 @@ ${body.join("\n")}
 /** The report as a complete HTML document. */
 export function reportHtml(report: Report): string {
   const { title, createdAt, sql, rowCount, chart } = report;
+  // The chart in both themes; the style shows the one that matches the page's colours.
   const chartSection = chart
     ? `<h2>Chart</h2>
-<figure><img src="${escapeHtml(chart.png)}" alt="${escapeHtml(chart.description)}"></figure>
+<figure>
+<img class="light" src="${escapeHtml(chart.light)}" alt="${escapeHtml(chart.description)}">
+<img class="dark" src="${escapeHtml(chart.dark)}" alt="${escapeHtml(chart.description)}">
+</figure>
 `
     : "";
   return `<!doctype html>

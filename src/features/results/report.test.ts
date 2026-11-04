@@ -90,7 +90,11 @@ describe("reportHtml", () => {
         columns: [{ name: `"><img src=x onerror=alert(1)>`, numeric: false }],
         rows: [[hostile]],
         rowCount: 1,
-        chart: { png: `data:image/png;base64,AAAA" onload="alert(1)`, description: hostile },
+        chart: {
+          light: `data:image/png;base64,AAAA" onload="alert(1)`,
+          dark: `data:image/png;base64,BBBB" onload="alert(1)`,
+          description: hostile,
+        },
       }),
     );
     const doc = parse(html);
@@ -98,14 +102,16 @@ describe("reportHtml", () => {
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("<img src=x");
     expect(doc.querySelectorAll("script")).toHaveLength(0);
-    expect(doc.querySelectorAll("img")).toHaveLength(1);
-    expect(doc.querySelector("img")?.hasAttribute("onload")).toBe(false);
+    expect(doc.querySelectorAll("img")).toHaveLength(2);
+    expect(doc.querySelectorAll("img[onload]")).toHaveLength(0);
     expect(doc.title).toBe(hostile);
     expect(doc.querySelector("h1")?.textContent).toBe(hostile);
     expect(doc.querySelector("pre > code")?.textContent).toBe(`SELECT '${hostile}' AS "a<b>"`);
     expect(doc.querySelector("thead th")?.textContent).toBe(`"><img src=x onerror=alert(1)>`);
     expect(bodyRows(doc)).toEqual([[hostile]]);
-    expect(doc.querySelector("img")?.getAttribute("alt")).toBe(hostile);
+    for (const image of doc.querySelectorAll("img")) {
+      expect(image.getAttribute("alt")).toBe(hostile);
+    }
   });
 
   it(`shows only the first ${REPORT_ROWS} rows of a larger result, and says so`, () => {
@@ -136,14 +142,20 @@ describe("reportHtml", () => {
     ]);
   });
 
-  it("shows the chart as an image described by its text summary", () => {
-    const png = "data:image/png;base64,iVBORw0KGgo=";
+  it("shows the chart as an image described by its text summary, in the page's colours", () => {
+    const light = "data:image/png;base64,iVBORw0KGgo=";
+    const dark = "data:image/png;base64,iVBORw0KGgp=";
     const description = "Bar chart of count(*) by k, 3 bars, highest 10 (0), lowest 10 (1)";
-    const doc = parse(reportHtml(report({ chart: { png, description } })));
+    const doc = parse(reportHtml(report({ chart: { light, dark, description } })));
 
-    const image = doc.querySelector("figure img");
-    expect(image?.getAttribute("src")).toBe(png);
-    expect(image?.getAttribute("alt")).toBe(description);
+    const images = [...doc.querySelectorAll("figure img")];
+    expect(images.map((image) => [image.className, image.getAttribute("src")])).toEqual([
+      ["light", light],
+      ["dark", dark],
+    ]);
+    for (const image of images) expect(image.getAttribute("alt")).toBe(description);
+    // The light one shows unless the page is dark (e2e/export.spec.ts checks which one shows).
+    expect(doc.querySelector("style")?.textContent).toContain("img.dark { display: none; }");
     expect([...doc.querySelectorAll("h2")].map((h2) => h2.textContent)).toEqual([
       "Query",
       "Chart",

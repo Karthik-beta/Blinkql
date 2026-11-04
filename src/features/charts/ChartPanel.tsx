@@ -94,15 +94,19 @@ const PARETO_AGGREGATES: Aggregate[] = ["count", "sum"];
 
 const selectClass = "h-7 rounded-md border border-input bg-background px-1.5 text-xs";
 
-/** The chart drawn in `container` as a PNG, described by `label`; null when none is drawn there. */
+/**
+ * The chart drawn in `container` in both themes, described by `label`, for a report to show the
+ * one for its reader's colours; null when none is drawn there.
+ */
 async function pictureOf(
   container: HTMLElement | null,
   label: string,
 ): Promise<ChartPicture | null> {
   if (!container) return null;
   const { chartPng } = await import("./draw-chart");
-  const png = chartPng(container);
-  return png ? { png, description: label } : null;
+  const light = chartPng(container, "light");
+  const dark = chartPng(container, "dark");
+  return light && dark ? { light, dark, description: label } : null;
 }
 
 function column<T>(table: Table, name: string): T[] {
@@ -343,8 +347,9 @@ export function ChartPanel() {
           className="ml-auto"
           disabled={!chart || showTable}
           onClick={async () => {
-            const picture = chart && (await pictureOf(canvas.current, chart.label));
-            if (picture) download(picture.png, exportFileName("png", new Date(), "chart"));
+            const { chartPng } = await import("./draw-chart");
+            const png = canvas.current && chartPng(canvas.current);
+            if (png) download(png, exportFileName("png", new Date(), "chart"));
           }}
         >
           Export PNG

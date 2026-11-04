@@ -1,0 +1,161 @@
+<h2>Run a template</h2>
+<p>A template is a ready-made query written against named columns rather than one particular file. You tell it which of your columns to use, and it writes the SQL with your column names in it. This example runs one on the sample shipments, so you can follow along without a file of your own.</p>
+<ol>
+  <li>In the header, select <strong>Templates</strong>. You can also press <kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘</kbd>+<kbd>K</kbd> on a Mac) and choose <strong>Browse templates</strong>.</li>
+  <li>Choose <strong>On-time delivery by carrier</strong>.</li>
+  <li>If the <code>shipments</code> table isn't loaded yet, select <strong>Load sample data</strong> in the <strong>Shipments</strong> box. The form fills in the table and its columns.</li>
+  <li>Check the column each field uses. To count deliveries up to a day late as on time, set <strong>Days of grace</strong> to <code>1</code>.</li>
+  <li>Select <strong>Run</strong>.</li>
+</ol>
+<p>The dialog closes, the template's SQL goes into the editor and runs, and the result opens as a chart. Here it's a bar chart of <code>on_time_pct</code> by carrier. Select <strong>Table</strong> to see the rows. The first line of the query is a comment with the template's title, such as <code>-- On-time delivery by carrier</code>. The query is now yours, so you can change it and run it again like any other. To read the result, see <a href="/docs/explore-results/">Explore results</a>.</p>
+<p>The gallery lists the templates in alphabetical order. Below they're grouped by the kind of data they read. Each one runs out of the box on one of the samples, named under its title.</p>
+
+<h2>How column matching works</h2>
+<p>When you open a template, it makes a first guess at every choice in the form.</p>
+<ul>
+  <li>For each table the template needs, it picks the sample table if that's loaded. Otherwise it picks the table whose columns match the most fields.</li>
+  <li>A field matches a column with the same name as the field, its label or one of a few common alternatives, ignoring case, spaces, underscores and hyphens. So <code>Machine ID</code>, <code>machine_id</code> and <code>machine-id</code> all match the <strong>Machine</strong> field.</li>
+  <li>The column also has to be the right type, and each column is used for one field at most.</li>
+</ul>
+<p>Because a loaded sample table wins, choose your own table under <strong>Table</strong> if you've loaded both. Changing the table matches its columns again. You can then change any field by hand. Each list shows your columns with their types.</p>
+<p>Fields have one of four types:</p>
+<ul>
+  <li><strong>Text</strong> accepts a text column, and a number column too, since labels such as machine numbers are often stored as numbers.</li>
+  <li><strong>Number</strong> accepts an integer or decimal column.</li>
+  <li><strong>Date or time</strong> accepts a <code>DATE</code> or <code>TIMESTAMP</code> column. The form calls this type "temporal". A date stored as text doesn't count. Files with dates written as <code>2026-09-21</code> or <code>2026-09-21 14:00</code> are usually read as dates.</li>
+  <li><strong>Any</strong> accepts every column.</li>
+</ul>
+<p>A field marked <strong>(optional)</strong> can stay at <strong>None</strong>. While something stops the template from running, <strong>Run</strong> is unavailable and the form says why next to it, for example "Choose a column for Machine." or "Started at needs a temporal column; started_at is VARCHAR."</p>
+
+<h2>Reconciliation and data-quality templates</h2>
+<p>These compare two files, or check one file before it's loaded into another system.</p>
+
+<h3>Two-file reconciliation</h3>
+<p>Every key where two systems, such as an ERP and an MES, disagree. A key is listed when it's missing on one side or has a different quantity, largest variance first. Each side's quantities are added up per key first, and keys are compared as text, so <code>1001</code> matches <code>'1001'</code>. The <code>status</code> column says <code>Only in first</code>, <code>Only in second</code> or <code>Quantities differ</code>. <strong>Tolerance</strong> leaves out keys found on both sides whose quantities differ by no more than that amount. Runs on <code>erp_orders</code> and <code>mes_orders</code>, whose columns have different names, as they often do in real exports.</p>
+<table>
+  <thead><tr><th scope="col">Table and field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>First system (e.g. ERP), Key</td><td>Text</td><td><code>key</code>, <code>order_id</code>, <code>work_order</code>, <code>order_number</code></td></tr>
+    <tr><td>First system (e.g. ERP), Quantity</td><td>Number</td><td><code>quantity</code>, <code>qty</code>, <code>reported_qty</code>, <code>confirmed_qty</code></td></tr>
+    <tr><td>Second system (e.g. MES), Key</td><td>Text</td><td><code>key</code>, <code>order_id</code>, <code>work_order</code>, <code>order_number</code></td></tr>
+    <tr><td>Second system (e.g. MES), Quantity</td><td>Number</td><td><code>quantity</code>, <code>qty</code>, <code>good_qty</code>, <code>produced_qty</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Data-quality checks for an import file</h3>
+<p>Duplicate keys, missing mandatory fields and references to codes that don't exist, one row per issue, so you can fix a file before it's migrated. The <code>issue</code> column says <code>Duplicate key</code>, <code>Missing</code> followed by the column's name, or <code>Broken reference</code>, and <code>row_number</code> counts from 1 in file order. Map up to three mandatory fields. To check references, map <strong>Reference</strong> to the column that holds a code and choose the table that lists the valid codes. The form asks for a reference table even if you leave <strong>Reference</strong> at <strong>None</strong>. Runs on <code>item_import</code> and <code>plants</code>.</p>
+<table>
+  <thead><tr><th scope="col">Table and field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Import file, Key</td><td>Any</td><td><code>key</code>, <code>item_code</code>, <code>code</code>, <code>id</code>, <code>sku</code></td></tr>
+    <tr><td>Import file, Mandatory field 1 (optional)</td><td>Any</td><td><code>description</code>, <code>name</code>, <code>item_description</code></td></tr>
+    <tr><td>Import file, Mandatory field 2 (optional)</td><td>Any</td><td><code>uom</code>, <code>unit</code>, <code>unit_of_measure</code>, <code>base_unit</code></td></tr>
+    <tr><td>Import file, Mandatory field 3 (optional)</td><td>Any</td><td>No other names. Choose it yourself.</td></tr>
+    <tr><td>Import file, Reference (optional)</td><td>Any</td><td><code>reference</code>, <code>plant_code</code>, <code>plant</code>, <code>site</code>, <code>warehouse</code></td></tr>
+    <tr><td>Reference table, Reference key</td><td>Any</td><td><code>plant_code</code>, <code>plant</code>, <code>code</code>, <code>id</code></td></tr>
+  </tbody>
+</table>
+
+<h2>Logistics templates</h2>
+<p>These read one row per shipment, as a transport management system exports it. All three run on <code>shipments</code>. A shipment with no delivery date counts as still in transit.</p>
+
+<h3>On-time delivery by carrier</h3>
+<p>The share of each carrier's delivered shipments that arrived by the promised date, worst carrier first. Dates are compared as calendar days. Shipments in transit are counted but left out of the rate, as they may still arrive on time. <strong>Days of grace</strong> counts deliveries up to that many days late as on time. The result has <code>delivered</code>, <code>on_time</code>, <code>late</code>, <code>in_transit</code>, <code>on_time_pct</code> and <code>avg_days_late</code>.</p>
+<table>
+  <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Carrier</td><td>Text</td><td><code>carrier</code>, <code>carrier_name</code>, <code>scac</code>, <code>haulier</code>, <code>courier</code></td></tr>
+    <tr><td>Promised delivery</td><td>Date or time</td><td><code>promised_date</code>, <code>due_date</code>, <code>expected_delivery</code>, <code>eta</code></td></tr>
+    <tr><td>Delivered</td><td>Date or time</td><td><code>delivered_date</code>, <code>delivered_at</code>, <code>delivery_date</code>, <code>pod_date</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Delivery lead time by lane</h3>
+<p>The median and 90th percentile of calendar days from shipping to delivery on each lane, slowest lane first, with the number delivered and still in transit. A lane is the origin and destination together, such as <code>Pune → Delhi</code>. The 90th percentile is the time within which 9 in 10 shipments arrive. The result has <code>delivered</code>, <code>in_transit</code>, <code>median_days</code> and <code>p90_days</code>.</p>
+<table>
+  <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Origin</td><td>Text</td><td><code>origin</code>, <code>from</code>, <code>ship_from</code>, <code>origin_city</code></td></tr>
+    <tr><td>Destination</td><td>Text</td><td><code>destination</code>, <code>to</code>, <code>dest</code>, <code>ship_to</code></td></tr>
+    <tr><td>Shipped</td><td>Date or time</td><td><code>ship_date</code>, <code>shipped_at</code>, <code>dispatch_date</code>, <code>pickup_date</code></td></tr>
+    <tr><td>Delivered</td><td>Date or time</td><td><code>delivered_date</code>, <code>delivered_at</code>, <code>delivery_date</code>, <code>pod_date</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Cost per kg by lane and carrier</h3>
+<p>Freight cost per kilogram for each carrier on each lane, cheapest carrier first within a lane, with the weight moved and what it cost. It divides total cost by total weight, so heavy shipments count for more than light ones. The result has <code>shipments</code>, <code>weight_kg</code>, <code>cost</code> and <code>cost_per_kg</code>.</p>
+<table>
+  <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Origin</td><td>Text</td><td><code>origin</code>, <code>from</code>, <code>ship_from</code>, <code>origin_city</code></td></tr>
+    <tr><td>Destination</td><td>Text</td><td><code>destination</code>, <code>to</code>, <code>dest</code>, <code>ship_to</code></td></tr>
+    <tr><td>Carrier</td><td>Text</td><td><code>carrier</code>, <code>carrier_name</code>, <code>scac</code>, <code>haulier</code>, <code>courier</code></td></tr>
+    <tr><td>Weight (kg)</td><td>Number</td><td><code>weight_kg</code>, <code>weight</code>, <code>kg</code>, <code>gross_weight</code>, <code>chargeable_weight</code></td></tr>
+    <tr><td>Freight cost</td><td>Number</td><td><code>freight_cost</code>, <code>cost</code>, <code>freight</code>, <code>total_cost</code>, <code>amount</code></td></tr>
+  </tbody>
+</table>
+
+<h2>Production templates</h2>
+<p>These read machine logs, breakdown logs, output reports and inspections, as an MES or a shop-floor system exports them.</p>
+
+<h3>OEE by machine</h3>
+<p>Each machine's overall equipment effectiveness over its planned minutes, split into availability, performance and quality, best machine first. It expects one row per machine per minute, because it counts rows as minutes. Runs on <code>machine_telemetry</code>. The result has <code>planned_min</code>, <code>run_min</code>, <code>availability_pct</code>, <code>performance_pct</code>, <code>quality_pct</code> and <code>oee_pct</code>.</p>
+<table>
+  <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Machine</td><td>Text</td><td><code>machine_id</code>, <code>machine</code>, <code>asset</code>, <code>equipment</code>, <code>station</code></td></tr>
+    <tr><td>Minute (optional)</td><td>Date or time</td><td><code>minute_at</code>, <code>timestamp</code>, <code>time</code>, <code>date</code></td></tr>
+    <tr><td>Planned</td><td>Any, true or false values</td><td><code>planned</code>, <code>scheduled</code>, <code>is_planned</code></td></tr>
+    <tr><td>Running</td><td>Any, true or false values</td><td><code>running</code>, <code>is_running</code>, <code>producing</code>, <code>active</code></td></tr>
+    <tr><td>Ideal cycle (s)</td><td>Number</td><td><code>ideal_cycle_s</code>, <code>ideal_cycle</code>, <code>cycle_time</code>, <code>ct</code></td></tr>
+    <tr><td>Total count</td><td>Number</td><td><code>total_count</code>, <code>total</code>, <code>parts</code>, <code>units</code>, <code>output</code></td></tr>
+    <tr><td>Good count</td><td>Number</td><td><code>good_count</code>, <code>good</code>, <code>good_parts</code>, <code>ok_count</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Downtime Pareto</h3>
+<p>Minutes of downtime and the number of stops for each reason, largest first, with each reason's share and the running share of all downtime. It opens as a Pareto chart. Runs on <code>breakdowns</code>. The result has <code>downtime_min</code>, <code>stops</code>, <code>machines</code>, <code>share_pct</code> and <code>cumulative_pct</code>.</p>
+<table>
+  <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Reason</td><td>Text</td><td><code>reason</code>, <code>cause</code>, <code>stop_reason</code>, <code>fault</code>, <code>code</code></td></tr>
+    <tr><td>Started at</td><td>Date or time</td><td><code>started_at</code>, <code>start</code>, <code>start_time</code>, <code>from</code></td></tr>
+    <tr><td>Ended at</td><td>Date or time</td><td><code>ended_at</code>, <code>end</code>, <code>end_time</code>, <code>finished_at</code>, <code>to</code></td></tr>
+    <tr><td>Machine (optional)</td><td>Text</td><td><code>machine</code>, <code>machine_id</code>, <code>asset</code>, <code>equipment</code></td></tr>
+  </tbody>
+</table>
+
+<h3>MTTR and MTBF per machine</h3>
+<p>Mean time to repair and mean time between failures for each machine, worst MTBF first. MTBF is the time from one breakdown's end to the next one's start on the same machine, so a machine with a single breakdown has no MTBF. Runs on <code>breakdowns</code>. The result has <code>failures</code>, <code>downtime_h</code>, <code>mttr_min</code> and <code>mtbf_h</code>.</p>
+<table>
+  <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Machine</td><td>Text</td><td><code>machine</code>, <code>machine_id</code>, <code>asset</code>, <code>equipment</code>, <code>station</code></td></tr>
+    <tr><td>Started at</td><td>Date or time</td><td><code>started_at</code>, <code>start</code>, <code>start_time</code>, <code>began_at</code></td></tr>
+    <tr><td>Ended at</td><td>Date or time</td><td><code>ended_at</code>, <code>end</code>, <code>end_time</code>, <code>stopped_at</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Output by production day and shift</h3>
+<p>Units and events per production day and shift, and per machine if you map one. The production day starts with the first shift, so a night shift that runs past midnight counts towards the day it started. Set <strong>Shift starts</strong> (default <code>06:00, 14:00, 22:00</code>) and <strong>Shift names</strong> (default <code>A, B, C</code>) to match your plant. Runs on <code>shift_output</code>.</p>
+<table>
+  <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Event at</td><td>Date or time</td><td><code>event_at</code>, <code>timestamp</code>, <code>time</code>, <code>reported_at</code></td></tr>
+    <tr><td>Units</td><td>Number</td><td><code>units</code>, <code>quantity</code>, <code>qty</code>, <code>count</code>, <code>output</code></td></tr>
+    <tr><td>Machine (optional)</td><td>Text</td><td><code>machine</code>, <code>machine_id</code>, <code>asset</code>, <code>station</code>, <code>line</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Reject rate by machine</h3>
+<p>Parts inspected and rejected on each machine, and the share rejected, worst machine first. To leave out machines with few inspections, raise <strong>Minimum inspected</strong> from <code>0</code>. Runs on <code>quality_checks</code>. The result has <code>inspected</code>, <code>rejected</code> and <code>reject_rate_pct</code>.</p>
+<table>
+  <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Matches columns named, for example</th></tr></thead>
+  <tbody>
+    <tr><td>Machine</td><td>Text</td><td><code>machine_id</code>, <code>machine</code>, <code>asset</code>, <code>station</code></td></tr>
+    <tr><td>Checked at (optional)</td><td>Date or time</td><td><code>checked_at</code>, <code>timestamp</code>, <code>date</code>, <code>inspected_at</code></td></tr>
+    <tr><td>Inspected</td><td>Number</td><td><code>inspected</code>, <code>quantity</code>, <code>qty</code>, <code>parts</code>, <code>checked</code></td></tr>
+    <tr><td>Rejected</td><td>Number</td><td><code>rejected</code>, <code>rejects</code>, <code>defects</code>, <code>scrap</code>, <code>ng</code></td></tr>
+  </tbody>
+</table>
+<p>To change a template's output, such as adding a filter by date, run it and then edit its query in the editor. <a href="/docs/write-queries/">Write queries</a> covers the editor.</p>

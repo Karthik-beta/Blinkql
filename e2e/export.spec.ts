@@ -175,4 +175,45 @@ test.describe("Export", () => {
       expect(scan.violations, `axe violations in ${colorScheme} mode`).toEqual([]);
     }
   });
+
+  test("pictures the chart in a report on the report's own background, whatever the app's theme", async ({
+    page,
+  }) => {
+    // The app in dark mode, as chosen on the landing page.
+    await page.addInitScript(() => localStorage.setItem("blinkql-theme", "dark"));
+    await runSql(page, "SELECT range % 3 AS k FROM range(30)", 30);
+    await page.getByRole("button", { name: "Chart", exact: true }).click();
+    await expect(page.getByRole("img", { name: "Bar chart of count(*) by k" })).toBeVisible();
+    const file = await download(page, "Export as HTML report");
+    const saved = test.info().outputPath("report.html");
+    await file.saveAs(saved);
+    await page.goto(pathToFileURL(saved).href);
+
+    for (const [media, colorScheme] of [
+      ["screen", "light"],
+      ["screen", "dark"],
+      ["print", "dark"],
+    ] as const) {
+      await page.emulateMedia({ media, colorScheme });
+      await expect(page.getByRole("img")).toHaveCount(1);
+      const { chart, background } = await page.getByRole("img").evaluate(chartCorner);
+      expect(chart, `the chart's background on ${media} in ${colorScheme} mode`).toEqual(
+        background,
+      );
+    }
+  });
 });
+
+/** The top-left pixel of `image` and the page's background, as [r, g, b]. */
+async function chartCorner(image: HTMLImageElement) {
+  await image.decode();
+  const context = document
+    .createElement("canvas")
+    .getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
+  const rgb = () => [...context.getImageData(0, 0, 1, 1).data.subarray(0, 3)];
+  context.drawImage(image, 0, 0, 1, 1, 0, 0, 1, 1);
+  const chart = rgb();
+  context.fillStyle = getComputedStyle(document.body).backgroundColor;
+  context.fillRect(0, 0, 1, 1);
+  return { chart, background: rgb() };
+}

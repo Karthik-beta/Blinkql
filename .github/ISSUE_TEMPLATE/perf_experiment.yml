@@ -44,4 +44,4 @@ body:
     id: tradeoffs
     attributes:
       label: Expected trade-offs
-      description: What might get worse: memory, complexity, bundle size?
+      description: "What might get worse: memory, complexity, bundle size?"

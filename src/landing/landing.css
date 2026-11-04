@@ -1,142 +1,6 @@
-/* The landing page. Same tokens as the workbench; see the Design Language, section 12. */
-@import "tailwindcss" source(none); /* preflight and @apply only: this page writes its own classes */
-@import "@fontsource-variable/atkinson-hyperlegible-next";
-@import "@fontsource-variable/atkinson-hyperlegible-mono";
-@import "../styles/tokens.css";
-
-/* ---------- Base ---------- */
-
-/* Local fonts scaled to Atkinson Hyperlegible Mono's advance width (0.632 em), so the hero's SQL
-   wraps the same before and after the web font arrives and nothing shifts. */
-@font-face {
-  font-family: "Mono fallback narrow";
-  src: local("Consolas");
-  size-adjust: 114.9%; /* Consolas: 0.550 em */
-}
-@font-face {
-  font-family: "Mono fallback wide";
-  src: local("Menlo"), local("DejaVu Sans Mono"), local("Liberation Mono"), local("Courier New");
-  size-adjust: 105.3%; /* about 0.600 em */
-}
-:root {
-  --font-code:
-    "Atkinson Hyperlegible Mono Variable", "Mono fallback narrow", "Mono fallback wide", monospace;
-}
-
-body {
-  font-size: 1rem; /* Reading 16 / 26 */
-  line-height: 1.625rem;
-}
-
-.container {
-  width: 100%;
-  max-width: 72rem;
-  margin-inline: auto;
-  padding-inline: 16px;
-}
-@media (min-width: 768px) {
-  .container {
-    padding-inline: 48px;
-  }
-}
-
-a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-  text-decoration-thickness: 1px;
-  transition: color var(--duration-fast) var(--ease-out);
-}
-a:hover {
-  text-decoration-thickness: 2px;
-}
-
-:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-
-.sr-only {
-  @apply sr-only;
-}
-
-.skip-link {
-  position: absolute;
-  left: 16px;
-  top: 8px;
-  z-index: 10;
-  padding: 4px 12px;
-  border-radius: var(--radius);
-  background: var(--popover);
-  color: var(--foreground);
-  transform: translateY(-200%);
-}
-.skip-link:focus {
-  transform: none;
-}
-
-.icon {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* ---------- Type roles (Design Language 5.3) ---------- */
-
-.display {
-  font-size: 2.25rem; /* Title 36 / 42 on phones */
-  line-height: 2.625rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
-}
-@media (min-width: 640px) {
-  .display {
-    font-size: 3rem; /* Display 48 / 52 */
-    line-height: 3.25rem;
-  }
-}
-@media (min-width: 1024px) {
-  .display {
-    /* The hero alone takes the next step of the scale (Bringhurst's 60), so it clearly outranks
-       the section titles at 36. */
-    font-size: 3.75rem;
-    line-height: 4rem;
-    letter-spacing: -0.015em;
-  }
-}
-
-.title {
-  font-size: 1.5rem; /* Heading 24 / 30 on phones */
-  line-height: 1.875rem;
-  font-weight: 700;
-  text-wrap: balance;
-}
-@media (min-width: 640px) {
-  .title {
-    font-size: 2.25rem; /* Title 36 / 42 */
-    line-height: 2.625rem;
-  }
-}
-
-.reading,
-.lede {
-  max-width: 72ch;
-  margin-top: 16px;
-  text-wrap: pretty; /* no one-word last lines */
-}
-
-.caption {
-  font-size: 0.75rem; /* Meta 12 / 16 */
-  line-height: 1rem;
-  color: var(--muted-foreground);
-  max-width: 72ch;
-}
+/* The landing page. Same tokens as the workbench; see the Design Language, section 12. What it
+   shares with the docs is in src/site/site.css. */
+@import "../site/site.css";
 
 /* The hero's headline and lede: stacked on phones, side by side on wide screens with the lede on
    the headline's last line, so the sample query starts higher. */
@@ -152,72 +16,6 @@ a:hover {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
     align-items: end;
   }
-}
-
-/* ---------- Header and footer: machine-grey chrome, as in the product ---------- */
-
-.site-header,
-.site-footer {
-  background: var(--chrome);
-}
-.site-header {
-  border-bottom: 1px solid var(--border);
-}
-.site-header-inner {
-  display: flex;
-  height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.wordmark-link {
-  display: flex;
-  align-items: center;
-  color: var(--foreground);
-  border-radius: 4px;
-}
-.wordmark {
-  height: 20px;
-  width: auto;
-  overflow: visible; /* the lamp's halo grows past the viewBox */
-}
-
-.nav-list {
-  display: flex;
-  gap: 16px;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-}
-.nav-list a,
-.footer-links a {
-  color: var(--foreground);
-  text-decoration: none;
-}
-.nav-list a:hover,
-.footer-links a:hover {
-  text-decoration: underline;
-}
-
-.site-footer {
-  border-top: 1px solid var(--border);
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--muted-foreground);
-}
-.site-footer-inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 24px;
-  padding-block: 24px;
-}
-.site-footer-inner > :last-child {
-  margin-left: auto;
-}
-.footer-links {
-  display: flex;
-  gap: 16px;
 }
 
 /* ---------- Sections ---------- */
@@ -328,44 +126,6 @@ a:hover {
   margin-top: 48px;
 }
 
-/* ---------- Buttons (Design Language 7.4) ---------- */
-
-.button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding-inline: 16px;
-  border: 1px solid transparent; /* visible in Windows contrast themes */
-  border-radius: var(--radius);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-.button-primary {
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-.button-primary:hover {
-  background: color-mix(in oklch, var(--primary) 88%, var(--foreground));
-}
-.button-outline {
-  border-color: var(--input);
-  background: transparent;
-  color: var(--foreground);
-}
-.button-outline:hover {
-  background: var(--accent);
-}
-.button:active {
-  transform: translateY(1px);
-}
-
 /* ---------- The lamp: one living signal (Design Language 8.3) ---------- */
 /* Each lamp's resting look below is what the page loads with, and what readers without JavaScript
    see. The `.js` class (public/theme-init.js) opts in to the live run's timed states. */
@@ -388,15 +148,6 @@ a:hover {
 .milestone-lamp {
   width: 10px;
   height: 10px;
-}
-.wordmark-lamp {
-  fill: var(--primary);
-}
-.wordmark-halo {
-  fill: var(--primary);
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
 }
 
 /* The halo for the done flash: a ring that grows and fades. Transform and opacity only. */
@@ -558,24 +309,6 @@ a:hover {
   color: var(--muted-foreground);
   user-select: none;
 }
-.sql-keyword {
-  color: var(--syntax-keyword);
-  font-weight: 600;
-}
-.sql-string {
-  color: var(--syntax-string);
-}
-.sql-number {
-  color: var(--syntax-number);
-}
-.sql-function {
-  color: var(--syntax-function);
-}
-.sql-comment {
-  color: var(--syntax-comment);
-  font-style: italic;
-}
-
 .results-bar {
   height: 40px;
 }
@@ -801,9 +534,6 @@ a:hover {
   }
   .milestone[data-status="planned"] .milestone-lamp {
     background: Canvas;
-  }
-  .wordmark-lamp {
-    fill: Highlight;
   }
   .query-tab {
     box-shadow: none;

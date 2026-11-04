@@ -7,10 +7,13 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("./styles/tokens.css", import.meta.url), "utf8");
 
-/** Custom properties declared in the top-level rule for `selector`, e.g. ":root" or ".dark". */
+/**
+ * Custom properties declared in the top-level rule for `selector`, e.g. ":root" or ".dark", which
+ * may list other selectors after it.
+ */
 function tokens(selector: string): Record<string, string> {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const body = css.match(new RegExp(`^${escaped}\\s*\\{([^}]*)\\}`, "m"))?.[1];
+  const body = css.match(new RegExp(`^${escaped}(?:,[^{]*)?\\s*\\{([^}]*)\\}`, "m"))?.[1];
   if (body === undefined) throw new Error(`No "${selector}" block in styles/tokens.css`);
   return Object.fromEntries(
     [...body.matchAll(/--([\w-]+):\s*([^;]+);/g)].map(([, name, value]) => [name, value?.trim()]),

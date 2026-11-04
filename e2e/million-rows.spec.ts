@@ -94,7 +94,7 @@ for (const format of ["parquet", "csv"] as const) {
     await expect(page.getByRole("tree", { name: "Tables" }).getByRole("treeitem")).toHaveText(
       [
         new RegExp(
-          `^telemetry_m_narrow ${format === "csv" ? "CSV" : "Parquet"} · 8 columns · [\\d.]+ MB$`,
+          `^telemetry_m_narrow ${format === "csv" ? "CSV" : "Parquet"} · 8 columns · [\\d.]+ MB · telemetry-m-narrow\\.${format}$`,
         ),
       ],
       { timeout: QUERY_TIMEOUT },

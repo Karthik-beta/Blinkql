@@ -6,8 +6,11 @@ import type { ChartPreset } from "./chart-preset";
 /** A chart's type and columns, by name; what a preset sets, without its query. */
 export type ChartSettings = Omit<ChartPreset, "sql">;
 
-/** A drawn chart as a PNG data URL, and the text that describes it to those who can't see it. */
-export type ChartPicture = { png: string; description: string };
+/**
+ * A drawn chart as PNG data URLs in the light and the dark theme, and the text that describes it
+ * to those who can't see it.
+ */
+export type ChartPicture = { light: string; dark: string; description: string };
 
 let shown: ChartSettings | null = null;
 let picture: (() => Promise<ChartPicture | null>) | null = null;

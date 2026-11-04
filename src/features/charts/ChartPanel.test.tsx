@@ -27,7 +27,9 @@ vi.mock("@/features/results/result-store", async () => {
 });
 const draw = vi.hoisted(() => ({
   drawChart: vi.fn(() => () => {}),
-  chartPng: vi.fn((_container: HTMLElement): string | undefined => undefined),
+  chartPng: vi.fn(
+    (_container: HTMLElement, _theme?: "light" | "dark"): string | undefined => undefined,
+  ),
 }));
 vi.mock("./draw-chart", () => draw);
 
@@ -168,13 +170,15 @@ describe("ChartPanel", () => {
 
   it("pictures the drawn chart for a report while it's on screen, but not as a table", async () => {
     engine.query.mockResolvedValue(chartRows);
-    draw.chartPng.mockReturnValue("data:image/png;base64,AAAA");
+    draw.chartPng.mockImplementation((_container, theme) => `data:image/png;base64,${theme}`);
     const user = userEvent.setup();
     const { unmount } = render(<ChartPanel />);
     await vi.waitFor(() => expect(draw.drawChart).toHaveBeenCalled());
 
+    // In both themes, as the report shows the one for its reader's colours.
     expect(await getShownChartPicture()).toEqual({
-      png: "data:image/png;base64,AAAA",
+      light: "data:image/png;base64,light",
+      dark: "data:image/png;base64,dark",
       description: "Bar chart of count(*) by weekday, 2 bars, highest 4 (3), lowest 2 (5)",
     });
 

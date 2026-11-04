@@ -3,12 +3,15 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DuckDBInstance } from "@duckdb/node-api";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 // Loading the engine means fetching and compiling ~35 MB of WebAssembly.
 const ENGINE_TIMEOUT = 60_000;
+// Excel support is an extension the engine fetches and compiles when a workbook is first opened.
+const EXTENSION_TIMEOUT = 30_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,8 +40,8 @@ test.beforeAll(async () => {
 
 type FileServer = { url: string; bytesSent: () => number; close: () => Promise<void> };
 
-/** Serves the Parquet file on a free port, answering range requests, with or without CORS. */
-async function serveParquet({ cors }: { cors: boolean }): Promise<FileServer> {
+/** Serves `file` as `name` on a free port, answering range requests, with or without CORS. */
+async function serve(file: Buffer, name: string, { cors }: { cors: boolean }): Promise<FileServer> {
   let sent = 0;
   const server: Server = createServer((request, response) => {
     if (cors)
@@ -48,10 +51,10 @@ async function serveParquet({ cors }: { cors: boolean }): Promise<FileServer> {
     response.setHeader("Accept-Ranges", "bytes");
     const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.range ?? "");
     const start = range ? Number(range[1]) : 0;
-    const end = range?.[2] ? Math.min(Number(range[2]), parquet.length - 1) : parquet.length - 1;
-    const body = parquet.subarray(start, end + 1);
+    const end = range?.[2] ? Math.min(Number(range[2]), file.length - 1) : file.length - 1;
+    const body = file.subarray(start, end + 1);
     response.setHeader("Content-Length", body.length);
-    if (range) response.setHeader("Content-Range", `bytes ${start}-${end}/${parquet.length}`);
+    if (range) response.setHeader("Content-Range", `bytes ${start}-${end}/${file.length}`);
     response.writeHead(range ? 206 : 200);
     if (request.method === "HEAD") return response.end();
     sent += body.length;
@@ -60,7 +63,7 @@ async function serveParquet({ cors }: { cors: boolean }): Promise<FileServer> {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
   return {
-    url: `http://127.0.0.1:${port}/orders.parquet`,
+    url: `http://127.0.0.1:${port}/${name}`,
     bytesSent: () => sent,
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
@@ -81,7 +84,7 @@ async function addFromUrl(page: Page, url: string) {
 
 test.describe("remote files", () => {
   test("reads a remote Parquet file's schema without downloading all of it", async ({ page }) => {
-    const server = await serveParquet({ cors: true });
+    const server = await serve(parquet, "orders.parquet", { cors: true });
     try {
       await openWorkbench(page);
       await addFromUrl(page, server.url);
@@ -102,8 +105,32 @@ test.describe("remote files", () => {
     }
   });
 
+  test("reads a remote Excel workbook's first sheet", async ({ page }) => {
+    const workbook = await readFile(fileURLToPath(new URL("data/machines.xlsx", import.meta.url)));
+    const server = await serve(workbook, "machines.xlsx", { cors: true });
+    try {
+      await openWorkbench(page);
+      await addFromUrl(page, server.url);
+
+      await expect(
+        page
+          .getByRole("tree", { name: "Tables" })
+          .getByRole("treeitem", { name: "machines Excel · 6 columns" }),
+      ).toBeVisible({ timeout: EXTENSION_TIMEOUT });
+      await expect(page.getByRole("alert")).toHaveCount(0);
+
+      await page.getByRole("button", { name: "Show rows of machines" }).click();
+      await expect(page.getByRole("grid", { name: "Results" })).toHaveAttribute(
+        "aria-rowcount",
+        "6",
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
   test("explains a server that doesn't allow cross-origin reads", async ({ page }) => {
-    const server = await serveParquet({ cors: false });
+    const server = await serve(parquet, "orders.parquet", { cors: false });
     try {
       await openWorkbench(page);
       await addFromUrl(page, server.url);

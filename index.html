@@ -7,13 +7,8 @@
     <script src="/theme-init.js"></script>
     <link rel="canonical" href="https://blinkql.karthik.nz/" />
 
-    <!-- Icons, manifest and link previews (from brand/web/head.html) -->
-    <link rel="icon" href="/favicon.ico" sizes="32x32" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/site.webmanifest" />
-    <meta name="theme-color" content="#EFF2EF" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#181B19" media="(prefers-color-scheme: dark)" />
+    <!-- Icons and manifest (shared with the docs, from src/site/chrome.ts), then link previews -->
+    <!--site:head-->
     <meta
       name="description"
       content="Blinkql is a SQL workbench that runs entirely in your browser, for files too big for a spreadsheet and too sensitive to upload. Version 1.1 is out, and it's open source."
@@ -46,6 +41,11 @@
         "operatingSystem": "Any modern web browser",
         "license": "https://opensource.org/licenses/MIT",
         "codeRepository": "https://github.com/Karthik-beta/Blinkql",
+        "author": {
+          "@type": "Person",
+          "name": "Karthik Parameshwara",
+          "url": "https://karthik.nz/"
+        },
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     </script>
@@ -55,18 +55,7 @@
   <body data-phase="idle">
     <a class="skip-link" href="#main">Skip to content</a>
 
-    <header class="site-header">
-      <div class="container site-header-inner">
-        <a class="wordmark-link" href="/"><!--landing:wordmark--><span class="sr-only">Blinkql home</span></a>
-        <nav aria-label="Main">
-          <ul class="nav-list">
-            <li><a href="#status">Status</a></li>
-            <li><a href="#contribute">Contribute</a></li>
-            <li><a href="https://github.com/Karthik-beta/Blinkql">GitHub</a></li>
-          </ul>
-        </nav>
-      </div>
-    </header>
+    <!--site:header-->
 
     <main id="main">
       <section class="hero container" aria-labelledby="hero-title">
@@ -252,18 +241,6 @@
       </section>
     </main>
 
-    <footer class="site-footer">
-      <div class="container site-footer-inner">
-        <p>
-          Blinkql is open source under the
-          <a href="https://github.com/Karthik-beta/Blinkql/blob/main/LICENSE">MIT licence</a>.
-        </p>
-        <ul class="footer-links">
-          <li><a href="https://github.com/Karthik-beta/Blinkql">GitHub</a></li>
-          <li><a href="https://github.com/Karthik-beta/Blinkql/wiki">Wiki</a></li>
-        </ul>
-        <p>This page uses no analytics and makes no third-party requests.</p>
-      </div>
-    </footer>
+    <!--site:footer-->
   </body>
 </html>

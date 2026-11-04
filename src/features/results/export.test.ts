@@ -125,14 +125,16 @@ describe("export", () => {
   it("includes the chart on screen", async () => {
     show(new Table({ n: vectorFromArray([1], new Int32()) }));
     setShownChartPicture(async () => ({
-      png: "data:image/png;base64,AAAA",
+      light: "data:image/png;base64,AAAA",
+      dark: "data:image/png;base64,BBBB",
       description: "Bar chart of count(*) by n, 1 bar",
     }));
 
     await exportReport("SELECT 1 AS n");
 
     const doc = new DOMParser().parseFromString(await downloadedReport(), "text/html");
-    expect(doc.querySelector("img")?.getAttribute("src")).toBe("data:image/png;base64,AAAA");
+    expect(doc.querySelector("img.light")?.getAttribute("src")).toBe("data:image/png;base64,AAAA");
+    expect(doc.querySelector("img.dark")?.getAttribute("src")).toBe("data:image/png;base64,BBBB");
     expect(doc.querySelector("img")?.getAttribute("alt")).toBe("Bar chart of count(*) by n, 1 bar");
   });
 });
