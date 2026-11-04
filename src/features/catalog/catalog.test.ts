@@ -694,6 +694,23 @@ describe("catalog", () => {
       expect(listing?.[0]).toContain("ORDER BY lower(table_name), ");
     });
 
+    it("keeps names apart that differ in the case of letters other than A to Z", async () => {
+      // DuckDB ignores the case of A to Z only, so Ä and ä are two tables.
+      engine.tables = [
+        ...madeInSql("Ä", "BASE TABLE", ["upper_one", "INTEGER"]),
+        ...madeInSql("ä", "BASE TABLE", ["lower_one", "INTEGER"]),
+      ];
+
+      queryRun.finish('CREATE TABLE "Ä" AS SELECT 1 AS upper_one');
+
+      await vi.waitFor(() =>
+        expect(getCatalog().created.map(({ name, columns }) => [name, columns.length])).toEqual([
+          ["Ä", 1],
+          ["ä", 1],
+        ]),
+      );
+    });
+
     it("takes a table off the list after the query that drops it, even a failed one", async () => {
       engine.tables = madeInSql("scratch", "BASE TABLE", ["id", "INTEGER"]);
       queryRun.finish("CREATE TABLE scratch (id INTEGER)");

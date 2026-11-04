@@ -105,6 +105,11 @@ export function subscribeToCatalog(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/** `name` as DuckDB compares names: ignoring the case of A to Z, but not of other letters. */
+function nameKey(name: string): string {
+  return name.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+}
+
 function displayName(source: File | URL): string {
   return source instanceof URL ? source.href : source.name;
 }
@@ -121,11 +126,8 @@ async function importFile({ source, ...previous }: Source): Promise<ImportedTabl
     }
   }
 
-  // DuckDB's names ignore case, so a table made in SQL as Orders takes "orders" too.
-  const taken = new Set([
-    ...takenNames,
-    ...catalog.created.map((table) => table.name.toLowerCase()),
-  ]);
+  // DuckDB ignores the case of A to Z in names, so a table made in SQL as Orders takes "orders".
+  const taken = new Set([...takenNames, ...catalog.created.map((table) => nameKey(table.name))]);
   const name = tableNameFor(previous.name ?? fileName, taken);
   takenNames.add(name);
   const path = filePath({ name, format });
@@ -370,8 +372,8 @@ export async function forgetTable(name: string): Promise<void> {
 
 // The main schema's tables and views, and the temporary ones CREATE TEMP TABLE makes, with their
 // columns in order. Imported files' views are among them; they're left out by name. A temporary
-// table comes before one of the same name it hides, as SQL finds it first. DuckDB's names ignore
-// case, so "Orders" and "orders" are the same name.
+// table comes before one of the same name it hides, as SQL finds it first. DuckDB ignores the
+// case of A to Z in names, so "Orders" and "orders" are the same name.
 const CREATED_TABLES_SQL =
   "SELECT table_catalog, table_schema, table_name, table_type, column_name, data_type " +
   "FROM information_schema.tables JOIN information_schema.columns " +
@@ -397,7 +399,7 @@ async function refreshCreatedTables(): Promise<void> {
   const created = new Map<string, CreatedTable & { columns: TableColumn[] }>();
   for (const row of rows) {
     const name = String(row.table_name);
-    const key = name.toLowerCase();
+    const key = nameKey(name);
     if (takenNames.has(key)) continue;
     let table = created.get(key);
     // Hidden by a temporary table of the same name, so SQL can't read it by its name.
