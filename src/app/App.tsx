@@ -154,6 +154,12 @@ export function App() {
   const narrow = useSyncExternalStore(subscribeToScreenWidth, isNarrowScreen);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // The sidebar is back beside the workspace, as when a tablet turns sideways, so the sheet is
+  // closed for when the screen narrows again.
+  useEffect(() => {
+    if (!narrow) setSidebarOpen(false);
+  }, [narrow]);
+
   useEffect(() => {
     if (chartPreset) setShowChart(true);
   }, [chartPreset]);

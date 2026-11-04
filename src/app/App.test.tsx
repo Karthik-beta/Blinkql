@@ -196,13 +196,31 @@ describe("App shell", () => {
   });
 
   describe("on a screen too narrow for the sidebar", () => {
+    const screenWidth = { narrow: true, listeners: new Set<() => void>() };
+
+    /** Turns the screen, as a tablet does when rotated, and tells the media query listeners. */
+    const turnScreen = (narrow: boolean) =>
+      act(() => {
+        screenWidth.narrow = narrow;
+        for (const listener of screenWidth.listeners) listener();
+      });
+
     beforeEach(() => {
-      vi.stubGlobal("matchMedia", (media: string) => ({
-        matches: media === "(width < 64rem)",
-        media,
-        addEventListener() {},
-        removeEventListener() {},
-      }));
+      screenWidth.narrow = true;
+      vi.stubGlobal("matchMedia", (media: string) => {
+        // Other queries, such as the editor's for printing, never change here.
+        const isWidth = media === "(width < 64rem)";
+        return {
+          get matches() {
+            return isWidth && screenWidth.narrow;
+          },
+          media,
+          addEventListener: (_type: string, listener: () => void) =>
+            isWidth && screenWidth.listeners.add(listener),
+          removeEventListener: (_type: string, listener: () => void) =>
+            screenWidth.listeners.delete(listener),
+        };
+      });
     });
 
     afterEach(() => {
@@ -224,6 +242,23 @@ describe("App shell", () => {
       await user.click(within(sheet).getByRole("button", { name: "Close" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(open).toHaveFocus();
+    });
+
+    it("doesn't reopen the sheet when the screen turns wide and back", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("button", { name: "Tables" }));
+      await screen.findByRole("dialog", { name: "Tables and queries" });
+
+      turnScreen(false);
+      expect(screen.getByRole("complementary", { name: "Tables" })).toBeInTheDocument();
+      turnScreen(true);
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Tables" })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
     });
 
     it("closes the sheet when a query starts", async () => {
