@@ -54,10 +54,50 @@ describe("query history", () => {
     });
 
     expect(getHistory().history).toMatchObject([
-      { sql: "SELEC 3", outcome: "failed", error: "Parser Error: syntax error", durationMs: 4 },
+      { sql: "SELEC 3", outcome: "failed", errorType: "Parser", durationMs: 4 },
       { sql: "SELECT 2", outcome: "cancelled", durationMs: 30 },
       { sql: "SELECT 1", outcome: "done", rowCount: 1, durationMs: 12 },
     ]);
+  });
+
+  it("keeps only the kind of error, as the message can quote values from the file", async () => {
+    const store = memoryStore();
+    await startHistory(store);
+
+    queryRun.setRun({
+      state: "failed",
+      sql: "SELECT CAST(name AS INTEGER) FROM staff",
+      error: new Error(
+        `{"exception_type":"Conversion","exception_message":"Could not convert string 'Jane Doe' to INT32","position":"7"}`,
+      ),
+      durationMs: 4,
+      editorOffset: 0,
+    });
+    await flush();
+
+    expect(JSON.stringify(getHistory().history)).not.toContain("Jane Doe");
+    expect(JSON.stringify(await store.getAll("history"))).not.toContain("Jane Doe");
+    expect(getHistory().history).toMatchObject([{ outcome: "failed", errorType: "Conversion" }]);
+  });
+
+  it("drops the error messages that earlier versions kept", async () => {
+    const store = memoryStore();
+    const stored = {
+      id: "old",
+      sql: "SELECT * FROM read_csv('staff.csv')",
+      ranAt: 1,
+      durationMs: 3,
+      outcome: "failed",
+      error: `Invalid Input Error: Error when sniffing file "staff.csv": could not parse line "Jane Doe,42"`,
+    };
+    await store.put("history", stored);
+
+    await startHistory(store);
+    await flush();
+
+    expect(JSON.stringify(getHistory().history)).not.toContain("Jane Doe");
+    expect(JSON.stringify(await store.getAll("history"))).not.toContain("Jane Doe");
+    expect(getHistory().history).toMatchObject([{ id: "old", errorType: "Invalid Input" }]);
   });
 
   it("keeps history and saved queries after a reload", async () => {

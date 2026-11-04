@@ -38,7 +38,7 @@ function Outcome({ entry }: { entry: HistoryEntry }) {
     case "cancelled":
       return <span>Cancelled · {duration}</span>;
     case "failed":
-      return <span className="text-destructive">{entry.error}</span>;
+      return <span className="text-destructive">{entry.errorType} error</span>;
   }
 }
 
