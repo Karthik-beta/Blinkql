@@ -410,12 +410,28 @@ async function refreshCreatedTables(): Promise<void> {
  */
 export function followQueries(): () => void {
   let last = getQueryRun();
+  /**
+   * Set when a query that isn't a single read was replaced while running. It reports no end, but
+   * the engine still finishes it, before the next query, so the next query's end lists it.
+   */
+  let replaced = false;
   return subscribeToQueryRun(() => {
     const run = getQueryRun();
     if (run === last) return;
+    const previous = last;
     last = run;
+    // A restarted engine has lost the replaced query's tables, and goes back to idle.
+    if (run.state === "idle") {
+      replaced = false;
+      return;
+    }
+    if (run.state === "running") {
+      if (previous.state === "running" && !isSingleRead(previous.sql)) replaced = true;
+      return;
+    }
     // A failed or cancelled run may have made a table before it stopped.
-    if (run.state === "idle" || run.state === "running" || isSingleRead(run.sql)) return;
+    if (!replaced && isSingleRead(run.sql)) return;
+    replaced = false;
     void refreshCreatedTables();
   });
 }

@@ -59,6 +59,7 @@ const queryRun = vi.hoisted(() => {
       set({ state: "running", sql });
       if (state !== "running") set({ state, sql });
     },
+    reset: () => set({ state: "idle" }),
   };
 });
 vi.mock("@/features/results/query-run", () => queryRun);
@@ -590,6 +591,7 @@ describe("catalog", () => {
   describe("tables made in SQL", () => {
     let unfollow = () => {};
     beforeEach(() => {
+      queryRun.reset();
       unfollow = followQueries();
     });
     afterEach(() => unfollow());
@@ -637,6 +639,29 @@ describe("catalog", () => {
     it("doesn't ask the engine again after a query that only reads, or before one finishes", async () => {
       queryRun.finish("SELECT * FROM range(3)");
       queryRun.finish("CREATE TABLE t AS SELECT 1", "running");
+
+      await Promise.resolve();
+      expect(timesAskedForTables()).toBe(0);
+    });
+
+    it("lists tables made by a query that another query replaced, once that one finishes", async () => {
+      engine.tables = madeInSql("t", "BASE TABLE", ["one", "INTEGER"]);
+      // Several statements can't be stopped, so the engine finishes them before the next query.
+      queryRun.finish("CREATE TABLE t AS SELECT 1 AS one; SELECT * FROM t", "running");
+      queryRun.finish("SELECT 1");
+
+      await vi.waitFor(() =>
+        expect(getCatalog().created.map((table) => table.name)).toEqual(["t"]),
+      );
+      queryRun.finish("SELECT 2");
+      await Promise.resolve();
+      expect(timesAskedForTables()).toBe(1);
+    });
+
+    it("forgets a replaced query once the engine restarts, which goes back to idle", async () => {
+      queryRun.finish("CREATE TABLE t AS SELECT 1 AS one; SELECT * FROM t", "running");
+      queryRun.reset();
+      queryRun.finish("SELECT 1");
 
       await Promise.resolve();
       expect(timesAskedForTables()).toBe(0);
