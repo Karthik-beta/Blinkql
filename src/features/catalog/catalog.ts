@@ -1,9 +1,13 @@
-// The catalog: tables imported from local files or read from the web. Each file is registered with
-// the engine, by handle or by URL, and gets a view named after it, so SQL reads the file directly
-// (see the Architecture page). A copy of each local file is kept in the browser
-// (stored-datasets.ts), so its table comes back after a reload.
+// The catalog: tables imported from local files or read from the web, and tables and views made in
+// SQL. Each file is registered with the engine, by handle or by URL, and gets a view named after
+// it, so SQL reads the file directly (see the Architecture page). A copy of each local file is kept
+// in the browser (stored-datasets.ts), so its table comes back after a reload. Tables made in SQL
+// live only in the engine's memory; the catalog asks the engine for them after each query that may
+// have made or dropped one.
 import { exportQuery, query, registerFile, registerUrl, unregisterFile } from "@/engine/engine";
+import { isSingleRead } from "@/engine/read-only";
 import { parseEngineError } from "@/features/results/engine-error";
+import { getQueryRun, subscribeToQueryRun } from "@/features/results/query-run";
 import { measureSince, measures } from "@/lib/user-timing";
 import {
   detectFormat,
@@ -28,6 +32,16 @@ export type ImportedTable = {
   source: File | URL;
 };
 
+/** A table or view made in SQL, such as with CREATE TABLE … AS SELECT. */
+export type CreatedTable = {
+  name: string;
+  /** The database and schema it's in, so it can be named in full. */
+  catalog: string;
+  schema: string;
+  kind: "table" | "view";
+  columns: readonly TableColumn[];
+};
+
 export type TableColumn = {
   name: string;
   /** DuckDB's name for the column's type, such as VARCHAR. */
@@ -43,6 +57,8 @@ export type ImportFailure = {
 
 export type Catalog = {
   tables: readonly ImportedTable[];
+  /** Tables and views made in SQL, by name. The engine's memory holds them, so a reload loses them. */
+  created: readonly CreatedTable[];
   /** Names of files still being imported. */
   importing: readonly string[];
   /** Names of tables still being converted to Parquet. */
@@ -60,6 +76,7 @@ type Source = { source: File | URL; name?: string; format?: FileFormat };
 
 const empty: Catalog = {
   tables: [],
+  created: [],
   importing: [],
   converting: [],
   failures: [],
@@ -88,6 +105,11 @@ export function subscribeToCatalog(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/** `name` as DuckDB compares names: ignoring the case of A to Z, but not of other letters. */
+function nameKey(name: string): string {
+  return name.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+}
+
 function displayName(source: File | URL): string {
   return source instanceof URL ? source.href : source.name;
 }
@@ -104,7 +126,9 @@ async function importFile({ source, ...previous }: Source): Promise<ImportedTabl
     }
   }
 
-  const name = tableNameFor(previous.name ?? fileName, takenNames);
+  // DuckDB ignores the case of A to Z in names, so a table made in SQL as Orders takes "orders".
+  const taken = new Set([...takenNames, ...catalog.created.map((table) => nameKey(table.name))]);
+  const name = tableNameFor(previous.name ?? fileName, taken);
   takenNames.add(name);
   const path = filePath({ name, format });
   const started = performance.now();
@@ -240,7 +264,9 @@ export function importUrl(url: URL): Promise<void> {
 export async function reimportTables(): Promise<void> {
   const sources = catalog.tables.map(({ source, name, format }) => ({ source, name, format }));
   takenNames.clear();
-  update((current) => ({ ...current, tables: [], failures: [], warnings: [] }));
+  // A restarted engine has lost the tables made in SQL.
+  refreshes++;
+  update((current) => ({ ...current, tables: [], created: [], failures: [], warnings: [] }));
   await importSources(sources, false);
 }
 
@@ -344,9 +370,106 @@ export async function forgetTable(name: string): Promise<void> {
   takenNames.delete(name);
 }
 
+// The main schema's tables and views, and the temporary ones CREATE TEMP TABLE makes, with their
+// columns in order. Imported files' views are among them; they're left out by name. A temporary
+// table comes before one of the same name it hides, as SQL finds it first. DuckDB ignores the
+// case of A to Z in names, so "Orders" and "orders" are the same name.
+const CREATED_TABLES_SQL =
+  "SELECT table_catalog, table_schema, table_name, table_type, column_name, data_type " +
+  "FROM information_schema.tables JOIN information_schema.columns " +
+  "USING (table_catalog, table_schema, table_name) " +
+  "WHERE (table_catalog = current_database() AND table_schema = current_schema()) " +
+  "OR table_catalog = 'temp' " +
+  "ORDER BY lower(table_name), table_catalog = 'temp' DESC, ordinal_position";
+
+/** Counts the times the tables made in SQL were asked for, so only the latest answer is kept. */
+let refreshes = 0;
+
+/** Asks the engine which tables and views have been made in SQL, and lists them. */
+async function refreshCreatedTables(): Promise<void> {
+  const refresh = ++refreshes;
+  let rows: Record<string, unknown>[];
+  try {
+    rows = (await query(CREATED_TABLES_SQL)).toArray();
+  } catch {
+    // The engine stopped; it says so in the status bar.
+    return;
+  }
+  if (refresh !== refreshes) return;
+  const created = new Map<string, CreatedTable & { columns: TableColumn[] }>();
+  for (const row of rows) {
+    const name = String(row.table_name);
+    const key = nameKey(name);
+    if (takenNames.has(key)) continue;
+    let table = created.get(key);
+    // Hidden by a temporary table of the same name, so SQL can't read it by its name.
+    if (table && (table.catalog !== row.table_catalog || table.schema !== row.table_schema)) {
+      continue;
+    }
+    if (!table) {
+      table = {
+        name,
+        catalog: String(row.table_catalog),
+        schema: String(row.table_schema),
+        kind: row.table_type === "VIEW" ? "view" : "table",
+        columns: [],
+      };
+      created.set(key, table);
+    }
+    table.columns.push({ name: String(row.column_name), type: String(row.data_type) });
+  }
+  // Listed afresh even when nothing seems to have changed: an INSERT changes no names, but the
+  // column statistics read for a table before it are out of date.
+  update((current) => ({ ...current, created: [...created.values()] }));
+}
+
+/**
+ * Lists the tables and views made in SQL again after each query that may have made, changed or
+ * dropped one, which is any query but a single read. Returns a function that stops.
+ */
+export function followQueries(): () => void {
+  let last = getQueryRun();
+  /**
+   * Set when a query that isn't a single read was replaced while running. It reports no end, but
+   * the engine still finishes it, before the next query, so the next query's end lists it.
+   */
+  let replaced = false;
+  return subscribeToQueryRun(() => {
+    const run = getQueryRun();
+    if (run === last) return;
+    const previous = last;
+    last = run;
+    // A restarted engine has lost the replaced query's tables, and goes back to idle.
+    if (run.state === "idle") {
+      replaced = false;
+      return;
+    }
+    if (run.state === "running") {
+      if (previous.state === "running" && !isSingleRead(previous.sql)) replaced = true;
+      return;
+    }
+    // A failed or cancelled run may have made a table before it stopped.
+    if (!replaced && isSingleRead(run.sql)) return;
+    replaced = false;
+    void refreshCreatedTables();
+  });
+}
+
+/** Drops table or view `name`, made in SQL, from the engine and the catalog. */
+export async function dropTable(name: string): Promise<void> {
+  const table = catalog.created.find((other) => other.name === name);
+  if (!table) return;
+  const kind = table.kind === "view" ? "VIEW" : "TABLE";
+  // Named in full: a temporary table of the same name would be found first otherwise.
+  const target = [table.catalog, table.schema, name].map(quoteIdentifier).join(".");
+  await query(`DROP ${kind} IF EXISTS ${target}`).catch(() => {});
+  await refreshCreatedTables();
+}
+
 /** Empties the catalog. For tests; it doesn't drop anything from the engine. */
 export function resetCatalog(): void {
   takenNames.clear();
   restoring = null;
+  refreshes++;
   update(() => empty);
 }

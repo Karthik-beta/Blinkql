@@ -16,10 +16,13 @@ export type ColumnStats = {
  */
 const EXACT_DISTINCT_LIMIT = 1000;
 
-// Keyed by the table itself, so a table imported again (e.g. after a restart) is read again.
-const cache = new WeakMap<ImportedTable, Promise<ReadonlyMap<string, ColumnStats>>>();
+/** A table imported or made in SQL; its statistics need only its name. */
+type Table = Pick<ImportedTable, "name">;
 
-async function readColumnStats(table: ImportedTable): Promise<ReadonlyMap<string, ColumnStats>> {
+// Keyed by the table itself, so a table imported again (e.g. after a restart) is read again.
+const cache = new WeakMap<Table, Promise<ReadonlyMap<string, ColumnStats>>>();
+
+async function readColumnStats(table: Table): Promise<ReadonlyMap<string, ColumnStats>> {
   const result = await query(
     "SELECT column_name, null_percentage::DOUBLE AS null_percentage, " +
       "approx_unique::DOUBLE AS distinct_count " +
@@ -50,7 +53,7 @@ async function readColumnStats(table: ImportedTable): Promise<ReadonlyMap<string
 }
 
 /** Each column's statistics by column name, read once per table. A failed read is retried. */
-export function loadColumnStats(table: ImportedTable): Promise<ReadonlyMap<string, ColumnStats>> {
+export function loadColumnStats(table: Table): Promise<ReadonlyMap<string, ColumnStats>> {
   let stats = cache.get(table);
   if (!stats) {
     stats = readColumnStats(table);

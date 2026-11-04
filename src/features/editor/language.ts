@@ -38,7 +38,7 @@ let schema: { catalog: Catalog; complete: CompletionSource } | null = null;
 const completeSchema: CompletionSource = (context) => {
   const catalog = getCatalog();
   if (schema?.catalog !== catalog) {
-    const tables = catalog.tables.map((table) => [
+    const tables = [...catalog.tables, ...catalog.created].map((table) => [
       table.name,
       table.columns.map((column) => ({
         label: column.name,

@@ -35,7 +35,9 @@ import { parseEngineError } from "@/features/results/engine-error";
 import { runQuery } from "@/features/results/query-run";
 import { loadSample, samples } from "@/features/samples/samples";
 import {
+  type CreatedTable,
   convertTable,
+  dropTable,
   filePath,
   forgetTable,
   getCatalog,
@@ -75,15 +77,20 @@ function formatSize(bytes: number): string {
   return `${size.format(value)} ${units[unit]}`;
 }
 
+/** A table in the schema tree: imported from a file, or made in SQL. */
+type ListedTable = ImportedTable | CreatedTable;
+
+const isImported = (table: ListedTable): table is ImportedTable => "source" in table;
+
 /** A row of the schema tree: a table, or one of its columns. */
-type TreeNode = { key: string; table: ImportedTable; column?: TableColumn };
+type TreeNode = { key: string; table: ListedTable; column?: TableColumn };
 
 type StatsState =
   | { state: "loading" }
   | { state: "done"; stats: ReadonlyMap<string, ColumnStats> }
   | { state: "failed"; message: string };
 
-function useColumnStats(table: ImportedTable): StatsState {
+function useColumnStats(table: ListedTable): StatsState {
   const [stats, setStats] = useState<StatsState>({ state: "loading" });
   useEffect(() => {
     let current = true;
@@ -117,20 +124,37 @@ type ItemProps = (node: TreeNode) => {
   onKeyDown: (event: KeyboardEvent) => void;
 };
 
-function profile(table: ImportedTable): void {
+function profile(table: ListedTable): void {
   void runQuery(profileSql(table.name));
 }
 
-function showRows(table: ImportedTable): void {
+function showRows(table: ListedTable): void {
   void runQuery(rowsSql(table.name));
 }
 
-function forget(table: ImportedTable): void {
-  void forgetTable(table.name);
+/** Forgets an imported table, or drops one made in SQL. */
+function forget(table: ListedTable): void {
+  void (isImported(table) ? forgetTable(table.name) : dropTable(table.name));
 }
 
 function convert(table: ImportedTable): void {
   void convertTable(table.name);
+}
+
+/** What a table holds and where it came from, e.g. "CSV · 3 columns · 1.2 KB · orders.csv". */
+function detailsOf(table: ListedTable): string {
+  const columns = `${table.columns.length} ${table.columns.length === 1 ? "column" : "columns"}`;
+  if (!isImported(table)) {
+    return [`SQL ${table.kind}`, columns, "gone after a reload"].join(" · ");
+  }
+  return [
+    formatLabels[table.format],
+    columns,
+    table.source instanceof File && formatSize(table.source.size),
+    table.fileName,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function TableItem({
@@ -140,7 +164,7 @@ function TableItem({
   onToggle,
   itemProps,
 }: {
-  table: ImportedTable;
+  table: ListedTable;
   expanded: boolean;
   converting: boolean;
   onToggle: () => void;
@@ -148,17 +172,10 @@ function TableItem({
 }) {
   const labelId = useId();
   const sheetHintId = useId();
-  const columns = table.columns.length;
-  const details = [
-    formatLabels[table.format],
-    `${columns} ${columns === 1 ? "column" : "columns"}`,
-    table.source instanceof File && formatSize(table.source.size),
-    table.fileName,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const convertible = isConvertible(table);
-  const sheetHint = expanded && table.format === "xlsx";
+  const details = detailsOf(table);
+  const imported = isImported(table) ? table : null;
+  const convertible = imported !== null && isConvertible(imported);
+  const sheetHint = expanded && imported?.format === "xlsx";
   const { tabIndex, ...handlers } = itemProps({ key: table.name, table });
   return (
     <div
@@ -202,10 +219,10 @@ function TableItem({
           )}
         </div>
         {/* Out of the Tab order, like the chevron: from the keyboard, C converts a CSV table to
-            Parquet, R shows the rows, P profiles the table and Delete forgets it. Rows and
-            profiles show in the results grid, like any query, so they need no SQL; the rows can
-            then be charted. */}
-        {convertible && (
+            Parquet, R shows the rows, P profiles the table and Delete forgets it, or drops a table
+            made in SQL. Rows and profiles show in the results grid, like any query, so they need
+            no SQL; the rows can then be charted. */}
+        {imported && convertible && (
           <Button
             variant="ghost"
             size="icon-sm"
@@ -215,7 +232,7 @@ function TableItem({
             title="Convert to Parquet (C): faster queries, and a smaller copy kept in this browser"
             onClick={(event) => {
               event.stopPropagation();
-              convert(table);
+              convert(imported);
             }}
           >
             <ArrowRightLeft aria-hidden />
@@ -251,8 +268,12 @@ function TableItem({
           variant="ghost"
           size="icon-sm"
           tabIndex={-1}
-          aria-label={`Forget ${table.name}`}
-          title="Forget (Delete): remove the table and the copy kept in this browser"
+          aria-label={`${imported ? "Forget" : "Drop"} ${table.name}`}
+          title={
+            isImported(table)
+              ? "Forget (Delete): remove the table and the copy kept in this browser"
+              : `Drop (Delete): remove the ${table.kind} from the engine`
+          }
           onClick={(event) => {
             event.stopPropagation();
             forget(table);
@@ -262,11 +283,11 @@ function TableItem({
         </Button>
       </div>
       {/* The table is a workbook's first sheet; the others are only a query away. */}
-      {sheetHint && (
+      {imported && sheetHint && (
         <p id={sheetHintId} className="pl-6 text-muted-foreground text-xs">
           First sheet only. For another, query{" "}
           <code className="wrap-anywhere font-mono">
-            read_xlsx('{filePath(table)}', sheet = 'Sheet2')
+            read_xlsx('{filePath(imported)}', sheet = 'Sheet2')
           </code>
           .
         </p>
@@ -276,7 +297,7 @@ function TableItem({
   );
 }
 
-function ColumnGroup({ table, itemProps }: { table: ImportedTable; itemProps: ItemProps }) {
+function ColumnGroup({ table, itemProps }: { table: ListedTable; itemProps: ItemProps }) {
   const stats = useColumnStats(table);
   return (
     <>
@@ -531,7 +552,9 @@ export function CatalogPanel({ ref }: { ref?: Ref<CatalogHandle> }) {
   const [active, setActive] = useState<string | null>(null);
   const items = useRef(new Map<string, HTMLDivElement>());
 
-  const nodes: TreeNode[] = catalog.tables.flatMap((table) => [
+  // Imported tables first, in the order they came, then those made in SQL, by name.
+  const tables: readonly ListedTable[] = [...catalog.tables, ...catalog.created];
+  const nodes: TreeNode[] = tables.flatMap((table) => [
     { key: table.name, table },
     ...(expanded.has(table.name)
       ? table.columns.map((column, index) => ({ key: `${table.name}/${index}`, table, column }))
@@ -598,7 +621,7 @@ export function CatalogPanel({ ref }: { ref?: Ref<CatalogHandle> }) {
         break;
       case "c":
       case "C":
-        if (node.column || !isConvertible(node.table)) return;
+        if (node.column || !isImported(node.table) || !isConvertible(node.table)) return;
         convert(node.table);
         break;
       default:
@@ -658,19 +681,19 @@ export function CatalogPanel({ ref }: { ref?: Ref<CatalogHandle> }) {
         />
       </div>
 
-      {catalog.tables.length === 0 && catalog.importing.length === 0 && (
+      {tables.length === 0 && catalog.importing.length === 0 && (
         <p className="text-muted-foreground text-xs">
           No tables yet. Drop a CSV, Excel, Parquet or JSON file anywhere, pick one with the import
           button above, or load sample data to try things out.
         </p>
       )}
-      {catalog.tables.length > 0 && (
+      {tables.length > 0 && (
         <div
           role="tree"
           aria-labelledby="catalog-heading"
           className="-mx-1 flex min-h-0 flex-col gap-0.5 overflow-auto"
         >
-          {catalog.tables.map((table) => (
+          {tables.map((table) => (
             <TableItem
               key={table.name}
               table={table}
