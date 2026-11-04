@@ -153,6 +153,7 @@ export function App() {
   const chartPreset = useSyncExternalStore(subscribeToChartPreset, getChartPreset);
   const narrow = useSyncExternalStore(subscribeToScreenWidth, isNarrowScreen);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const tablesButton = useRef<HTMLButtonElement>(null);
 
   // The sidebar is back beside the workspace, as when a tablet turns sideways, so the sheet is
   // closed for when the screen narrows again.
@@ -218,6 +219,7 @@ export function App() {
       <header className="flex h-11 shrink-0 items-center border-b bg-chrome px-4">
         {narrow && (
           <Button
+            ref={tablesButton}
             variant="outline"
             size="sm"
             className="mr-3"
@@ -238,7 +240,8 @@ export function App() {
       <div className="flex min-h-0 flex-1">
         {narrow ? (
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-            <SheetContent>
+            {/* Named, because Safari doesn't focus a tapped button for the sheet to go back to. */}
+            <SheetContent finalFocus={tablesButton}>
               {/* Lines up with the top bar, so Close is where Tables was. */}
               <div className="flex h-11 shrink-0 items-center border-b px-4">
                 <SheetClose render={<Button variant="outline" size="sm" />}>

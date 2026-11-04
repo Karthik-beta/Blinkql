@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineStatus } from "@/engine/engine";
@@ -240,6 +240,20 @@ describe("App shell", () => {
       expect(within(sheet).getByRole("region", { name: "Queries" })).toBeInTheDocument();
 
       await user.click(within(sheet).getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(open).toHaveFocus();
+    });
+
+    it("gives the focus back to Tables on closing, even if tapping it didn't focus it", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      const open = screen.getByRole("button", { name: "Tables" });
+
+      // Safari doesn't focus a button that's clicked or tapped, so focus stays on the page.
+      fireEvent.click(open);
+      const sheet = await screen.findByRole("dialog", { name: "Tables and queries" });
+      await user.click(within(sheet).getByRole("button", { name: "Close" }));
+
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(open).toHaveFocus();
     });
