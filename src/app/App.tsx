@@ -1,4 +1,4 @@
-import { RotateCcw } from "lucide-react";
+import { PanelLeft, RotateCcw, X } from "lucide-react";
 import {
   lazy,
   Profiler,
@@ -10,6 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   type EngineStatus,
   getEngineStatus,
@@ -46,6 +47,18 @@ import { UpdatePrompt } from "./UpdatePrompt";
 const ChartPanel = lazy(() =>
   import("@/features/charts/ChartPanel").then(({ ChartPanel }) => ({ default: ChartPanel })),
 );
+
+// Below Tailwind's lg breakpoint the sidebar no longer fits beside the workspace, so it becomes a
+// sheet that slides over it (Design Language, "Smaller screens").
+const narrowScreen = "(width < 64rem)";
+
+function subscribeToScreenWidth(listener: () => void): () => void {
+  const query = matchMedia(narrowScreen);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
+
+const isNarrowScreen = () => matchMedia(narrowScreen).matches;
 
 function describeEngine(status: EngineStatus): string {
   switch (status.state) {
@@ -138,6 +151,8 @@ export function App() {
   const engine = useSyncExternalStore(subscribeToEngineStatus, getEngineStatus);
   const [showChart, setShowChart] = useState(false);
   const chartPreset = useSyncExternalStore(subscribeToChartPreset, getChartPreset);
+  const narrow = useSyncExternalStore(subscribeToScreenWidth, isNarrowScreen);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (chartPreset) setShowChart(true);
@@ -151,6 +166,16 @@ export function App() {
     share: useRef(null),
   };
 
+  // A query started from the sheet, such as Show rows or a history entry, closes it, so the
+  // results it's about to show aren't hidden behind it.
+  useEffect(
+    () =>
+      subscribeToQueryRun(() => {
+        if (getQueryRun().state === "running") setSidebarOpen(false);
+      }),
+    [],
+  );
+
   useEffect(() => {
     // Benchmarked as "time to app shell" (bench/scenarios/time-to-app-shell.ts).
     markOnce(marks.appShell);
@@ -161,6 +186,13 @@ export function App() {
     // A query sent before then starts it straight away.
     return afterNextPaint(startEngine);
   }, []);
+
+  const sidebar = (
+    <>
+      <CatalogPanel ref={handles.catalogPanel} />
+      <HistoryPanel />
+    </>
+  );
 
   return (
     <div className="flex h-dvh flex-col">
@@ -178,6 +210,18 @@ export function App() {
         Skip to the workspace
       </a>
       <header className="flex h-11 shrink-0 items-center border-b bg-chrome px-4">
+        {narrow && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mr-3"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          >
+            <PanelLeft data-icon="inline-start" aria-hidden />
+            Tables
+          </Button>
+        )}
         <img src={wordmarkLight} alt="Blinkql" className="h-5 w-auto dark:hidden" />
         <img src={wordmarkDark} alt="Blinkql" className="hidden h-5 w-auto dark:block" />
         <div className="ml-auto flex gap-2">
@@ -186,10 +230,23 @@ export function App() {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <div className="flex w-64 shrink-0 flex-col border-r bg-chrome">
-          <CatalogPanel ref={handles.catalogPanel} />
-          <HistoryPanel />
-        </div>
+        {narrow ? (
+          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+            <SheetContent>
+              {/* Lines up with the top bar, so Close is where Tables was. */}
+              <div className="flex h-11 shrink-0 items-center border-b px-4">
+                <SheetClose render={<Button variant="outline" size="sm" />}>
+                  <X data-icon="inline-start" aria-hidden />
+                  Close
+                </SheetClose>
+                <SheetTitle className="sr-only">Tables and queries</SheetTitle>
+              </div>
+              {sidebar}
+            </SheetContent>
+          </Sheet>
+        ) : (
+          <div className="flex w-64 shrink-0 flex-col border-r bg-chrome">{sidebar}</div>
+        )}
         <main
           id="workspace"
           aria-label="Workspace"
@@ -197,7 +254,7 @@ export function App() {
           className="flex min-w-0 flex-1 flex-col outline-none"
         >
           <QueryPanel ref={handles.queryPanel} onRestart={() => void restart()} />
-          <div className="flex items-center gap-3 border-t px-3 py-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-1">
             <fieldset aria-label="Results view" className="flex gap-1">
               <Button
                 variant={showChart ? "ghost" : "secondary"}
@@ -216,8 +273,11 @@ export function App() {
                 Chart
               </Button>
             </fieldset>
-            <ExportButtons ref={handles.exportButtons} />
-            <ShareDialog ref={handles.share} />
+            {/* Wraps below the view buttons as a whole when the bar is too narrow for both. */}
+            <div className="ml-auto flex min-w-0 items-center gap-3">
+              <ExportButtons ref={handles.exportButtons} />
+              <ShareDialog ref={handles.share} />
+            </div>
           </div>
           {/* The table stays mounted under the chart, so it keeps its scroll and selection. */}
           <div hidden={showChart} className="relative flex min-h-0 flex-1 flex-col">

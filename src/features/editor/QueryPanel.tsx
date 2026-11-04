@@ -140,7 +140,7 @@ export function QueryPanel({ ref, onRestart }: Props) {
               Run
               <kbd
                 aria-hidden
-                className="ml-1 rounded-sm border border-primary-foreground/40 px-1 font-sans font-normal"
+                className="ml-1 rounded-sm border border-primary-foreground/40 px-1 font-sans font-normal max-sm:hidden"
               >
                 {runShortcut.keys}
               </kbd>

@@ -1,9 +1,10 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineStatus } from "@/engine/engine";
 import { setChartPreset } from "@/features/charts/chart-preset";
 import { findSqlEditor } from "@/features/editor/test-utils";
+import { resetQueryRun, runQuery } from "@/features/results/query-run";
 import { endTour } from "@/features/tour/tour-step";
 import { marks } from "@/lib/user-timing";
 import { App } from "./App";
@@ -192,5 +193,48 @@ describe("App shell", () => {
     await user.keyboard("{Control>}k{/Control}");
     await user.keyboard("shortcuts{Enter}");
     expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+  });
+
+  describe("on a screen too narrow for the sidebar", () => {
+    beforeEach(() => {
+      vi.stubGlobal("matchMedia", (media: string) => ({
+        matches: media === "(width < 64rem)",
+        media,
+        addEventListener() {},
+        removeEventListener() {},
+      }));
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      resetQueryRun();
+    });
+
+    it("keeps the sidebar in a sheet that the Tables button opens and Close closes", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      const open = screen.getByRole("button", { name: "Tables" });
+      expect(screen.queryByRole("complementary", { name: "Tables" })).not.toBeInTheDocument();
+
+      await user.click(open);
+      const sheet = await screen.findByRole("dialog", { name: "Tables and queries" });
+      expect(within(sheet).getByRole("complementary", { name: "Tables" })).toBeInTheDocument();
+      expect(within(sheet).getByRole("region", { name: "Queries" })).toBeInTheDocument();
+
+      await user.click(within(sheet).getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(open).toHaveFocus();
+    });
+
+    it("closes the sheet when a query starts", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("button", { name: "Tables" }));
+      await screen.findByRole("dialog", { name: "Tables and queries" });
+
+      act(() => void runQuery("SELECT 1"));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    });
   });
 });

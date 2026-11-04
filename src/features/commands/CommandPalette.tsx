@@ -80,7 +80,11 @@ export function CommandPalette({ commands }: Props) {
       >
         <Search data-icon="inline-start" aria-hidden />
         Commands
-        <kbd aria-hidden className="ml-1 rounded-sm border px-1 font-sans font-normal">
+        {/* Phones have no keyboard to press it on, and the top bar needs the room. */}
+        <kbd
+          aria-hidden
+          className="ml-1 rounded-sm border px-1 font-sans font-normal max-sm:hidden"
+        >
           {paletteShortcut.keys}
         </kbd>
       </Button>

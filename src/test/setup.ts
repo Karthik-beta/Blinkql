@@ -14,6 +14,19 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 };
 
+// jsdom has no media queries either; tests see a wide screen unless they stub matchMedia.
+globalThis.matchMedia ??= (media: string) =>
+  ({
+    matches: false,
+    media,
+    onchange: null,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    dispatchEvent: () => false,
+  }) as MediaQueryList;
+
 // The service worker's virtual module only loads in Vite builds, and tests never register one.
 vi.mock("virtual:pwa-register/react", async () => {
   const { useState } = await import("react");
