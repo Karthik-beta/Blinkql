@@ -340,22 +340,34 @@ export const samples: readonly Sample[] = [
   },
 ];
 
-/** Samples being loaded, so a second click doesn't load one twice. */
-const loading = new Set<string>();
+/** Each sample being loaded, so a second click waits for the same load instead of starting one. */
+const loading = new Map<string, Promise<void>>();
+
+const isLoaded = (name: string) => getCatalog().tables.some((table) => table.name === name);
 
 /**
  * Builds the sample in the engine, writes it as Parquet and imports it like a dropped file, so it
  * appears in the catalog and survives reloads. Does nothing if a table of that name exists.
+ * Resolves once the table is in the catalog and rejects if it couldn't be added.
  */
 export async function loadSample(name: string): Promise<void> {
   const sample = samples.find((other) => other.name === name);
   if (!sample) throw new Error(`No sample called ${name}`);
-  if (loading.has(name) || getCatalog().tables.some((table) => table.name === name)) return;
-  loading.add(name);
-  try {
-    const bytes = await exportQuery(sample.sql, "parquet");
-    await importFiles([new File([bytes], `${name}.parquet`)]);
-  } finally {
-    loading.delete(name);
+  if (isLoaded(name)) return;
+  let load = loading.get(name);
+  if (!load) {
+    load = buildSample(sample).finally(() => loading.delete(name));
+    loading.set(name, load);
   }
+  return load;
+}
+
+async function buildSample({ name, sql }: Sample): Promise<void> {
+  const fileName = `${name}.parquet`;
+  const bytes = await exportQuery(sql, "parquet");
+  // A failed import is recorded with the catalog's failures rather than thrown.
+  await importFiles([new File([bytes], fileName)]);
+  if (isLoaded(name)) return;
+  const failure = getCatalog().failures.find((other) => other.fileName === fileName);
+  throw new Error(failure?.message ?? `The ${name} sample couldn't be added to the tables.`);
 }
