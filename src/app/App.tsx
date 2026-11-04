@@ -154,12 +154,16 @@ export function App() {
   const narrow = useSyncExternalStore(subscribeToScreenWidth, isNarrowScreen);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const tablesButton = useRef<HTMLButtonElement>(null);
+  const workspace = useRef<HTMLElement>(null);
 
   // The sidebar is back beside the workspace, as when a tablet turns sideways, so the sheet is
-  // closed for when the screen narrows again.
+  // closed for when the screen narrows again. The sheet went without closing, so the focus it held
+  // is put in the workspace instead of being lost.
   useEffect(() => {
-    if (!narrow) setSidebarOpen(false);
-  }, [narrow]);
+    if (narrow || !sidebarOpen) return;
+    setSidebarOpen(false);
+    if (document.activeElement === document.body) workspace.current?.focus();
+  }, [narrow, sidebarOpen]);
 
   useEffect(() => {
     if (chartPreset) setShowChart(true);
@@ -257,6 +261,7 @@ export function App() {
           <div className="flex w-64 shrink-0 flex-col border-r bg-chrome">{sidebar}</div>
         )}
         <main
+          ref={workspace}
           id="workspace"
           aria-label="Workspace"
           tabIndex={-1}

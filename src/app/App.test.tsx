@@ -266,6 +266,8 @@ describe("App shell", () => {
 
       turnScreen(false);
       expect(screen.getByRole("complementary", { name: "Tables" })).toBeInTheDocument();
+      // The focus was in the sheet; it stays in the app rather than falling to the page.
+      await waitFor(() => expect(screen.getByRole("main", { name: "Workspace" })).toHaveFocus());
       turnScreen(true);
 
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
