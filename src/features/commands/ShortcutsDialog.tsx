@@ -47,6 +47,7 @@ const groups: { title: string; shortcuts: [action: string, keys: string][] }[] =
     title: "Tables list",
     shortcuts: [
       ["Move between tables and columns", "↑ / ↓"],
+      ["Go to the first or last item", "Home / End"],
       ["Show or hide a table's columns", "→ / ←"],
       ["Insert the name into the editor", "Enter"],
       ["Show a table's rows", "R"],

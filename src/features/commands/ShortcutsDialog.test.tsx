@@ -20,4 +20,13 @@ describe("ShortcutsDialog", () => {
     expect(row("Close a dialog")).toHaveTextContent("Esc");
     expect(row("Undo")).toHaveTextContent("Ctrl+Z");
   });
+
+  it("lists Home and End in the tables list", () => {
+    render(<ShortcutsDialog open onOpenChange={() => {}} />);
+
+    const tablesList = screen.getByRole("table", { name: "Tables list" });
+    expect(
+      within(tablesList).getByRole("row", { name: /^Go to the first or last item/ }),
+    ).toHaveTextContent("Home / End");
+  });
 });
