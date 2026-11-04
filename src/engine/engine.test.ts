@@ -409,6 +409,23 @@ describe("engine", () => {
       await expect(query("SELECT 2")).resolves.toBeDefined();
     });
 
+    it.each([
+      ["streamed", "SELECT * FROM big"],
+      ["run whole", "INSERT INTO t VALUES (1) RETURNING *"],
+    ])(
+      "gives the connection back when a %s result is stopped before its first read",
+      async (_, sql) => {
+        await query("SELECT 1");
+        duckdb.connection.query.mockResolvedValueOnce({ schema: "schema", batches: ["inserted"] });
+        const { batches } = await streamQuery(sql);
+        await batches[Symbol.asyncIterator]().return?.();
+
+        const next = query("SELECT 2").then(() => "ran");
+        const waited = new Promise((resolve) => setTimeout(resolve, 100, "still waiting"));
+        await expect(Promise.race([next, waited])).resolves.toBe("ran");
+      },
+    );
+
     it("gives the connection back when the query fails", async () => {
       await query("SELECT 1");
       duckdb.connection.send.mockRejectedValueOnce(new Error("Binder Error: no such column"));

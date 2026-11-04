@@ -227,6 +227,22 @@ export async function streamQuery(sql: string, signal?: AbortSignal): Promise<Re
     signal?.removeEventListener("abort", cancel);
     taken();
   };
+  /**
+   * `source`, still giving the connection back if it's stopped before its first read: a generator
+   * that hasn't started skips its `finally`. Giving it back twice changes nothing.
+   */
+  const releasing = (source: AsyncGenerator<RecordBatch>): AsyncIterable<RecordBatch> => ({
+    [Symbol.asyncIterator]: () => ({
+      next: () => source.next(),
+      return: async (value) => {
+        try {
+          return await source.return(value);
+        } finally {
+          giveBack();
+        }
+      },
+    }),
+  });
   /** The whole result, run with query(), as a stream. */
   const whole = async (): Promise<ResultStream> => {
     const table = await unlessCrashed(connection.query(sql));
@@ -240,7 +256,7 @@ export async function streamQuery(sql: string, signal?: AbortSignal): Promise<Re
         giveBack();
       }
     }
-    return { schema: table.schema, batches: batches() };
+    return { schema: table.schema, batches: releasing(batches()) };
   };
   try {
     if (!isSingleRead(sql)) return await whole();
@@ -263,7 +279,7 @@ export async function streamQuery(sql: string, signal?: AbortSignal): Promise<Re
         giveBack();
       }
     }
-    return { schema: reader.schema, batches: batches() };
+    return { schema: reader.schema, batches: releasing(batches()) };
   } catch (error) {
     giveBack();
     throw isCrash(error) ? crash(error) : unwrapped(error);
