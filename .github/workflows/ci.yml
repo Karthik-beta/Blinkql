@@ -1,0 +1,302 @@
+# Checks every pull request and every push to main.
+#
+#   checks          typecheck, Biome, unit tests, production build
+#   e2e (browser)   Playwright on Chromium, Firefox and WebKit, in parallel
+#   size            initial JavaScript of each page against its budget (.size-limit.ts)
+#   lighthouse      LCP and CLS of / and /app/ (lighthouserc.json)
+#   bench-smoke     a short benchmark run against generous ceilings
+#                   (bench/smoke-thresholds.json)
+#
+# The job names are the required status checks in the `main` ruleset, so
+# renaming a job means updating the ruleset too. Production deploys wait for
+# this workflow to pass on main (see deploy.yml).
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Superseded PR runs are cancelled; runs on main always finish because the
+  # production deploy waits for them.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Git hooks are for local commits; skip installing them on CI runners.
+  LEFTHOOK: 0
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint and format (Biome)
+        run: pnpm exec biome ci
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  e2e:
+    name: e2e (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      # One cache entry per browser and Playwright version, so a Playwright
+      # upgrade starts a fresh cache and each job restores only its browser.
+      - name: Cache Playwright browser
+        id: browser-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install browser
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install ${{ matrix.browser }}
+
+      # The packages apt downloaded for the browser's OS libraries on earlier runs,
+      # partial downloads included, so a run only downloads what's still missing.
+      # The mirror sometimes serves them at a few dozen KB a second, too slowly
+      # for one run to finish; each run then carries on from the last one's.
+      - name: Restore system dependency packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/apt-archives
+          key: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-
+
+      # The browser cache holds the browser only; its OS libraries still need
+      # installing. This usually takes under a minute, but apt sometimes stalls for
+      # 10 minutes or more and uses up the job's timeout, so each attempt gets 3
+      # minutes and a stalled one is retried. sudo runs apt in its own session, out
+      # of the timeout's reach, so a stalled apt-get is killed before the next
+      # attempt, which resumes its partial downloads. `dpkg --configure -a` finishes
+      # what a killed attempt left half-installed.
+      - name: Install system dependencies
+        id: system-deps
+        run: |
+          archives=/var/cache/apt/archives
+          mkdir -p ~/apt-archives
+          before=$(du -sb ~/apt-archives | cut -f1)
+          sudo cp -r ~/apt-archives/. "$archives/"
+          # apt resumes partial downloads as its own user.
+          sudo chown -R _apt:root "$archives/partial" || true
+          status=1
+          for attempt in 1 2 3; do
+            if timeout --kill-after=10s 3m pnpm exec playwright install-deps ${{ matrix.browser }}; then
+              status=0
+              break
+            fi
+            echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
+            sudo pkill -KILL -x apt-get || true
+            sudo pkill -KILL -x dpkg || true
+            sudo dpkg --configure -a || true
+          done
+          sudo cp -r "$archives/." ~/apt-archives/
+          sudo chown -R "$USER" ~/apt-archives
+          rm -f ~/apt-archives/lock ~/apt-archives/partial/.lock
+          if [ "$(du -sb ~/apt-archives | cut -f1)" != "$before" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          exit $status
+
+      # Saved even when the install or the tests fail, but only when this run
+      # downloaded something, so a slow mirror's progress isn't lost.
+      - name: Save system dependency packages
+        if: ${{ !cancelled() && steps.system-deps.outputs.changed == 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/apt-archives
+          key: apt-${{ runner.os }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Run Playwright
+        run: pnpm exec playwright test --project=${{ matrix.browser }}
+
+      - name: Upload report
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  size:
+    name: size
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Check bundle budgets
+        run: pnpm size
+
+  lighthouse:
+    name: lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      # Uses the runner's preinstalled Google Chrome, with the desktop preset: the
+      # workbench is a desktop tool. Lighthouse loses the page load's trace
+      # (NO_NAVSTART) when the page's Cross-Origin-Opener-Policy moves it to a new
+      # process, so lighthouserc.json starts each run from a same-origin blank page.
+      - name: Run Lighthouse CI
+        run: pnpm lhci
+
+      - name: Upload reports
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 14
+
+  bench-smoke:
+    name: bench-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      # The same cache entry as the e2e (chromium) job.
+      - name: Cache Playwright browser
+        id: browser-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}
+
+      - name: Install browser
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install chromium
+
+      # The packages the e2e (chromium) job saved, so the slow mirror is skipped.
+      - name: Restore system dependency packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/apt-archives
+          key: apt-${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}-
+          restore-keys: apt-${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}-
+
+      # As in the e2e job: apt sometimes stalls, so each attempt gets 3 minutes.
+      - name: Install system dependencies
+        run: |
+          sudo cp -r ~/apt-archives/. /var/cache/apt/archives/ 2>/dev/null || true
+          sudo chown -R _apt:root /var/cache/apt/archives/partial || true
+          for attempt in 1 2 3; do
+            if timeout --kill-after=10s 3m pnpm exec playwright install-deps chromium; then
+              exit 0
+            fi
+            echo "::warning::Installing system dependencies failed or stalled (attempt $attempt of 3)"
+            sudo pkill -KILL -x apt-get || true
+            sudo pkill -KILL -x dpkg || true
+            sudo dpkg --configure -a || true
+          done
+          exit 1
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run benchmark smoke test
+        run: pnpm bench:smoke
+
+      - name: Upload results
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-smoke-results
+          path: bench/smoke-results/
+          retention-days: 14

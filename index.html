@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blinkql: query big files without uploading them</title>
+    <script src="/theme-init.js"></script>
+    <link rel="canonical" href="https://blinkql.karthik.nz/" />
+
+    <!-- Icons and manifest (shared with the docs, from src/site/chrome.ts), then link previews -->
+    <!--site:head-->
+    <meta
+      name="description"
+      content="Blinkql is a SQL workbench that runs entirely in your browser, for files too big for a spreadsheet and too sensitive to upload. It's free and open source."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Blinkql" />
+    <meta property="og:title" content="Blinkql: queries in the blink of an eye" />
+    <meta
+      property="og:description"
+      content="A fast, private SQL workbench that runs entirely in your browser. No account. No server. No upload."
+    />
+    <meta property="og:url" content="https://blinkql.karthik.nz/" />
+    <meta property="og:image" content="https://blinkql.karthik.nz/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The Blinkql wordmark and the headline Queries in the blink of an eye, beside a SQL query that returned 10 rows in 38 ms"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Structured data for search engines. A data block, not a script: the CSP doesn't apply. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Blinkql",
+        "description": "A SQL workbench that runs entirely in your browser, for files too big for a spreadsheet and too sensitive to upload.",
+        "url": "https://blinkql.karthik.nz/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any modern web browser",
+        "license": "https://opensource.org/licenses/MIT",
+        "codeRepository": "https://github.com/Karthik-beta/Blinkql",
+        "softwareVersion": "<!--landing:software-version-->",
+        "author": {
+          "@type": "Person",
+          "name": "Karthik Parameshwara",
+          "url": "https://karthik.nz/"
+        },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
+    <script type="module" src="/src/landing/main.ts"></script>
+  </head>
+  <!-- data-phase drives the hero's live run: idle, then loading, running and done (src/landing/live-run.ts) -->
+  <body data-phase="idle">
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!--site:header-->
+
+    <main id="main">
+      <section class="hero container" aria-labelledby="hero-title">
+        <div class="hero-head">
+          <h1 id="hero-title" class="display">
+            Query big files without uploading them<span class="lamp-stop" aria-hidden="true"></span>
+          </h1>
+          <div class="hero-intro">
+            <p class="lede">
+              Blinkql is a SQL workbench for anyone with files too big for a spreadsheet or too
+              sensitive to upload: order exports, ledgers, logs, survey results and machine data,
+              a million rows or more. Open a CSV, Excel, Parquet or JSON file and query it in your
+              browser. Nothing is uploaded.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="/app/">Open the workbench</a>
+              <a href="/docs/">Read the docs</a>
+            </div>
+            <p class="release">Free and open source. Version <!--landing:version-->.</p>
+          </div>
+        </div>
+
+        <figure class="demo" aria-labelledby="demo-caption">
+          <div class="pane-bar editor-bar" aria-hidden="true">
+            <span class="query-tab"><!--landing:query-tab--></span>
+            <span class="run-button">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 4l14 8-14 8z" />
+              </svg>
+              <span class="run-label"
+                ><span data-run="idle">Run</span><span data-run="running">Stop</span></span
+              >
+              <kbd
+                >Ctrl
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+                  <path d="m9 10-5 5 5 5" /></svg
+              ></kbd>
+            </span>
+          </div>
+          <!-- Scrolls sideways on phones, like the editor, so keyboard users must be able to focus it (WCAG 2.1.1) -->
+          <!-- biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs focus to scroll by keyboard -->
+          <section class="editor" tabindex="0" aria-label="Sample query">
+            <pre><code><!--landing:sql--></code></pre>
+          </section>
+          <div class="pane-bar results-bar">
+            <span class="results-tab" aria-hidden="true">Results</span>
+            <span class="readout">
+              <span class="lamp-readout" aria-hidden="true"></span>
+              <span data-readout="loading">Starting the engine…</span>
+              <span data-readout="running">Running…</span>
+              <span data-readout="done"
+                ><strong data-row-count><!--landing:row-count--></strong> rows in
+                <strong data-elapsed-ms><!--landing:elapsed-ms--></strong> ms</span
+              >
+            </span>
+          </div>
+          <div class="grid-pane" data-grid><!--landing:grid--></div>
+        </figure>
+        <div class="demo-footer">
+          <p id="demo-caption" class="caption">
+            A sample query over <!--landing:order-count--> made-up orders from an online shop. Run
+            it, and the real engine answers it here, in your browser.
+          </p>
+          <button class="button button-outline" type="button" data-run-live>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 4l14 8-14 8z" />
+            </svg>
+            Run it live
+          </button>
+        </div>
+        <p class="sr-only" role="status" data-run-status></p>
+      </section>
+
+      <section class="section container" aria-labelledby="steps-title">
+        <h2 id="steps-title" class="title">From file to answer</h2>
+        <ol class="steps">
+          <li class="step">
+            <h3 class="step-title">Open a file</h3>
+            <p>
+              Drag a CSV, TSV, Excel, Parquet or JSON file onto the workbench, or add one from a web
+              address. Each file becomes a table named after it, and the files from your computer are
+              kept in your browser for your next visit.
+            </p>
+            <figure class="artifact catalog">
+              <figcaption class="sr-only">Three files as tables, as the workbench's sidebar lists them</figcaption>
+              <p class="catalog-head" aria-hidden="true">Tables</p>
+              <ul>
+                <li>
+                  <span class="catalog-name">orders</span>
+                  <span class="catalog-meta">CSV · 5 columns · 9.8 MB · Orders.csv</span>
+                </li>
+                <li>
+                  <span class="catalog-name">general_ledger_2026</span>
+                  <span class="catalog-meta">Parquet · 12 columns · 64.3 MB · General ledger 2026.parquet</span>
+                </li>
+                <li>
+                  <span class="catalog-name">survey_responses</span>
+                  <span class="catalog-meta">Excel · 18 columns · 2.4 MB · Survey responses.xlsx</span>
+                </li>
+              </ul>
+            </figure>
+            <a class="step-link" href="/docs/open-files/">Open files</a>
+          </li>
+          <li class="step">
+            <h3 class="step-title">Ask in SQL</h3>
+            <p>
+              Write SQL with autocomplete for your tables and columns, and press
+              <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>⌘</kbd>+<kbd>Enter</kbd> on a Mac) to run it.
+              When a query goes wrong, the workbench says what happened, where, and how to fix it.
+            </p>
+            <figure class="artifact error-panel">
+              <p class="error-title">
+                <svg class="icon error-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4M12 16h.01" />
+                </svg>
+                <span>
+                  <span class="error-name">There's no table called "shipment"</span>
+                  <span class="error-label">Catalog error</span>
+                </span>
+              </p>
+              <p class="error-hint">Did you mean "shipments"?</p>
+              <p class="error-line">Line 2</p>
+              <pre>FROM shipment
+<span class="error-caret" aria-hidden="true">     ^</span></pre>
+              <figcaption class="sr-only">An error, as the workbench shows it under the editor</figcaption>
+            </figure>
+            <a class="step-link" href="/docs/write-queries/">Write queries</a>
+          </li>
+          <li class="step">
+            <h3 class="step-title">See the answer</h3>
+            <p>
+              Scroll through every row a query returns, even millions. Profile a table's columns
+              without writing SQL, and chart a result as a bar, line, scatter, histogram or Pareto
+              chart.
+            </p>
+            <div class="artifact chart-shot">
+              <img
+                class="shot-light"
+                src="/src/landing/screenshots/chart-light.png"
+                alt="A query's 25,493 orders drawn as a bar chart of sales by region, largest first, with the chart type, X, aggregate and Y controls above it"
+                width="1214"
+                height="940"
+                loading="lazy"
+                decoding="async"
+              />
+              <img
+                class="shot-dark"
+                src="/src/landing/screenshots/chart-dark.png"
+                alt="A query's 25,493 orders drawn as a bar chart of sales by region, largest first, with the chart type, X, aggregate and Y controls above it"
+                width="1214"
+                height="940"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+            <a class="step-link" href="/docs/explore-results/">Explore results</a>
+          </li>
+          <li class="step">
+            <h3 class="step-title">Share what you found</h3>
+            <p>
+              Export the results as CSV or Parquet, a chart as PNG, or the whole analysis as one HTML
+              report. Or copy a link that holds the query and the chart's settings, but none of your
+              data.
+            </p>
+            <div class="artifact share">
+              <label for="share-link">Link</label>
+              <input
+                id="share-link"
+                class="share-field"
+                readonly
+                value="https://blinkql.karthik.nz/app/#share=1.eyJzcWwiOiJTRUxFQ1QgcmVnaW9uLCB0b3RhbFxuRlJPTSBvcmRlcnNcbldIRVJFIG9yZGVyZWRfYXQgPj0gJzIwMjYtMTAtMDEnIiwiY2hhcnQiOnsidHlwZSI6ImJhciIsIngiOiJyZWdpb24iLCJ5IjoidG90YWwiLCJhZ2dyZWdhdGUiOiJzdW0ifX0"
+              />
+              <p>A bar chart of October's sales by region from the <code>orders</code> table, and no rows.</p>
+            </div>
+            <a class="step-link" href="/docs/share-and-export/">Share and export</a>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section container" aria-labelledby="templates-title">
+        <h2 id="templates-title" class="title">Ready-made analyses</h2>
+        <p class="reading">
+          Templates are queries written for files that many teams have: two exports that should
+          agree, a file about to be imported, a shipments list, a production log. Each one matches
+          itself to your columns, and each runs on built-in sample data, so you can try it before you
+          open a file of your own.
+        </p>
+        <div class="template-groups">
+          <div class="template-group">
+            <h3 class="subheading">Reconciliation and data quality</h3>
+            <p class="group-note">Two systems' exports of the same thing, and files about to be imported</p>
+            <ul>
+              <li>Two-file reconciliation</li>
+              <li>Data-quality checks for an import file</li>
+            </ul>
+          </div>
+          <div class="template-group">
+            <h3 class="subheading">Logistics</h3>
+            <p class="group-note">Shipments with carriers, lanes, dates, weights and costs</p>
+            <ul>
+              <li>On-time delivery by carrier</li>
+              <li>Delivery lead time by lane</li>
+              <li>Cost per kg by lane and carrier</li>
+            </ul>
+          </div>
+          <div class="template-group">
+            <h3 class="subheading">Production</h3>
+            <p class="group-note">Machine logs, breakdowns, output reports and inspections</p>
+            <ul>
+              <li>OEE by machine</li>
+              <li>Downtime Pareto</li>
+              <li>MTTR and MTBF per machine</li>
+              <li>Output by production day and shift</li>
+              <li>Reject rate by machine</li>
+            </ul>
+          </div>
+        </div>
+        <p class="reading">
+          <a href="/docs/templates/">Analysis templates</a> lists the columns each one needs.
+        </p>
+      </section>
+
+      <section class="section container split" aria-labelledby="privacy-title">
+        <div>
+          <h2 id="privacy-title" class="title">Your files stay on your computer</h2>
+          <p class="reading">
+            Blinkql has no server that receives your data. Your browser reads each file where it is,
+            and the engine runs your queries inside the tab. You don't have to take that on trust.
+            Each claim here says how to check it.
+          </p>
+          <p class="reading">
+            <a href="/docs/privacy-and-storage/">Privacy and storage</a> has the details, and the
+            <a href="https://github.com/Karthik-beta/Blinkql">source code</a> is public.
+          </p>
+        </div>
+        <dl class="claims">
+          <div>
+            <dt>Nothing is uploaded</dt>
+            <dd>
+              <p>Your files, queries and results aren't sent anywhere.</p>
+              <p class="check">
+                To check, open your browser's developer tools on the Network tab, import a file and
+                run a query. No request carries your file or your results.
+              </p>
+            </dd>
+          </div>
+          <div>
+            <dt>No account and no analytics</dt>
+            <dd>
+              <p>There's nothing to sign up for, no tracking cookies and no requests to other companies.</p>
+              <p class="check">
+                To check, watch the Network tab while you work. Every request goes to
+                <code>blinkql.karthik.nz</code>, or to a web address you added a file from.
+              </p>
+            </dd>
+          </div>
+          <div>
+            <dt>It works offline</dt>
+            <dd>
+              <p>After your first visit, the workbench opens without a connection, and files on your computer import and query as usual.</p>
+              <p class="check">
+                To check, turn off your connection and reload the workbench. The status bar says
+                <strong>Offline</strong>, and your queries still run.
+              </p>
+            </dd>
+          </div>
+          <div>
+            <dt>A share link holds no data</dt>
+            <dd>
+              <p>
+                It holds the query and the chart's settings after the <code>#</code> in the address,
+                a part browsers never send to a server.
+              </p>
+              <p class="check">
+                To check, select <strong>Share</strong>. If the query has values written into it,
+                such as a carrier's name, the dialog lists them before you copy the link.
+              </p>
+            </dd>
+          </div>
+          <div>
+            <dt>What's kept stays in your browser</dt>
+            <dd>
+              <p>Copies of your files, your query history and your saved queries are kept for this site only, in this browser profile.</p>
+              <p class="check">
+                To check, open the Application tab of the developer tools in Chrome or Edge. Forget a
+                table, or clear the site's data, to remove what's kept.
+              </p>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="section container" aria-labelledby="specs-title">
+        <h2 id="specs-title" class="title">Specifications</h2>
+        <table class="specs">
+          <caption class="sr-only">Blinkql's specifications</caption>
+          <tbody>
+            <tr>
+              <th scope="row">File formats</th>
+              <td>CSV, TSV, Excel (.xlsx), Parquet, JSON and JSON Lines</td>
+            </tr>
+            <tr>
+              <th scope="row">Where files come from</th>
+              <td>
+                Your computer, by dragging or choosing files. Or a web address starting with
+                <code>https://</code>, if its server lets other sites read the file.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Comfortable file size</th>
+              <td>
+                Exports of 1–2 million rows. There's no fixed limit on size, only memory. The
+                engine gets at most 4 GB in a browser tab, some computers allow less, and Parquet
+                files go further than CSV.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Browsers</th>
+              <td>
+                The latest two versions of Chrome, Edge, Firefox and Safari on desktop. Phones and
+                tablets open it, but its layout is made for a desktop screen.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">SQL</th>
+              <td>DuckDB's SQL, with autocomplete for your tables and columns</td>
+            </tr>
+            <tr>
+              <th scope="row">Data sent to a server</th>
+              <td>None</td>
+            </tr>
+            <tr>
+              <th scope="row">Account</th>
+              <td>None</td>
+            </tr>
+            <tr>
+              <th scope="row">Offline use</th>
+              <td>Yes, once the workbench has loaded. Files from a web address need a connection.</td>
+            </tr>
+            <tr>
+              <th scope="row">Accessibility</th>
+              <td>
+                Targets WCAG 2.2 AA, checked automatically in light and dark themes. The core tasks
+                work with a keyboard alone, and every chart can be read as a table.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Price</th>
+              <td>Free</td>
+            </tr>
+            <tr>
+              <th scope="row">Licence</th>
+              <td><a href="https://github.com/Karthik-beta/Blinkql/blob/main/LICENSE">MIT</a></td>
+            </tr>
+            <tr>
+              <th scope="row">Version</th>
+              <td><!--landing:version--></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="reading">
+          <a href="/docs/browser-support/">Browser support and limits</a> covers memory, files from a
+          web address and storage.
+        </p>
+      </section>
+
+      <section class="section container" aria-labelledby="open-title">
+        <h2 id="open-title" class="title">Built in the open</h2>
+        <p class="reading">
+          Blinkql is open source under the MIT licence. It was built in public across eight
+          milestones, from the first query to version 1.0, and the
+          <a href="https://github.com/Karthik-beta/Blinkql/wiki/Roadmap-and-Milestones">roadmap</a>
+          shows what each one delivered. You don't need to write code to help, because the people with the
+          files know best what the workbench should do.
+        </p>
+        <ul class="ways">
+          <li>
+            <a href="https://github.com/Karthik-beta/Blinkql/wiki/Contributing">Read the contributing guide</a>
+            to set up the project and send a change.
+          </li>
+          <li>
+            <a href="https://github.com/Karthik-beta/Blinkql/issues?q=is%3Aopen+label%3A%22good+first+issue%22">Browse good first issues</a>,
+            small tasks that come with guidance.
+          </li>
+          <li>
+            <a href="https://github.com/Karthik-beta/Blinkql/discussions">Join the discussions</a>
+            to ask a question or share how you use it.
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <!--site:footer-->
+  </body>
+</html>

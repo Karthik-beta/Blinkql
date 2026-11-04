@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "timestamp": "2026-10-25T14:06:33.294Z",
+  "commit": {
+    "sha": "f20efd4e6e1ef1b60de5e1bf5c51d3e99ffd4cc3",
+    "dirty": true
+  },
+  "environment": {
+    "os": {
+      "platform": "win32",
+      "release": "10.0.26300",
+      "arch": "x64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz",
+      "cores": 8
+    },
+    "memoryBytes": 25659326464,
+    "node": "v26.12.0",
+    "browser": {
+      "name": "chromium",
+      "version": "156.0.8078.4"
+    },
+    "ci": false
+  },
+  "config": {
+    "warmup": 3,
+    "measured": 10,
+    "target": "local-preview",
+    "url": null,
+    "reactProfiling": false
+  },
+  "results": [
+    {
+      "scenario": "chart-line-1m-sql",
+      "description": "\"SELECT range AS x, sin(range / 1000.0) + random() * 0.1 AS y FROM range(1000000)\" charted as a line of avg(y) by x, downsampled to 1,000 points averaged into buckets by the engine, then hovered for 2 s.",
+      "mode": "warm",
+      "metrics": {
+        "chartRenderMs": {
+          "unit": "ms",
+          "median": 680.118,
+          "p95": 873.72,
+          "min": 568.6,
+          "max": 924.55,
+          "mean": 699.527,
+          "samples": [
+            696.6,
+            682.93,
+            620.445,
+            924.55,
+            568.6,
+            648.685,
+            729.335,
+            677.305,
+            635.22,
+            811.595
+          ]
+        },
+        "chartLongestFrameMs": {
+          "unit": "ms",
+          "median": 0,
+          "p95": 30.214,
+          "min": 0,
+          "max": 54.935,
+          "mean": 5.494,
+          "samples": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            54.935
+          ]
+        },
+        "hoverFrameMedianMs": {
+          "unit": "ms",
+          "median": 29.979,
+          "p95": 57.016,
+          "min": 13.368,
+          "max": 60.01,
+          "mean": 34.018,
+          "samples": [
+            13.382,
+            53.357,
+            53.352,
+            60.01,
+            13.37,
+            53.333,
+            13.368,
+            33.295,
+            20.055,
+            26.662
+          ]
+        },
+        "hoverFrameP95Ms": {
+          "unit": "ms",
+          "median": 66.878,
+          "p95": 80.059,
+          "min": 54.897,
+          "max": 80.07,
+          "mean": 70.708,
+          "samples": [
+            66.758,
+            78.049,
+            66.787,
+            80.045,
+            54.897,
+            80.07,
+            66.673,
+            66.921,
+            80.046,
+            66.835
+          ]
+        },
+        "hoverSlowFrames": {
+          "unit": "count",
+          "median": 29,
+          "p95": 31,
+          "min": 26,
+          "max": 31,
+          "mean": 29,
+          "samples": [
+            26,
+            29,
+            29,
+            27,
+            30,
+            28,
+            30,
+            31,
+            29,
+            31
+          ]
+        },
+        "hoverLongestFrameMs": {
+          "unit": "ms",
+          "median": 87.5,
+          "p95": 97.747,
+          "min": 75.085,
+          "max": 99.365,
+          "mean": 86.759,
+          "samples": [
+            92.105,
+            75.085,
+            76.725,
+            85.755,
+            95.77,
+            78.81,
+            87.34,
+            88.975,
+            87.66,
+            99.365
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "chart-line-1m-client",
+      "description": "\"SELECT range AS x, sin(range / 1000.0) + random() * 0.1 AS y FROM range(1000000)\" charted as a line of avg(y) by x, downsampled to 1,000 points reduced with LTTB on the main thread (?downsample=client), then hovered for 2 s.",
+      "mode": "warm",
+      "metrics": {
+        "chartRenderMs": {
+          "unit": "ms",
+          "median": 721.31,
+          "p95": 1043.347,
+          "min": 543.4,
+          "max": 1066.725,
+          "mean": 785.663,
+          "samples": [
+            1066.725,
+            959.45,
+            614.195,
+            650.66,
+            647.61,
+            713.895,
+            917.2,
+            1014.775,
+            728.725,
+            543.4
+          ]
+        },
+        "chartLongestFrameMs": {
+          "unit": "ms",
+          "median": 122.185,
+          "p95": 187.063,
+          "min": 75.545,
+          "max": 221.49,
+          "mean": 122.432,
+          "samples": [
+            132.05,
+            127.535,
+            89.38,
+            110.42,
+            75.545,
+            117.83,
+            221.49,
+            144.985,
+            126.54,
+            78.545
+          ]
+        },
+        "hoverFrameMedianMs": {
+          "unit": "ms",
+          "median": 26.675,
+          "p95": 56.988,
+          "min": 13.365,
+          "max": 59.945,
+          "mean": 32.682,
+          "samples": [
+            26.67,
+            46.685,
+            26.663,
+            40.03,
+            13.365,
+            13.39,
+            59.945,
+            53.373,
+            20.02,
+            26.68
+          ]
+        },
+        "hoverFrameP95Ms": {
+          "unit": "ms",
+          "median": 66.702,
+          "p95": 66.857,
+          "min": 53.365,
+          "max": 66.888,
+          "mean": 63.608,
+          "samples": [
+            66.706,
+            66.769,
+            53.384,
+            66.697,
+            53.365,
+            66.664,
+            66.888,
+            66.82,
+            62.079,
+            66.71
+          ]
+        },
+        "hoverSlowFrames": {
+          "unit": "count",
+          "median": 33,
+          "p95": 35.55,
+          "min": 29,
+          "max": 36,
+          "mean": 32.7,
+          "samples": [
+            35,
+            31,
+            36,
+            33,
+            32,
+            33,
+            29,
+            30,
+            34,
+            34
+          ]
+        },
+        "hoverLongestFrameMs": {
+          "unit": "ms",
+          "median": 80.648,
+          "p95": 107.061,
+          "min": 67.63,
+          "max": 108.105,
+          "mean": 85.156,
+          "samples": [
+            98.865,
+            71.01,
+            72.915,
+            105.785,
+            94.825,
+            83.905,
+            77.39,
+            71.13,
+            108.105,
+            67.63
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a new capability or an improvement to an existing one.
+title: "feat: "
+labels: ["feature", "needs triage"]
+projects: ["Karthik-beta/2"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For open-ended ideas, start in [Discussions](https://github.com/Karthik-beta/Blinkql/discussions/categories/ideas) first.
+        Please check the [Roadmap](https://github.com/Karthik-beta/Blinkql/wiki/Roadmap-and-Milestones) and [Goals & Non-Goals](https://github.com/Karthik-beta/Blinkql/wiki/Goals-and-Non-Goals) before filing.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should Blinkql do? Include example SQL or a sketch if helpful.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Import & catalog
+        - SQL editor
+        - Results grid
+        - Charts
+        - Persistence & remote files
+        - Analysis templates
+        - Performance
+        - Accessibility
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: This works without a backend or user accounts (see Goals & Non-Goals).
+          required: true
+        - label: I'd be willing to help implement this.

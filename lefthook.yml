@@ -1,0 +1,13 @@
+# Git hooks, installed by `pnpm install` (the `prepare` script runs `lefthook install`).
+# Skip once with `git commit --no-verify`, or for a whole shell with LEFTHOOK=0.
+
+pre-commit:
+  commands:
+    biome:
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,css}"
+      run: pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}

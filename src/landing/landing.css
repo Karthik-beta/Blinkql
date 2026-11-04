@@ -1,0 +1,686 @@
+/* The landing page. Same tokens as the workbench; see the Design Language, section 12. What it
+   shares with the docs is in src/site/site.css. */
+@import "../site/site.css";
+
+/* The hero's headline and lede: stacked on phones, side by side on wide screens with the lede on
+   the headline's last line, so the sample query starts higher. */
+.hero-head {
+  display: grid;
+  gap: 16px 48px;
+}
+.hero-head .lede {
+  margin-top: 0;
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  margin-top: 24px;
+}
+.release {
+  margin-top: 16px;
+  font-size: 0.875rem; /* Body 14 / 20 */
+  line-height: 1.25rem;
+  color: var(--muted-foreground);
+}
+@media (min-width: 1024px) {
+  .hero-head {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: end;
+  }
+}
+
+/* ---------- Sections ---------- */
+
+.hero {
+  padding-block: 48px;
+}
+.section {
+  padding-block: 48px;
+  /* Below the fold on every screen: the browser skips laying these out until they're near view. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+@media (min-width: 768px) {
+  .hero {
+    padding-block: 96px 48px; /* the next section's own 96 px finishes the gap */
+  }
+  .section {
+    padding-block: 96px;
+  }
+}
+
+/* Two columns on wide screens: the heading and its paragraphs on the left, the claims on the right. */
+@media (min-width: 1024px) {
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 48px;
+    align-items: start;
+  }
+}
+
+.subheading {
+  font-size: 1.125rem; /* Subheading 18 / 26 */
+  line-height: 1.625rem;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+code {
+  font-family: var(--font-code);
+  font-size: 0.875em;
+}
+
+/* ---------- From file to answer: four docked panes, one per step ---------- */
+/* The list draws the top and left edges and each step its right and bottom, so every line is
+   exactly 1 px wherever the grid wraps. Steps side by side share their rows (subgrid), so their
+   artifacts start level. */
+
+.steps {
+  display: grid;
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  counter-reset: step;
+}
+/* Two a row at most, so each artifact is large enough to read at the workbench's own size. */
+@media (min-width: 768px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.step {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 16px;
+  padding: 16px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  counter-increment: step;
+}
+@media (min-width: 640px) {
+  .step {
+    padding: 24px;
+  }
+}
+.step-title {
+  display: flex;
+  gap: 12px;
+  font-size: 1.125rem; /* Subheading 18 / 26 */
+  line-height: 1.625rem;
+  font-weight: 600;
+}
+.step-title::before {
+  content: counter(step);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.step > p {
+  color: var(--muted-foreground);
+}
+.step kbd {
+  font: inherit;
+}
+.step-link {
+  align-self: end;
+  justify-self: start;
+}
+
+/* Each step's artifact is a piece of the workbench drawn with its tokens, worded as the app words it. */
+.artifact {
+  align-self: start;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--background);
+  font-size: 0.75rem; /* the workbench's compact 12 / 16 */
+  line-height: 1rem;
+}
+
+.catalog {
+  max-width: 25rem; /* the sidebar's widest */
+  padding: 8px 4px;
+  background: var(--sidebar);
+}
+.catalog-head {
+  padding: 0 4px 8px;
+  font-weight: 600;
+}
+.catalog li {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+.catalog-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-code);
+}
+.catalog-meta {
+  color: var(--muted-foreground);
+  overflow-wrap: break-word;
+}
+
+.error-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.error-title {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+}
+.error-name {
+  margin-right: 8px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: var(--destructive);
+}
+.error-icon {
+  margin-top: 2px;
+  color: var(--destructive);
+}
+.error-hint {
+  padding-left: 24px; /* under the title, past the icon, as in the app */
+}
+.error-label,
+.error-line {
+  color: var(--muted-foreground);
+}
+.error-panel pre {
+  overflow-x: auto;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: var(--muted);
+  font-family: var(--font-code);
+}
+.error-caret {
+  color: var(--destructive);
+}
+
+/* The screenshot is captured already cropped to the results bar, the chart controls and the four
+   largest bars, so the timing readout shows (Design Language 12). */
+.chart-shot {
+  max-width: 25rem; /* near the size the workbench draws it, and as wide as the sidebar above */
+}
+.chart-shot img {
+  width: 100%;
+  height: auto;
+}
+/* Both themes' images are in the page; the hidden one, lazy, is never fetched. */
+.shot-dark,
+.dark .shot-light {
+  display: none;
+}
+.dark .shot-dark {
+  display: block;
+}
+
+.share {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+}
+.share-field {
+  height: 28px;
+  min-width: 0;
+  padding-inline: 6px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  text-overflow: ellipsis;
+}
+.share p {
+  margin-top: 4px;
+  color: var(--muted-foreground);
+}
+
+/* ---------- Ready-made analyses ---------- */
+
+.template-groups {
+  display: grid;
+  gap: 32px 48px;
+  margin-top: 48px;
+}
+@media (min-width: 900px) {
+  .template-groups {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.template-group {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.group-note {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--muted-foreground);
+}
+.template-group ul {
+  margin-top: 16px;
+}
+.template-group li {
+  padding-block: 8px;
+  border-bottom: 1px solid var(--gridline);
+}
+.template-groups + .reading,
+.specs + .reading {
+  margin-top: 32px;
+}
+
+/* ---------- Privacy: each claim, and how to check it ---------- */
+
+.claims {
+  margin-top: 48px;
+  border-bottom: 1px solid var(--border);
+}
+.claims > div {
+  display: grid;
+  gap: 4px 24px;
+  padding-block: 24px;
+  border-top: 1px solid var(--border);
+}
+@media (min-width: 640px) {
+  .claims > div {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+@media (min-width: 1024px) {
+  .claims {
+    margin-top: 0;
+  }
+  .claims > div:first-child {
+    padding-top: 12px; /* the first row's text sits level with the section title */
+    border-top: 0;
+  }
+}
+.claims dt {
+  font-size: 1.125rem; /* Subheading 18 / 26 */
+  line-height: 1.625rem;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.claims .check {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+}
+
+/* ---------- Specifications: a datasheet ---------- */
+
+.specs {
+  width: 100%;
+  max-width: 56rem;
+  margin-top: 48px;
+  border-collapse: collapse;
+  text-align: left;
+}
+.specs th,
+.specs td {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+.specs th {
+  width: 36%;
+  padding-top: 15px; /* Body 14 / 20 on the value's first line, which is Reading 16 / 26 */
+  background: var(--chrome);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+@media (min-width: 640px) {
+  .specs th {
+    width: 16rem;
+  }
+}
+
+/* ---------- Built in the open ---------- */
+
+.ways {
+  display: grid;
+  gap: 8px;
+  max-width: 72ch;
+  margin-top: 24px;
+}
+
+/* ---------- The lamp: one living signal (Design Language 8.3) ---------- */
+/* Each lamp's resting look below is what the page loads with, and what readers without JavaScript
+   see. The `.js` class (public/theme-init.js) opts in to the live run's timed states. */
+
+.lamp-stop,
+.lamp-readout {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+.lamp-stop {
+  width: 0.2em;
+  height: 0.2em;
+  margin-left: 0.06em;
+}
+.lamp-readout {
+  width: 10px;
+  height: 10px;
+}
+
+/* The halo for the done flash: a ring that grows and fades. Transform and opacity only. */
+.lamp-stop::after,
+.lamp-readout::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--primary);
+  opacity: 0;
+}
+
+.js [data-phase="loading"] :is(.lamp-stop, .lamp-readout, .wordmark-lamp) {
+  animation: lamp-breathe var(--lamp-breathe) ease-in-out infinite;
+}
+.js [data-phase="running"] :is(.lamp-stop, .lamp-readout, .wordmark-lamp) {
+  /* Never past 5 s (WCAG 2.2.2), however long the query takes. */
+  animation: lamp-blink var(--lamp-blink) steps(1, end) 5;
+}
+.js [data-phase="done"] :is(.lamp-stop, .lamp-readout)::after,
+.js [data-phase="done"] .wordmark-halo {
+  animation: lamp-halo 400ms var(--ease-out) 1;
+}
+
+@keyframes lamp-halo {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* ---------- The sample query: docked panes, exactly like the product (Design Language 6.4) ---------- */
+
+.demo {
+  contain: layout; /* the live run's phase changes never re-lay out the rest of the page */
+  margin-top: 48px;
+  /* One step firmer than the hairlines inside it, so the panes read as a single instrument. */
+  border: 1px solid color-mix(in oklch, var(--border), var(--foreground) 14%);
+  background: var(--background);
+  font-size: 0.875rem; /* Body 14 / 20 */
+  line-height: 1.25rem;
+}
+
+.pane-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-inline: 12px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--border);
+}
+.editor-bar {
+  height: 40px;
+  padding-left: 0;
+}
+.query-tab {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  padding-inline: 12px;
+  border-right: 1px solid var(--border);
+  background: var(--background);
+  box-shadow: inset 0 2px 0 var(--primary); /* the active tab's top edge */
+  margin-bottom: -1px;
+}
+
+/* A picture of the Run button, not a control: the button below the panes starts the live run. */
+.run-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding-inline: 10px;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 600;
+}
+.run-button .icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  stroke: none;
+}
+/* Run and Stop share one position (Design Language 7.4): both labels sit in the same grid cell,
+   so swapping them never changes the button's width. */
+.run-label {
+  display: inline-grid;
+}
+.run-label > * {
+  grid-area: 1 / 1;
+}
+.run-button kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-inline: 4px;
+  border-radius: 4px;
+  /* An outline, not a lighter fill: the label keeps the button's own 5.86:1 contrast. */
+  border: 1px solid color-mix(in oklch, var(--primary-foreground) 45%, transparent);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.run-button kbd .icon {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+}
+.run-button [data-run="running"] {
+  visibility: hidden;
+}
+.js [data-phase="running"] .run-button [data-run="idle"] {
+  visibility: hidden;
+}
+.js [data-phase="running"] .run-button [data-run="running"] {
+  visibility: visible;
+}
+
+.editor {
+  /* Long lines scroll sideways on phones, as in the editor, rather than wrapping mid-clause. */
+  overflow-x: auto;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-code);
+  font-size: 0.75rem; /* 12 / 18 on phones so the query fits */
+  line-height: 1.125rem;
+  tab-size: 2;
+}
+.editor pre {
+  font: inherit; /* preflight gives <pre> its own mono stack */
+}
+.editor:focus-visible {
+  outline-offset: -2px; /* inside the pane, which clips anything outside it */
+}
+@media (min-width: 640px) {
+  .editor {
+    font-size: 0.875rem; /* Mono 14 / 21 */
+    line-height: 1.3125rem;
+  }
+}
+.sql-line {
+  display: block;
+  width: max-content; /* each line keeps its full length, so the pane scrolls instead of wrapping */
+  padding-right: 16px;
+}
+.sql-gutter {
+  display: inline-block;
+  width: 3ch;
+  margin-right: 2ch;
+  text-align: right;
+  color: var(--muted-foreground);
+  user-select: none;
+}
+.results-bar {
+  height: 40px;
+}
+.results-tab {
+  font-weight: 600;
+}
+.readout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.readout strong {
+  font-weight: 600;
+}
+.readout [data-readout="loading"],
+.readout [data-readout="running"] {
+  display: none;
+}
+.js [data-phase="loading"] .readout [data-readout],
+.js [data-phase="running"] .readout [data-readout] {
+  display: none;
+}
+.js [data-phase="loading"] .readout [data-readout="loading"],
+.js [data-phase="running"] .readout [data-readout="running"] {
+  display: inline;
+}
+
+.grid-pane {
+  overflow: hidden;
+}
+.grid {
+  /* Fixed-width columns from the left, as in the product. An empty trailing cell on every row
+     (the ::after below) takes the rest of the pane, so the header chrome and the row lines run
+     edge to edge instead of stopping at the last column. */
+  width: 100%;
+  border-collapse: separate; /* cell borders hide with their rows while the query runs */
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.grid tr::after {
+  content: "";
+  display: table-cell;
+  border-bottom: 1px solid var(--gridline);
+}
+.grid thead tr::after {
+  background: var(--chrome);
+  border-bottom-color: var(--border);
+}
+.grid tbody tr:last-child::after {
+  border-bottom: 0;
+}
+.grid th,
+.grid td {
+  height: 28px;
+  padding-inline: 12px;
+  border-bottom: 1px solid var(--gridline);
+  text-align: left;
+  white-space: nowrap;
+}
+/* Fixed widths once every visible column fits: four from 768 px and all six from 1024 px,
+   widening once the pane has room. */
+@media (min-width: 768px) {
+  .grid :is(th, td):not(.row-number) {
+    width: 8.5rem;
+  }
+}
+@media (min-width: 1180px) {
+  .grid :is(th, td):not(.row-number) {
+    width: 9.5rem;
+  }
+}
+.grid thead th {
+  height: 44px;
+  background: var(--chrome);
+  border-bottom-color: var(--border);
+  font-weight: 600;
+  vertical-align: middle;
+}
+.grid .num {
+  text-align: right;
+}
+.col-name {
+  display: block;
+}
+.col-type {
+  display: block;
+  font-family: var(--font-code);
+  font-size: 0.6875rem; /* Micro 11 / 14 */
+  line-height: 0.875rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.grid .row-number {
+  width: 3rem;
+  color: var(--muted-foreground);
+  font-weight: 400;
+  text-align: right;
+}
+.grid tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.null {
+  font-family: var(--font-code);
+  font-style: italic;
+  color: var(--muted-foreground);
+}
+/* Rows appear in a single step when the query finishes; their space is reserved, so nothing shifts. */
+.js [data-phase="loading"] .grid tbody,
+.js [data-phase="running"] .grid tbody {
+  visibility: hidden;
+}
+/* Columns drop out in stages so the grid always fits its pane: below 1024 px it keeps
+   region, orders, revenue and return_rate; below 480 px, region and revenue. */
+@media (max-width: 1023px) {
+  .grid .show-from-1024 {
+    display: none;
+  }
+}
+@media (max-width: 479px) {
+  .grid .show-from-480 {
+    display: none;
+  }
+}
+
+.demo-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-top: 12px;
+}
+/* The live run needs JavaScript; without it the static result stands on its own. */
+:root:not(.js) [data-run-live] {
+  display: none;
+}
+
+/* ---------- Windows contrast themes ---------- */
+
+@media (forced-colors: active) {
+  .lamp-stop,
+  .lamp-readout {
+    forced-color-adjust: none;
+    outline: 1px solid CanvasText;
+  }
+  .query-tab {
+    box-shadow: none;
+  }
+}

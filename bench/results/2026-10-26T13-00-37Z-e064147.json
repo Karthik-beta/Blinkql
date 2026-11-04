@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "timestamp": "2026-10-26T13:00:37.335Z",
+  "commit": {
+    "sha": "e064147abaf1d17ff641828d191120113967ddf7",
+    "dirty": false
+  },
+  "environment": {
+    "os": {
+      "platform": "win32",
+      "release": "10.0.26300",
+      "arch": "x64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz",
+      "cores": 8
+    },
+    "memoryBytes": 25659326464,
+    "node": "v26.12.0",
+    "browser": {
+      "name": "chromium",
+      "version": "156.0.8078.4"
+    },
+    "ci": false
+  },
+  "config": {
+    "warmup": 3,
+    "measured": 10,
+    "target": "local-preview",
+    "url": null,
+    "reactProfiling": false
+  },
+  "results": [
+    {
+      "scenario": "time-to-app-shell",
+      "description": "Navigation start until the app shell is committed (the blinkql:app-shell mark).",
+      "mode": "cold",
+      "metrics": {
+        "timeToAppShell": {
+          "unit": "ms",
+          "median": 326.418,
+          "p95": 370.09,
+          "min": 308.375,
+          "max": 374.405,
+          "mean": 334,
+          "samples": [
+            337.05,
+            308.375,
+            364.815,
+            321.83,
+            324.09,
+            328.745,
+            343.82,
+            315.445,
+            321.425,
+            374.405
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-app-shell",
+      "description": "Navigation start until the app shell is committed (the blinkql:app-shell mark).",
+      "mode": "warm",
+      "metrics": {
+        "timeToAppShell": {
+          "unit": "ms",
+          "median": 319.737,
+          "p95": 344.262,
+          "min": 287.955,
+          "max": 345.355,
+          "mean": 317.854,
+          "samples": [
+            317.07,
+            287.955,
+            308.94,
+            292.9,
+            332.055,
+            339.495,
+            322.405,
+            289.435,
+            345.355,
+            342.925
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-engine-ready",
+      "description": "Navigation start until DuckDB-wasm is running in its worker and has answered a first query (the blinkql:engine-ready mark), and the bytes downloaded until then.",
+      "mode": "cold",
+      "metrics": {
+        "timeToEngineReady": {
+          "unit": "ms",
+          "median": 1600.34,
+          "p95": 2281.37,
+          "min": 1575.055,
+          "max": 2302.565,
+          "mean": 1740.244,
+          "samples": [
+            1619.46,
+            1581.545,
+            1575.055,
+            2302.565,
+            1679.605,
+            1589.465,
+            1598.595,
+            1600.78,
+            1599.9,
+            2255.465
+          ]
+        },
+        "bytesTransferred": {
+          "unit": "bytes",
+          "median": 34629412,
+          "p95": 34629412,
+          "min": 34629412,
+          "max": 34629412,
+          "mean": 34629412,
+          "samples": [
+            34629412,
+            34629412,
+            34629412,
+            34629412,
+            34629412,
+            34629412,
+            34629412,
+            34629412,
+            34629412,
+            34629412
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "time-to-engine-ready",
+      "description": "Navigation start until DuckDB-wasm is running in its worker and has answered a first query (the blinkql:engine-ready mark), and the bytes downloaded until then.",
+      "mode": "warm",
+      "metrics": {
+        "timeToEngineReady": {
+          "unit": "ms",
+          "median": 1601.433,
+          "p95": 1748.049,
+          "min": 1548.27,
+          "max": 1813.045,
+          "mean": 1627.839,
+          "samples": [
+            1603.635,
+            1548.27,
+            1636.29,
+            1559.105,
+            1597.97,
+            1665.125,
+            1668.61,
+            1587.105,
+            1599.23,
+            1813.045
+          ]
+        },
+        "bytesTransferred": {
+          "unit": "bytes",
+          "median": 34253108,
+          "p95": 34253108,
+          "min": 34253108,
+          "max": 34253108,
+          "mean": 34253108,
+          "samples": [
+            34253108,
+            34253108,
+            34253108,
+            34253108,
+            34253108,
+            34253108,
+            34253108,
+            34253108,
+            34253108,
+            34253108
+          ]
+        }
+      }
+    }
+  ]
+}
