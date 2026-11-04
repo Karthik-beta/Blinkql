@@ -291,6 +291,37 @@ describe("CatalogPanel", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it("leaves a column's table alone on C, P, R or Delete", async () => {
+    const tree = await renderWithTables();
+    const [orders] = within(tree).getAllByRole("treeitem");
+    act(() => orders?.focus());
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    const [id] = within(within(tree).getByRole("group")).getAllByRole("treeitem");
+    expect(id).toHaveFocus();
+
+    await userEvent.keyboard("cpr{Delete}");
+    expect(storage.removeDataset).not.toHaveBeenCalled();
+    expect(queryRun.runQuery).not.toHaveBeenCalled();
+    expect(engine.exportQuery).not.toHaveBeenCalled();
+    expect(within(tree).getAllByRole("treeitem")[0]).toBe(orders);
+    expect(id).toHaveFocus();
+
+    await userEvent.keyboard("{Enter}");
+    expect(insert).toHaveBeenCalledExactlyOnceWith("id");
+  });
+
+  it("keeps arrow keys moving through the tree after a click on a table's chevron", async () => {
+    const tree = await renderWithTables();
+    const [orders] = within(tree).getAllByRole("treeitem");
+    if (!orders) throw new Error("no orders item");
+    await userEvent.click(within(orders).getByTitle("Show columns and their statistics"));
+    expect(orders).toHaveAttribute("aria-expanded", "true");
+
+    await userEvent.keyboard("{ArrowDown}");
+    const [id] = within(within(tree).getByRole("group")).getAllByRole("treeitem");
+    expect(id).toHaveFocus();
+  });
+
   it("says when files can't be kept after a reload", async () => {
     storage.saveDataset.mockRejectedValueOnce(new Error("QuotaExceededError"));
     await renderWithTables();
