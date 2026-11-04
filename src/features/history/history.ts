@@ -1,6 +1,7 @@
 // The queries that ran (the last HISTORY_LIMIT of them) and the ones the user saved, kept in the
 // browser (storage.ts) so they survive a reload. Every run that finishes, fails or is cancelled
 // is recorded. Components read this with useSyncExternalStore.
+import { parseEngineError } from "@/features/results/engine-error";
 import { getQueryRun, type QueryRun, subscribeToQueryRun } from "@/features/results/query-run";
 import { indexedDbStore, type KeyValueStore, memoryStore } from "./storage";
 
@@ -14,8 +15,15 @@ export type HistoryEntry = {
   durationMs: number;
   outcome: "done" | "failed" | "cancelled";
   rowCount?: number;
-  error?: string;
+  /**
+   * The kind of error DuckDB reported, e.g. "Conversion". Never its message, which can quote
+   * values from the user's files and would outlive the table they came from.
+   */
+  errorType?: string;
 };
+
+/** A stored entry from before errorType, which kept the whole error message. */
+type LegacyHistoryEntry = HistoryEntry & { error?: string };
 
 export type SavedQuery = { id: string; name: string; sql: string; savedAt: number };
 
@@ -71,7 +79,7 @@ function record(run: QueryRun): void {
     durationMs: run.durationMs,
     outcome: run.state,
     ...(run.state === "done" && { rowCount: run.rowCount }),
-    ...(run.state === "failed" && { error: run.error.message }),
+    ...(run.state === "failed" && { errorType: parseEngineError(run.error, run.sql).type }),
   };
   const history = [entry, ...state.history];
   const dropped = history.splice(HISTORY_LIMIT).map(({ id }) => id);
@@ -92,10 +100,16 @@ export function startHistory(into?: KeyValueStore): Promise<void> {
       (typeof indexedDB === "undefined"
         ? memoryStore()
         : await indexedDbStore().catch(() => memoryStore()));
-    const [history, saved] = await Promise.all([
-      opened.getAll<HistoryEntry>("history"),
+    const [stored, saved] = await Promise.all([
+      opened.getAll<LegacyHistoryEntry>("history"),
       opened.getAll<SavedQuery>("saved"),
     ]);
+    const history = stored.map(({ error, ...entry }) => {
+      if (error === undefined) return entry;
+      const migrated = { ...entry, errorType: parseEngineError(new Error(error), entry.sql).type };
+      void opened.put("history", migrated);
+      return migrated;
+    });
     store = opened;
     update({
       history: history.sort((a, b) => b.ranAt - a.ranAt),

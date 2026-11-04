@@ -51,7 +51,9 @@ describe("HistoryPanel", () => {
       queryRun.setRun({
         state: "failed",
         sql: "SELEC 1",
-        error: new Error("Parser Error: syntax error"),
+        error: new Error(
+          `Parser Error: {"exception_type":"Parser","exception_message":"syntax error at or near \\"SELEC\\"","error_subtype":"SYNTAX_ERROR","position":"0"}`,
+        ),
         durationMs: 2,
         editorOffset: 0,
       }),
@@ -64,7 +66,8 @@ describe("HistoryPanel", () => {
       "SELECT * FROM machines",
       "SELECT * FROM orders",
     ]);
-    expect(items[0]).toHaveTextContent("Parser Error: syntax error");
+    expect(items[0]).toHaveTextContent("Parser error");
+    expect(items[0]).not.toHaveTextContent("exception_message");
     expect(items[2]).toHaveTextContent("40 rows");
 
     await userEvent.type(screen.getByRole("searchbox", { name: "Search history" }), "orders");
