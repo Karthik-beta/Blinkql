@@ -1,4 +1,5 @@
 import { CompletionContext, type CompletionSource } from "@codemirror/autocomplete";
+import { syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { importFiles, resetCatalog } from "@/features/catalog/catalog";
@@ -70,10 +71,16 @@ describe("DuckDB dialect", () => {
 describe("DuckDB autocomplete", () => {
   afterEach(() => resetCatalog());
 
+  /** An editor's state with `doc`, less its `|`. */
+  const stateOf = (doc: string) =>
+    EditorState.create({ doc: doc.replace("|", ""), extensions: duckdbSql() });
+
   /** What Ctrl+Space offers at the `|` in `doc`: each option's label and detail. */
-  async function complete(doc: string): Promise<Map<string, string | undefined>> {
+  async function complete(
+    doc: string,
+    state = stateOf(doc),
+  ): Promise<Map<string, string | undefined>> {
     const pos = doc.indexOf("|");
-    const state = EditorState.create({ doc: doc.replace("|", ""), extensions: duckdbSql() });
     const context = new CompletionContext(state, pos, true);
     const options = new Map<string, string | undefined>();
     for (const source of state.languageDataAt<CompletionSource>("autocomplete", pos)) {
@@ -103,6 +110,19 @@ describe("DuckDB autocomplete", () => {
       expect([...(await complete(doc)).keys()]).toEqual(["id", "amount"]);
     },
   );
+
+  it("completes an aliased table's columns before the parser has reached the alias", async () => {
+    await importOrders();
+    // The parser stops when its time is up, 20 ms for a new state. A clock that jumps a second
+    // each time it's read stops it after the first word, as a slow device can.
+    const doc = "SELECT o.| FROM orders AS o";
+    let time = Date.now();
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => (time += 1000));
+    const state = stateOf(doc);
+    clock.mockRestore();
+    expect(syntaxTree(state).length).toBeLessThan(state.doc.length);
+    expect([...(await complete(doc, state)).keys()]).toEqual(["id", "amount"]);
+  });
 
   it("shows a DuckDB function's signature", async () => {
     const options = await complete("SELECT date_tr|");
